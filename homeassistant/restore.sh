@@ -100,6 +100,11 @@ ssh_ha "d=/app_configs/$SLUG; mkdir -p \$d
     [ -f \$d/config.json ] && cp \$d/config.json \$d/config.json.bak-$STAMP
     cat > \$d/config.json" < "$HERE/$APP/config.tv_room.json"
 
+step "App icons"
+# Key images referenced as /config/icons/... in the mappings.
+tar -C "$HERE/$APP" -cf - icons | ssh_ha "tar -xf - -C /app_configs/$SLUG"
+ssh_ha "ls /app_configs/$SLUG/icons"
+
 step "Starting app"
 ssh_ha "ha apps restart $SLUG >/dev/null 2>&1 || ha apps start $SLUG"
 sleep 10

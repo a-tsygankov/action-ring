@@ -18,7 +18,7 @@
     },
     "3": { "label": "TV Off", "color": "#a3302c" },
     "4": { "label": "ATV", "color": "#4a4a4a" },
-    "5": { "label": "", "color": "#000000" },
+    "5": { "label": "Home", "color": "#262626", "icon": "/config/icons/home.png" },
     "6": { "label": "", "color": "#000000" }
   },
   "actions": {
@@ -44,6 +44,7 @@
       "ha-call media_player.turn_off '{\"entity_id\":\"media_player.lg_tv_2\"}'",
       "ha-call media_player.turn_off '{\"entity_id\":\"media_player.vugitv_4k_vugitv_4k\"}'"
     ],
-    "button.4.press": "ha-call media_player.select_source '{\"entity_id\":\"media_player.lg_tv_2\",\"source\":\"Apple OTT\"}'"
+    "button.5.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"home\"}'",
+    "button.4.press":"ha-call media_player.select_source '{\"entity_id\":\"media_player.lg_tv_2\",\"source\":\"Apple OTT\"}'"
   }
 }

@@ -28,6 +28,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 |---|---|
 | `homeassistant/streamdock_n3/` | The HA app (Dockerfile, `config.yaml`, `run.sh` watchdog, `ha_daemon.py` live key state, `ha-call`, `patch_ids.py`, `DOCS.md`) |
 | `homeassistant/streamdock_n3/config.tv_room.json` | Live dock mappings (source of truth) |
+| `homeassistant/streamdock_n3/icons/` | Key images, deployed to `/app_configs/local_streamdock_n3/icons/` (`/config/icons/` in the app) |
 | `homeassistant/ha-config/scripts/*.yaml` | HA scripts, one top-level key per file |
 | `homeassistant/restore.sh` | Restore everything above onto a HAOS device |
 
@@ -43,7 +44,8 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Key 2 "Speech" | `button.2.press` | Toggle `switch.tv_room_tv_room_speech_enhancement`; LCD shows live state (green ON / grey OFF / amber ?) |
 | Key 3 "TV Off" | `button.3.press` | LG off + Apple TV sleep |
 | Key 4 "ATV" | `button.4.press` | LG input → `Apple OTT` (the Apple TV HDMI input) |
-| Keys 5–6 | — | Blank, unassigned |
+| Key 5 (house icon) | `button.5.press` | Apple TV Home (same as Round 2) |
+| Key 6 | — | Blank, unassigned |
 
 ## Restore
 
@@ -190,6 +192,13 @@ script cannot.
 
 - Skip/play-pause moved to the large knob, Sonos volume/mute to small knob 1.
 
+### 2026-10-23 — Home key
+
+- Key 5 = Apple TV Home with a house icon (`icons/home.png`, 112×112, white
+  glyph on `#262626`). Image keys use `"icon": "/config/icons/<file>"`; the
+  folder lives in the app's config share, so new icons need no rebuild.
+  `restore.sh` deploys the folder.
+
 ### 2026-10-23 — Repository
 
 - Published to [a-tsygankov/action-ring](https://github.com/a-tsygankov/action-ring)
@@ -201,6 +210,6 @@ script cannot.
 
 - [ ] Skip knob feel: check step size and overshoot on fast turns; coalesce
       events if needed.
-- [ ] Keys 5–6 unassigned.
+- [ ] Key 6 unassigned.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.
