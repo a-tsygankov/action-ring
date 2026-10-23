@@ -1,0 +1,35 @@
+name: StreamDock N3
+version: "0.4.0-5"
+slug: streamdock_n3
+description: >-
+  Runs the community streamdock-n3 daemon (asad-albadi/streamdock-n3) so the
+  ActionRing / Stream Dock N3 keys and knobs can call Home Assistant actions.
+url: https://github.com/asad-albadi/streamdock-n3
+arch:
+  - aarch64
+  - amd64
+init: false
+startup: application
+boot: auto
+# The dock exposes /dev/hidraw* (LCD + key reports) and an input event node
+# (media keys). hidraw numbers shift on replug and have no stable symlink, so
+# a range is listed; the Supervisor skips missing paths at start and grants
+# them on hotplug. The event node is matched by its stable by-id link.
+# (full_access would avoid this, but only works with Protection mode off.)
+devices:
+  - /dev/hidraw0
+  - /dev/hidraw1
+  - /dev/hidraw2
+  - /dev/hidraw3
+  - /dev/hidraw4
+  - /dev/hidraw5
+  - /dev/hidraw6
+  - /dev/hidraw7
+  - /dev/hidraw8
+  - /dev/hidraw9
+  - /dev/input/by-id/usb-HOTSPOTEKUSB_HOTSPOTEKUSB_HID_DEMO_C511D3781A4C-if01-event-kbd
+# Lets actions call the Core REST API via http://supervisor/core/api with
+# $SUPERVISOR_TOKEN — no long-lived token to store.
+homeassistant_api: true
+map:
+  - addon_config:rw

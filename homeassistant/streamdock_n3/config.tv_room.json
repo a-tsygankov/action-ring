@@ -1,0 +1,49 @@
+{
+  "brightness": 60,
+  "grab_evdev": true,
+  "keys": {
+    "1": {
+      "label": "Night", "color": "#3b3f9e",
+      "state_entity": "switch.tv_room_tv_room_night_sound",
+      "on": { "label": "Night\\nON", "color": "#3b5bdb" },
+      "off": { "label": "Night\\nOFF", "color": "#262626" },
+      "unavailable": { "label": "Night\\n?", "color": "#5c3b00" }
+    },
+    "2": {
+      "label": "Speech", "color": "#188452",
+      "state_entity": "switch.tv_room_tv_room_speech_enhancement",
+      "on": { "label": "Speech\\nON", "color": "#2b8a3e" },
+      "off": { "label": "Speech\\nOFF", "color": "#262626" },
+      "unavailable": { "label": "Speech\\n?", "color": "#5c3b00" }
+    },
+    "3": { "label": "TV Off", "color": "#a3302c" },
+    "4": { "label": "ATV", "color": "#4a4a4a" },
+    "5": { "label": "", "color": "#000000" },
+    "6": { "label": "", "color": "#000000" }
+  },
+  "actions": {
+    "knob.1.right": "ha-call media_player.volume_up '{\"entity_id\":\"media_player.tv_room_tv_room\"}'",
+    "knob.1.left": "ha-call media_player.volume_down '{\"entity_id\":\"media_player.tv_room_tv_room\"}'",
+    "knob.1.press": "ha-call script.turn_on '{\"entity_id\":\"script.tv_room_mute_toggle\"}'",
+
+    "knob.3.right": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"skip_forward\"}'",
+    "knob.3.left": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"skip_backward\"}'",
+    "knob.3.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"play_pause\"}'",
+
+    "knob.2.right": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"down\"}'",
+    "knob.2.left": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"up\"}'",
+    "knob.2.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"select\"}'",
+
+    "button.7.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"menu\"}'",
+    "button.8.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"home\"}'",
+    "button.9.press": "ha-call remote.turn_on '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\"}'; sleep 2; ha-call media_player.turn_on '{\"entity_id\":\"media_player.vugitv_4k_vugitv_4k\"}'",
+
+    "button.1.press": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_night_sound\"}'",
+    "button.2.press": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_speech_enhancement\"}'",
+    "button.3.press": [
+      "ha-call media_player.turn_off '{\"entity_id\":\"media_player.lg_tv_2\"}'",
+      "ha-call media_player.turn_off '{\"entity_id\":\"media_player.vugitv_4k_vugitv_4k\"}'"
+    ],
+    "button.4.press": "ha-call media_player.select_source '{\"entity_id\":\"media_player.lg_tv_2\",\"source\":\"Apple OTT\"}'"
+  }
+}

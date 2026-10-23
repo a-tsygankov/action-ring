@@ -1,0 +1,27 @@
+#!/bin/sh
+# Call a Home Assistant action from a streamdock-n3 mapping.
+#   ha-call <domain>.<service> ['<json service data>']
+#   ha-call script.turn_on '{"entity_id":"script.sonos_night_toggle"}'
+# The daemon discards action output, so failures go to the app log (PID 1).
+svc="$1"
+data="$2"
+[ -n "$data" ] || data='{}'
+log=/proc/1/fd/1
+
+case "$svc" in
+    *.*) ;;
+    *) echo "ha-call: expected <domain>.<service>, got '$svc'" >"$log"; exit 2 ;;
+esac
+
+if ! out=$(curl -sS -m 5 -o /dev/null -w '%{http_code}' -X POST \
+        -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "$data" \
+        "http://supervisor/core/api/services/${svc%%.*}/${svc#*.}" 2>&1); then
+    echo "ha-call $svc: $out" >"$log"
+    exit 1
+fi
+case "$out" in
+    2??) ;;
+    *) echo "ha-call $svc: HTTP $out" >"$log"; exit 1 ;;
+esac
