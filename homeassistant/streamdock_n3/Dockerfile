@@ -26,7 +26,7 @@ RUN apt-get update \
 
 COPY config.default.json /opt/streamdock/config.default.json
 COPY ha-call /usr/local/bin/ha-call
-COPY ha_daemon.py /opt/streamdock/ha_daemon.py
+COPY ha_daemon.py knob_accel.py /opt/streamdock/
 COPY run.sh /run.sh
 RUN chmod +x /usr/local/bin/ha-call /run.sh
 

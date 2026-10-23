@@ -1,42 +1,71 @@
-"""streamdock-n3 daemon plus live Home Assistant state on LCD keys.
+"""streamdock-n3 daemon plus Home Assistant integration.
 
-Runs the upstream daemon unchanged and adds one thread that subscribes to
-Home Assistant (Supervisor WebSocket proxy, app token) and redraws every key
-whose config has a "state_entity". Per-state overrides of label/color:
+Runs the upstream daemon unchanged and adds:
 
-    "1": {"label": "Night", "color": "#3b3f9e",
-          "state_entity": "switch.tv_room_tv_room_night_sound",
-          "on":  {"label": "Night\\nON", "color": "#3b5bdb"},
-          "off": {"label": "Night\\nOFF", "color": "#262626"},
-          "unavailable": {"label": "Night\\n?", "color": "#5c3b00"}}
+1. Live state on LCD keys. One thread subscribes to Home Assistant
+   (Supervisor WebSocket proxy, app token) and redraws every key whose config
+   has a "state_entity". Per-state overrides of label/color:
 
-"off"/"standby" use "off"; unavailable/unknown (or HA unreachable) use
-"unavailable"; any other state ("on", "playing", "idle", ...) uses "on", so
-media players work as well as switches. Missing overrides fall back to the
-key's base label/color.
+       "1": {"label": "Night", "color": "#3b3f9e",
+             "state_entity": "switch.tv_room_tv_room_night_sound",
+             "on":  {"label": "Night\\nON", "color": "#3b5bdb"},
+             "off": {"label": "Night\\nOFF", "color": "#262626"},
+             "unavailable": {"label": "Night\\n?", "color": "#5c3b00"}}
+
+   "off"/"standby" use "off"; unavailable/unknown (or HA unreachable) use
+   "unavailable"; any other state ("on", "playing", "idle", ...) uses "on",
+   so media players work as well as switches. Missing overrides fall back to
+   the key's base label/color.
+
+2. Accelerated Apple TV knobs (knob_accel.py). An action of the form
+   {"atv_knob": {"axis": "horizontal"|"vertical", "direction": 1|-1}} goes to
+   the knob engine instead of a shell command; the top-level "atv" config
+   names the remote/media_player entities and tuning values.
 """
 
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
+from knob_accel import AppleTVKnobs
 from streamdock_n3 import config as configmod
 from streamdock_n3 import daemon, icons, paths
 from websockets.sync.client import connect
 
 WS_URL = "ws://supervisor/core/websocket"
 RETRY_SECONDS = 5
+TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
+
+OFF_STATES = {"off", "standby"}
+UNKNOWN_STATES = {None, "unavailable", "unknown"}
 
 _ready = threading.Event()
 _device = None
 _draw_lock = threading.Lock()
+_knobs: AppleTVKnobs | None = None
+
+# entity_id -> {"s": state, "a": attributes}, kept current by _watch().
+_states: dict[str, dict[str, Any]] = {}
+_states_lock = threading.Lock()
+
+
+def state_of(entity_id: str) -> dict[str, Any] | None:
+    with _states_lock:
+        st = _states.get(entity_id)
+        return {"s": st.get("s"), "a": dict(st.get("a") or {})} if st else None
+
+
+# -- upstream hooks ------------------------------------------------------------
 
 _upstream_apply_icons = daemon.apply_icons
+_upstream_run_actions = daemon.run_actions
 
 
 def _apply_icons(device, config):
@@ -47,11 +76,59 @@ def _apply_icons(device, config):
     _ready.set()
 
 
+def _run_actions(actions: Any, *, dry_run: bool) -> None:
+    if isinstance(actions, dict) and "atv_knob" in actions:
+        if dry_run:
+            print(f"atv-knob (dry run): {actions['atv_knob']}", flush=True)
+        elif _knobs is None:
+            print("atv-knob: no \"atv\" section in config; ignoring", flush=True)
+        else:
+            _knobs.detent(actions["atv_knob"])
+        return
+    _upstream_run_actions(actions, dry_run=dry_run)
+
+
 daemon.apply_icons = _apply_icons
+daemon.run_actions = _run_actions
 
 
-OFF_STATES = {"off", "standby"}
-UNKNOWN_STATES = {None, "unavailable", "unknown"}
+# -- Core REST calls -------------------------------------------------------------
+
+
+class CoreAPI:
+    """Blocking service calls over one kept-alive connection to the Supervisor."""
+
+    def __init__(self) -> None:
+        self._conn: http.client.HTTPConnection | None = None
+        self._lock = threading.Lock()
+
+    def call(self, domain: str, service: str, data: dict[str, Any]) -> None:
+        body = json.dumps(data)
+        headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
+        with self._lock:
+            for attempt in (1, 2):
+                if self._conn is None:
+                    self._conn = http.client.HTTPConnection("supervisor", 80, timeout=10)
+                try:
+                    self._conn.request(
+                        "POST", f"/core/api/services/{domain}/{service}", body, headers
+                    )
+                    resp = self._conn.getresponse()
+                    text = resp.read()
+                except (http.client.HTTPException, OSError):
+                    # Usually a kept-alive connection the server closed; the
+                    # request was not processed, so one retry is safe.
+                    self._conn.close()
+                    self._conn = None
+                    if attempt == 2:
+                        raise
+                    continue
+                if resp.status >= 300:
+                    raise RuntimeError(f"{domain}.{service}: HTTP {resp.status} {text[:200]!r}")
+                return
+
+
+# -- key state rendering ---------------------------------------------------------
 
 
 def _variant(state: str | None) -> str:
@@ -75,13 +152,19 @@ def _draw(key: int, item: dict, state: str | None) -> None:
         _device.refresh()
 
 
-def _watch(bindings: dict[str, list[tuple[int, dict]]]) -> None:
+# -- HA subscription -------------------------------------------------------------
+
+
+def _watch(bindings: dict[str, list[tuple[int, dict]]], extra: set[str]) -> None:
     _ready.wait()
-    token = os.environ.get("SUPERVISOR_TOKEN", "")
+    entities = sorted(set(bindings) | extra)
     shown: dict[str, str | None] = {}
 
-    def update(entity_id: str, state: str | None) -> None:
-        if entity_id not in bindings or shown.get(entity_id, "\0") == state:
+    def show(entity_id: str) -> None:
+        if entity_id not in bindings:
+            return
+        state = (_states.get(entity_id) or {}).get("s")
+        if shown.get(entity_id, "\0") == state:
             return
         shown[entity_id] = state
         print(f"ha-state: {entity_id} = {state}", flush=True)
@@ -92,15 +175,11 @@ def _watch(bindings: dict[str, list[tuple[int, dict]]]) -> None:
         try:
             with connect(WS_URL, open_timeout=10, ping_interval=20) as ws:
                 json.loads(ws.recv())  # auth_required
-                ws.send(json.dumps({"type": "auth", "access_token": token}))
+                ws.send(json.dumps({"type": "auth", "access_token": TOKEN}))
                 reply = json.loads(ws.recv())
                 if reply.get("type") != "auth_ok":
-                    raise RuntimeError(f"auth failed: {reply}")
-                ws.send(json.dumps({
-                    "id": 1,
-                    "type": "subscribe_entities",
-                    "entity_ids": sorted(bindings),
-                }))
+                    raise RuntimeError(f"auth failed: {reply.get('type')}")
+                ws.send(json.dumps({"id": 1, "type": "subscribe_entities", "entity_ids": entities}))
                 for raw in ws:
                     msg = json.loads(raw)
                     if msg.get("type") == "result" and not msg.get("success"):
@@ -108,27 +187,35 @@ def _watch(bindings: dict[str, list[tuple[int, dict]]]) -> None:
                     if msg.get("type") != "event":
                         continue
                     event = msg["event"]
-                    # "a": full states (initial + added), "c": diffs, "r": removed
-                    for entity_id, st in event.get("a", {}).items():
-                        update(entity_id, st.get("s"))
-                    for entity_id, diff in event.get("c", {}).items():
-                        new = diff.get("+", {})
-                        if "s" in new:
-                            update(entity_id, new["s"])
-                    for entity_id in event.get("r", []):
-                        update(entity_id, None)
+                    # Compressed states: "a" full (initial + added), "c" diffs, "r" removed.
+                    with _states_lock:
+                        for entity_id, st in event.get("a", {}).items():
+                            _states[entity_id] = {"s": st.get("s"), "a": st.get("a") or {}}
+                        for entity_id, diff in event.get("c", {}).items():
+                            cur = _states.setdefault(entity_id, {"s": None, "a": {}})
+                            plus, minus = diff.get("+", {}), diff.get("-", {})
+                            if "s" in plus:
+                                cur["s"] = plus["s"]
+                            cur["a"].update(plus.get("a") or {})
+                            for name in minus.get("a") or []:
+                                cur["a"].pop(name, None)
+                        for entity_id in event.get("r", []):
+                            _states.pop(entity_id, None)
+                    for entity_id in entities:
+                        show(entity_id)
         except Exception as err:  # keep the keys alive across HA restarts
             print(f"ha-state: {err!r}; retrying in {RETRY_SECONDS}s", flush=True)
         # Show "unavailable" while disconnected, so stale state isn't trusted.
-        for entity_id in list(bindings):
-            update(entity_id, None)
+        with _states_lock:
+            _states.clear()
+        for entity_id in entities:
+            show(entity_id)
         time.sleep(RETRY_SECONDS)
 
 
-def _bindings(config_path: Path) -> dict[str, list[tuple[int, dict]]]:
-    keys = configmod.normalize(configmod.load(config_path))["keys"]
+def _bindings(config: dict[str, Any]) -> dict[str, list[tuple[int, dict]]]:
     out: dict[str, list[tuple[int, dict]]] = {}
-    for key, item in keys.items():
+    for key, item in config["keys"].items():
         entity_id = item.get("state_entity")
         if isinstance(entity_id, str) and key.isdigit() and 1 <= int(key) <= 6:
             out.setdefault(entity_id, []).append((int(key), item))
@@ -136,12 +223,20 @@ def _bindings(config_path: Path) -> dict[str, list[tuple[int, dict]]]:
 
 
 def main() -> int:
+    global _knobs
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", type=Path)
     args, _ = parser.parse_known_args()
-    bindings = _bindings(args.config or configmod.ensure_config())
-    if bindings:
-        threading.Thread(target=_watch, args=(bindings,), daemon=True).start()
+    config = configmod.normalize(configmod.load(args.config or configmod.ensure_config()))
+
+    bindings = _bindings(config)
+    extra: set[str] = set()
+    atv = config.get("atv")
+    if isinstance(atv, dict) and atv.get("remote") and atv.get("media_player"):
+        _knobs = AppleTVKnobs(atv, CoreAPI().call, state_of)
+        extra.add(atv["media_player"])
+    if bindings or extra:
+        threading.Thread(target=_watch, args=(bindings, extra), daemon=True).start()
     return daemon.main()
 
 

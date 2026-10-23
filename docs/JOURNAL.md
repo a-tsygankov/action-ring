@@ -18,15 +18,15 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Home Assistant OS / Supervisor / Core | 18.3 / 2026.10.3 / 2026.10.2 |
 | SSH | Terminal & SSH app 10.5.0; from the PC: `ssh homeassistant` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
-| Dock software | Local app `local_streamdock_n3` v0.4.0-6, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
-| HA config added | `script.tv_room_mute_toggle`, `script.atv_knob`, `script.tv_room_power_toggle` |
+| Dock software | Local app `local_streamdock_n3` v0.4.0-7, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
+| HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
 
 ### Repo layout
 
 | Path | Purpose |
 |---|---|
-| `homeassistant/streamdock_n3/` | The HA app (Dockerfile, `config.yaml`, `run.sh` watchdog, `ha_daemon.py` live key state, `ha-call`, `patch_ids.py`, `DOCS.md`) |
+| `homeassistant/streamdock_n3/` | The HA app (Dockerfile, `config.yaml`, `run.sh` watchdog, `ha_daemon.py` live key state + HA calls, `knob_accel.py` Apple TV knob engine, `ha-call`, `patch_ids.py`, `DOCS.md`) |
 | `homeassistant/streamdock_n3/config.tv_room.json` | Live dock mappings (source of truth) |
 | `homeassistant/streamdock_n3/icons/` | Key images, deployed to `/app_configs/local_streamdock_n3/icons/` (`/config/icons/` in the app) |
 | `homeassistant/ha-config/scripts/*.yaml` | HA scripts, one top-level key per file |
@@ -36,9 +36,9 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 
 | Control | Event | Action |
 |---|---|---|
-| Large knob | `knob.3.left/right/press` | Apple TV: skip back/forward while playing or paused, otherwise focus left/right (`script.atv_knob`) · play/pause |
+| Large knob | `knob.3.left/right/press` | Apple TV, speed-adaptive: while playing/paused, seek back/forward 10 / 30 / 90 s per click (slow / medium / fast turn); otherwise focus left/right 1 / 2 / 3 steps per click · press = OK (`select`, also pauses/resumes playback) |
 | Small knob 1 | `knob.1.left/right/press` | Sonos Arc volume down/up · mute toggle (script) |
-| Small knob 2 | `knob.2.left/right/press` | Apple TV up/down · select |
+| Small knob 2 | `knob.2.left/right/press` | Apple TV focus up/down, 1 / 2 / 3 steps per click · press = OK (`select`) |
 | Round 1 / 2 / 3 | `button.7/8/9.press` | Apple TV Menu (back) / Home / Power on (wakes LG via CEC) |
 | Key 1 "Night" | `button.1.press` | Toggle `switch.tv_room_tv_room_night_sound`; LCD shows live state (blue ON / grey OFF / amber ?) |
 | Key 2 "Speech" | `button.2.press` | Toggle `switch.tv_room_tv_room_speech_enhancement`; LCD shows live state (green ON / grey OFF / amber ?) |
@@ -190,7 +190,8 @@ script cannot.
 
 ### 2026-10-23 — Knob layout
 
-- Skip/play-pause moved to the large knob, Sonos volume/mute to small knob 1.
+- The large knob drives Apple TV scrubbing; Sonos volume/mute is on small
+  knob 1.
 
 ### 2026-10-23 — Home key
 
@@ -199,21 +200,47 @@ script cannot.
   folder lives in the app's config share, so new icons need no rebuild.
   `restore.sh` deploys the folder.
 
-### 2026-10-23 — Context-aware knob and TV power toggle
+### 2026-10-23 — TV power toggle
 
-- Apple TV ignores `skip_*` outside playback, so the large knob did nothing
-  on the Home screen. `script.atv_knob` (mode `queued`, keeps fast turns in
-  order) sends `skip_*` when the Apple TV media player is `playing`/`paused`,
-  otherwise `left`/`right`.
 - Key 3 became a power toggle, `script.tv_room_power_toggle`, keyed on
   `media_player.lg_tv_2`. Power-on goes through the Apple TV (webOS can't power
   the TV on); called via `script.turn_on` so `ha-call` doesn't hit its 5 s
-  timeout during the wake delay.
+  timeout during the wake delay. Confirmed on the device in both directions.
 - `ha_daemon.py` now treats any state except off/standby/unavailable/unknown
   as ON, so media players (`playing`, `idle`, …) work as state keys.
 - `run.sh` prints `run.sh started <epoch>`; `restore.sh` reads only log lines
   after this start's marker. Before, recent button presses could push the
   status line out of view and trigger a false warning.
+
+### 2026-10-23 — Adaptive Apple TV knobs
+
+- Apple TV ignores `skip_*` outside playback, so the large knob must switch
+  mode by the Apple TV media player's state: `playing`/`paused` → scrub,
+  anything else → focus moves. Both knobs' presses send `select` (OK), which
+  also pauses/resumes in the player.
+- The logic lives in the app (`knob_accel.py`, driven from `ha_daemon.py`),
+  not in HA scripts, because speed needs per-click timing:
+  - Speed tier per click from the gap to the previous click on that axis
+    (≥ 0.25 s slow, ≥ 0.08 s medium, else fast) selects the step:
+    seek 10 / 30 / 90 s, focus 1 / 2 / 3 moves. The first click after a
+    pause is always slow, so fine control stays exact.
+  - Clicks are coalesced into one HA call after 60 ms of quiet or 150 ms of
+    batch age. While a call is in flight, new clicks collect into the next
+    batch, so the queue never grows (handoff requirement).
+  - Scrubbing uses `media_player.media_seek` to an absolute target and
+    builds on its own last target for 3 s, because HA's reported position
+    lags a seek. Apps without seek support fall back to `skip_*` (max 6 per
+    call). Focus moves use `remote.send_command` with `num_repeats`
+    (max 20, 50 ms apart).
+  - HA calls go over one kept-alive HTTP connection to the Supervisor
+    instead of a shell + curl per click.
+- Tuning lives in the `atv` section of `config.json`; changing it needs only
+  an app restart.
+- Preview scrubbing (tvOS thumbnails while dragging) isn't reachable through
+  HA: it needs touch-surface gestures, which pyatv 0.18 has (`touch.swipe`,
+  `touch.action` press/hold/release over the Companion protocol) but HA's
+  Apple TV integration doesn't expose. It would need pyatv in this app with
+  its own Apple TV pairing (see Open items).
 
 ### 2026-10-23 — Repository
 
@@ -224,8 +251,11 @@ script cannot.
 
 ## Open items
 
-- [ ] Skip knob feel: check step size and overshoot on fast turns; coalesce
-      events if needed.
+- [ ] Tune knob acceleration on the TV (`atv` section: step sizes, speed
+      thresholds) and note which apps support seek vs. fall back to skips.
+- [ ] Preview scrubbing: drive tvOS touch gestures directly with pyatv
+      (Companion pairing with a PIN on the TV), e.g. press → drag per click →
+      release, while paused in the native player.
 - [ ] Key 6 unassigned.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.

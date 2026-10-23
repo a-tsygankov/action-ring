@@ -23,6 +23,45 @@ Supervisor token; no long-lived token is needed.
 }
 ```
 
+### Apple TV knobs
+
+Map a knob's turns to the built-in engine instead of a shell command:
+
+```json
+"knob.3.right": { "atv_knob": { "axis": "horizontal", "direction": 1 } },
+"knob.3.left":  { "atv_knob": { "axis": "horizontal", "direction": -1 } },
+"knob.2.right": { "atv_knob": { "axis": "vertical", "direction": 1 } },
+"knob.2.left":  { "atv_knob": { "axis": "vertical", "direction": -1 } }
+```
+
+The horizontal axis seeks while the Apple TV is playing or paused, and moves
+focus left/right otherwise. The vertical axis always moves focus up/down.
+Steps grow with turning speed, and clicks are batched so fast spins never
+queue up. Entities and tuning go in a top-level `atv` section (defaults
+shown):
+
+```json
+"atv": {
+  "remote": "remote.vugitv_4k_vugitv_4k",
+  "media_player": "media_player.vugitv_4k_vugitv_4k",
+  "seek_steps": [10, 30, 90],
+  "nav_repeats": [1, 2, 3],
+  "medium_interval": 0.25,
+  "fast_interval": 0.08,
+  "flush_quiet": 0.06,
+  "flush_max": 0.15,
+  "nav_delay": 0.05,
+  "nav_max": 20,
+  "skip_max": 6,
+  "seek_hold": 3.0
+}
+```
+
+Steps are per click for the slow / medium / fast tiers. A click counts as
+medium when it comes less than `medium_interval` seconds after the previous
+one, and fast under `fast_interval`. The log shows each call as
+`atv-knob: seek +40s -> 1260s` or `atv-knob: down x3`.
+
 ### Key images
 
 Set `"icon": "/config/icons/<file>.png"` on a key to show an image instead of

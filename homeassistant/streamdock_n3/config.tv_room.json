@@ -1,6 +1,15 @@
 {
   "brightness": 60,
   "grab_evdev": true,
+  "atv": {
+    "remote": "remote.vugitv_4k_vugitv_4k",
+    "media_player": "media_player.vugitv_4k_vugitv_4k",
+    "seek_steps": [10, 30, 90],
+    "nav_repeats": [1, 2, 3],
+    "medium_interval": 0.25,
+    "fast_interval": 0.08,
+    "nav_delay": 0.05
+  },
   "keys": {
     "1": {
       "label": "Night", "color": "#3b3f9e",
@@ -32,13 +41,13 @@
     "knob.1.left": "ha-call media_player.volume_down '{\"entity_id\":\"media_player.tv_room_tv_room\"}'",
     "knob.1.press": "ha-call script.turn_on '{\"entity_id\":\"script.tv_room_mute_toggle\"}'",
 
-    "knob.3.right": "ha-call script.atv_knob '{\"direction\":\"right\"}'",
-    "knob.3.left": "ha-call script.atv_knob '{\"direction\":\"left\"}'",
-    "knob.3.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"play_pause\"}'",
+    "knob.3.right": { "atv_knob": { "axis": "horizontal", "direction": 1 } },
+    "knob.3.left": { "atv_knob": { "axis": "horizontal", "direction": -1 } },
+    "knob.3.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"select\"}'",
 
-    "knob.2.right": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"down\"}'",
-    "knob.2.left": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"up\"}'",
-    "knob.2.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"select\"}'",
+    "knob.2.right": { "atv_knob": { "axis": "vertical", "direction": 1 } },
+    "knob.2.left": { "atv_knob": { "axis": "vertical", "direction": -1 } },
+    "knob.2.press":"ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"select\"}'",
 
     "button.7.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"menu\"}'",
     "button.8.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"home\"}'",
