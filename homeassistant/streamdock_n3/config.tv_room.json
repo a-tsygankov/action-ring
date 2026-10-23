@@ -34,7 +34,7 @@
     },
     "4": { "label": "ATV", "color": "#4a4a4a" },
     "5": { "label": "Home", "color": "#262626", "icon": "/config/icons/home.png" },
-    "6": { "label": "", "color": "#000000" }
+    "6": { "label": "Back", "color": "#262626", "icon": "/config/icons/back.png" }
   },
   "actions": {
     "knob.1.right": "ha-call media_player.volume_up '{\"entity_id\":\"media_player.tv_room_tv_room\"}'",
@@ -56,7 +56,8 @@
     "button.1.press": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_night_sound\"}'",
     "button.2.press": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_speech_enhancement\"}'",
     "button.3.press": "ha-call script.turn_on '{\"entity_id\":\"script.tv_room_power_toggle\"}'",
-    "button.5.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"home\"}'",
+    "button.6.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"menu\"}'",
+    "button.5.press":"ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"home\"}'",
     "button.4.press":"ha-call media_player.select_source '{\"entity_id\":\"media_player.lg_tv_2\",\"source\":\"Apple OTT\"}'"
   }
 }

@@ -45,7 +45,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Key 3 "TV" | `button.3.press` | Power toggle (`script.tv_room_power_toggle`): on → LG off + Apple TV sleep; off → wake Apple TV (LG follows via CEC). LCD shows LG state (red ON / grey OFF) |
 | Key 4 "ATV" | `button.4.press` | LG input → `Apple OTT` (the Apple TV HDMI input) |
 | Key 5 (house icon) | `button.5.press` | Apple TV Home (same as Round 2) |
-| Key 6 | — | Blank, unassigned |
+| Key 6 (back-arrow icon) | `button.6.press` | Apple TV Back (`menu`, same as Round 1) |
 
 ## Restore
 
@@ -193,10 +193,11 @@ script cannot.
 - The large knob drives Apple TV scrubbing; Sonos volume/mute is on small
   knob 1.
 
-### 2026-10-23 — Home key
+### 2026-10-23 — Home and Back keys
 
-- Key 5 = Apple TV Home with a house icon (`icons/home.png`, 112×112, white
-  glyph on `#262626`). Image keys use `"icon": "/config/icons/<file>"`; the
+- Key 5 = Apple TV Home (house icon, `icons/home.png`); key 6 = Apple TV
+  Back (`menu` command, return-arrow icon, `icons/back.png`). Both are
+  112×112 white glyphs on `#262626`, drawn with Pillow. Image keys use `"icon": "/config/icons/<file>"`; the
   folder lives in the app's config share, so new icons need no rebuild.
   `restore.sh` deploys the folder.
 
@@ -256,6 +257,5 @@ script cannot.
 - [ ] Preview scrubbing: drive tvOS touch gestures directly with pyatv
       (Companion pairing with a PIN on the TV), e.g. press → drag per click →
       release, while paused in the native player.
-- [ ] Key 6 unassigned.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.
