@@ -1,0 +1,26 @@
+tv_room_power_toggle:
+  alias: TV Room power toggle
+  description: >-
+    ActionRing key 3. If the LG TV is on, turns it off and puts the Apple TV
+    to sleep. Otherwise wakes the Apple TV, which turns the LG on over
+    HDMI-CEC (webOS itself can't power the TV on).
+  mode: single
+  max_exceeded: silent
+  sequence:
+    - if:
+        - condition: template
+          value_template: "{{ not is_state('media_player.lg_tv_2', ['off', 'unavailable', 'unknown']) }}"
+      then:
+        - action: media_player.turn_off
+          target:
+            entity_id: [media_player.lg_tv_2, media_player.vugitv_4k_vugitv_4k]
+      else:
+        # remote.turn_on only (re)connects HA to the Apple TV; power is the
+        # media_player action.
+        - action: remote.turn_on
+          target:
+            entity_id: remote.vugitv_4k_vugitv_4k
+        - delay: 2
+        - action: media_player.turn_on
+          target:
+            entity_id: media_player.vugitv_4k_vugitv_4k

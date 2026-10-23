@@ -100,16 +100,31 @@ ssh_ha "d=/app_configs/$SLUG; mkdir -p \$d
     [ -f \$d/config.json ] && cp \$d/config.json \$d/config.json.bak-$STAMP
     cat > \$d/config.json" < "$HERE/$APP/config.tv_room.json"
 
+step "App icons"
+# Key images referenced as /config/icons/... in the mappings.
+tar -C "$HERE/$APP" -cf - icons | ssh_ha "tar -xf - -C /app_configs/$SLUG"
+ssh_ha "ls /app_configs/$SLUG/icons"
+
 step "Starting app"
+t0=$(ssh_ha 'date +%s')
 ssh_ha "ha apps restart $SLUG >/dev/null 2>&1 || ha apps start $SLUG"
-sleep 10
-log=$(ssh_ha "ha apps logs $SLUG 2>&1 | tail -8")
-printf '%s\n' "$log"
-if printf '%s\n' "$log" | grep -q 'controller running'; then
-    step "Done: app running and dock connected"
-elif printf '%s\n' "$log" | grep -q 'waiting for dock'; then
-    step "Done: app running, waiting for the dock to be plugged in"
-else
-    warn "app did not report a running controller; check: ssh $HOST ha apps logs $SLUG"
-    exit 1
-fi
+# Only judge log lines after this start's "run.sh started <epoch>" marker;
+# older runs and button presses would otherwise mask the result.
+for _ in $(seq 1 15); do
+    sleep 3
+    log=$(ssh_ha "ha apps logs $SLUG 2>&1 | tail -400" | awk -v t0="$t0" '
+        /^run\.sh started / { on = ($3 >= t0); buf = "" }
+        on { buf = buf $0 "\n" }
+        END { printf "%s", buf }')
+    if printf '%s' "$log" | grep -q 'controller running'; then
+        printf '%s' "$log" | head -8
+        step "Done: app running and dock connected"
+        exit 0
+    elif printf '%s' "$log" | grep -q 'waiting for dock'; then
+        step "Done: app running, waiting for the dock to be plugged in"
+        exit 0
+    fi
+done
+printf '%s' "$log" | tail -15
+warn "app did not report a running controller; check: ssh $HOST ha apps logs $SLUG"
+exit 1

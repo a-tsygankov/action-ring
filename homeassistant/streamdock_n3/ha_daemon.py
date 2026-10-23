@@ -10,8 +10,10 @@ whose config has a "state_entity". Per-state overrides of label/color:
           "off": {"label": "Night\\nOFF", "color": "#262626"},
           "unavailable": {"label": "Night\\n?", "color": "#5c3b00"}}
 
-Any state other than on/off uses "unavailable". Missing overrides fall back
-to the key's base label/color.
+"off"/"standby" use "off"; unavailable/unknown (or HA unreachable) use
+"unavailable"; any other state ("on", "playing", "idle", ...) uses "on", so
+media players work as well as switches. Missing overrides fall back to the
+key's base label/color.
 """
 
 from __future__ import annotations
@@ -48,8 +50,14 @@ def _apply_icons(device, config):
 daemon.apply_icons = _apply_icons
 
 
+OFF_STATES = {"off", "standby"}
+UNKNOWN_STATES = {None, "unavailable", "unknown"}
+
+
 def _variant(state: str | None) -> str:
-    return state if state in ("on", "off") else "unavailable"
+    if state in UNKNOWN_STATES:
+        return "unavailable"
+    return "off" if state in OFF_STATES else "on"
 
 
 def _draw(key: int, item: dict, state: str | None) -> None:

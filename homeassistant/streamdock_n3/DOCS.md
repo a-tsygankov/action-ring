@@ -23,11 +23,20 @@ Supervisor token; no long-lived token is needed.
 }
 ```
 
+### Key images
+
+Set `"icon": "/config/icons/<file>.png"` on a key to show an image instead of
+a generated label (112×112 works best). Put the files in
+`/addon_configs/local_streamdock_n3/icons/`; the repo copy lives in
+`icons/` and `restore.sh` deploys it. No rebuild is needed, just restart the app.
+
 ### Live state on keys
 
 A key with `state_entity` is redrawn whenever that entity changes in Home
-Assistant (`ha_daemon.py`). `on`, `off` and `unavailable` (any other state,
-or HA unreachable) override the key's `label`/`color`. Use `\\n` in a JSON
+Assistant (`ha_daemon.py`). `on`, `off` and `unavailable` override the key's
+`label`/`color`: `off` covers off/standby, `unavailable` covers
+unavailable/unknown and HA being unreachable, and `on` covers every other
+state (so `playing`/`idle` media players count as on). Use `\\n` in a JSON
 label for a line break.
 
 ```json
