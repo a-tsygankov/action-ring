@@ -18,7 +18,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Home Assistant OS / Supervisor / Core | 18.3 / 2026.10.3 / 2026.10.2 |
 | SSH | Terminal & SSH app 10.5.0; from the PC: `ssh homeassistant` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
-| Dock software | Local app `local_streamdock_n3` v0.4.0-7, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
+| Dock software | Local app `local_streamdock_n3` v0.4.0-8, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
 | HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
 
@@ -36,7 +36,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 
 | Control | Event | Action |
 |---|---|---|
-| Large knob | `knob.3.left/right/press` | Apple TV, speed-adaptive: while playing/paused, seek back/forward 10 / 30 / 90 s per click (slow / medium / fast turn); otherwise focus left/right 1 / 2 / 3 steps per click · press = OK (`select`, also pauses/resumes playback) |
+| Large knob | `knob.3.left/right/press` | Apple TV, speed-adaptive: while playing/paused, seek back/forward 10 s per click (slow), 30 s per 2 clicks (medium), 90 s per 3 clicks (fast), rated per click so the rate follows speed changes mid-turn; otherwise focus left/right 1 / 2 / 3 steps per click · press = OK (`select`, also pauses/resumes playback) |
 | Small knob 1 | `knob.1.left/right/press` | Sonos Arc volume down/up · mute toggle (script) |
 | Small knob 2 | `knob.2.left/right/press` | Apple TV focus up/down, 1 / 2 / 3 steps per click · press = OK (`select`) |
 | Round 1 / 2 / 3 | `button.7/8/9.press` | Apple TV Menu (back) / Home / Power on (wakes LG via CEC) |
@@ -223,7 +223,11 @@ script cannot.
   not in HA scripts, because speed needs per-click timing:
   - Speed tier per click from the gap to the previous click on that axis
     (≥ 0.25 s slow, ≥ 0.08 s medium, else fast) selects the step:
-    seek 10 / 30 / 90 s, focus 1 / 2 / 3 moves. The first click after a
+    seek 10 s per click / 30 s per 2 clicks / 90 s per 3 clicks
+    (`[seconds, clicks]` in config, i.e. 10 / 15 / 30 s per click), focus
+    1 / 2 / 3 moves. Every click is scored at its own tier, so a turn that
+    goes slow → medium → fast → slow changes rate as it goes (verified in
+    simulation: 1 S + 4 M + 6 F + 3 S = +280 s). The first click after a
     pause is always slow, so fine control stays exact.
   - Clicks are coalesced into one HA call after 60 ms of quiet or 150 ms of
     batch age. While a call is in flight, new clicks collect into the next

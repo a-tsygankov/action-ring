@@ -24,7 +24,10 @@ PLAYBACK_STATES = ("playing", "paused")
 SEEK_FEATURE = 2  # MediaPlayerEntityFeature.SEEK
 
 DEFAULTS: dict[str, Any] = {
-    "seek_steps": [10, 30, 90],  # seconds per detent: slow, medium, fast
+    # Scrub amount for the slow, medium and fast tiers: seconds per detent, or
+    # [seconds, detents] ("30 s per 2 clicks"). Applied per detent at that
+    # detent's tier, so speeding up / slowing down mid-turn changes the rate.
+    "seek_steps": [10, [30, 2], [90, 3]],
     "nav_repeats": [1, 2, 3],  # focus moves per detent: slow, medium, fast
     "medium_interval": 0.25,  # detents closer than this are "medium"
     "fast_interval": 0.08,  # ...and closer than this are "fast"
@@ -35,6 +38,13 @@ DEFAULTS: dict[str, Any] = {
     "skip_max": 6,  # cap on skip_* per call (apps without seek support)
     "seek_hold": 3.0,  # keep scrubbing from our own target for this long
 }
+
+def per_detent(step: Any) -> float:
+    """Amount per detent for a step given as N or [amount, detents]."""
+    if isinstance(step, (list, tuple)):
+        return float(step[0]) / float(step[1])
+    return float(step)
+
 
 Call = Callable[[str, str, dict[str, Any]], None]
 StateLookup = Callable[[str], "dict[str, Any] | None"]
@@ -74,7 +84,7 @@ class AppleTVKnobs:
                 batch = {"units": 0, "first": now, "last": now, "mode": mode}
                 self._pending[axis] = batch
             steps = self.cfg["seek_steps"] if batch["mode"] == "seek" else self.cfg["nav_repeats"]
-            batch["units"] += direction * steps[tier]
+            batch["units"] += direction * per_detent(steps[tier])
             batch["last"] = now
             self._cv.notify()
 
@@ -109,12 +119,12 @@ class AppleTVKnobs:
 
     def _send(self, axis: str, batch: dict[str, Any]) -> None:
         units = batch["units"]
-        if units == 0:
+        if abs(units) < 0.5:  # e.g. left and right detents cancelled out
             return
         if batch["mode"] == "seek":
             target = self._seek_target_for(units)
             if target is not None:
-                print(f"atv-knob: seek {units:+d}s -> {target}s", flush=True)
+                print(f"atv-knob: seek {units:+.0f}s -> {target}s", flush=True)
                 self._call(
                     "media_player",
                     "media_seek",
@@ -123,14 +133,14 @@ class AppleTVKnobs:
                 return
             # No seekable position (app-dependent): use the app's own skips.
             command = "skip_forward" if units > 0 else "skip_backward"
-            repeats = max(1, round(abs(units) / self.cfg["seek_steps"][0]))
+            repeats = max(1, round(abs(units) / per_detent(self.cfg["seek_steps"][0])))
             repeats = min(repeats, self.cfg["skip_max"])
         else:
             if axis == "horizontal":
                 command = "right" if units > 0 else "left"
             else:
                 command = "down" if units > 0 else "up"
-            repeats = min(abs(units), self.cfg["nav_max"])
+            repeats = min(round(abs(units)), self.cfg["nav_max"])
         print(f"atv-knob: {command} x{repeats}", flush=True)
         self._call(
             "remote",

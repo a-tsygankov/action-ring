@@ -44,7 +44,7 @@ shown):
 "atv": {
   "remote": "remote.vugitv_4k_vugitv_4k",
   "media_player": "media_player.vugitv_4k_vugitv_4k",
-  "seek_steps": [10, 30, 90],
+  "seek_steps": [10, [30, 2], [90, 3]],
   "nav_repeats": [1, 2, 3],
   "medium_interval": 0.25,
   "fast_interval": 0.08,
@@ -57,7 +57,11 @@ shown):
 }
 ```
 
-Steps are per click for the slow / medium / fast tiers. A click counts as
+Steps are listed for the slow / medium / fast tiers, either per click or as
+`[amount, clicks]`. `[30, 2]` means 30 s per 2 clicks, i.e. 15 s per click.
+Each click is scored at its own tier, so speeding up or slowing down mid-turn
+changes the rate: 1 slow + 4 medium + 6 fast + 3 slow clicks scrub
+10 + 60 + 180 + 30 = 280 s. A click counts as
 medium when it comes less than `medium_interval` seconds after the previous
 one, and fast under `fast_interval`. The log shows each call as
 `atv-knob: seek +40s -> 1260s` or `atv-knob: down x3`.
