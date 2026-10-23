@@ -1,0 +1,13 @@
+{
+  "brightness": 60,
+  "grab_evdev": true,
+  "keys": {
+    "1": { "label": "1", "color": "#1c63b8" },
+    "2": { "label": "2", "color": "#188452" },
+    "3": { "label": "3", "color": "#b55324" },
+    "4": { "label": "4", "color": "#8444a8" },
+    "5": { "label": "5", "color": "#327a8a" },
+    "6": { "label": "6", "color": "#ae365c" }
+  },
+  "actions": {}
+}

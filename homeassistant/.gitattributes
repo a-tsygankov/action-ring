@@ -1,0 +1,2 @@
+# Files are copied into a Linux container; CRLF would break the shebangs.
+* text=auto eol=lf

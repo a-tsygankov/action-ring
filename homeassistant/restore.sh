@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Restore the ActionRing N3 / Home Assistant setup from this repo onto a
+# Home Assistant OS device. Idempotent: safe to re-run on a configured device.
+#
+#   homeassistant/restore.sh [ssh-host]        (default host: homeassistant)
+#
+# Prerequisites (manual, see docs/JOURNAL.md "Restore"): HAOS onboarded,
+# Terminal & SSH app accepting this PC's key, integrations paired, dock
+# plugged into the Pi.
+set -euo pipefail
+
+HOST="${1:-homeassistant}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+APP=streamdock_n3
+SLUG=local_streamdock_n3
+STAMP=$(date +%Y%m%d-%H%M%S)
+
+ssh_ha() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$@"; }
+step() { printf '\n==> %s\n' "$*"; }
+warn() { printf 'WARNING: %s\n' "$*" >&2; }
+
+step "Checking SSH access to $HOST"
+if ! ssh_ha 'ha core info >/dev/null'; then
+    echo "Cannot run 'ha' on $HOST over SSH. See docs/JOURNAL.md > Restore > Prerequisites." >&2
+    exit 1
+fi
+
+# --- Entities the mappings depend on -------------------------------------
+step "Checking referenced entities exist"
+# Values of entity_id in the mappings (JSON with escaped quotes) and scripts
+# (YAML). script.* is skipped: those are created by the next step.
+entities=$(cat "$HERE/$APP/config.tv_room.json" "$HERE"/ha-config/scripts/*.yaml \
+    | grep -oE '(entity_id|state_entity)[\\":[:space:]]+[a-z_]+\.[a-z0-9_]+' \
+    | grep -oE '[a-z_]+\.[a-z0-9_]+$' | grep -v '^script\.' | sort -u)
+missing=$(printf '%s\n' "$entities" | ssh_ha '
+    known=$(jq -r ".data.entities[].entity_id" /homeassistant/.storage/core.entity_registry)
+    while read -r e; do printf "%s\n" "$known" | grep -qx "$e" || echo "$e"; done')
+if [ -n "$missing" ]; then
+    warn "these entities are not in Home Assistant yet (pair the integration or rename the entity):"
+    printf '  %s\n' $missing >&2
+else
+    echo "all $(printf '%s\n' "$entities" | wc -l | tr -d ' ') entities present"
+fi
+
+# --- HA scripts -----------------------------------------------------------
+step "Home Assistant scripts"
+core_restart=
+for frag in "$HERE"/ha-config/scripts/*.yaml; do
+    key=$(head -1 "$frag" | sed 's/:.*//')
+    result=$(ssh_ha "f=/homeassistant/scripts.yaml; touch \$f
+        if grep -q '^$key:' \$f; then echo present; exit; fi
+        cp \$f \$f.bak-$STAMP
+        # A fresh install may hold an empty mapping/list literal; drop it.
+        if grep -qxE '\\{\\}|\\[\\]' \$f; then : > \$f; fi
+        [ -s \$f ] && [ -n \"\$(tail -c1 \$f)\" ] && echo >> \$f
+        cat >> \$f; echo added" < "$frag")
+    echo "$key: $result"
+    [ "$result" = added ] && core_restart=1
+done
+if [ -n "$core_restart" ]; then
+    ssh_ha 'ha core check && ha core restart'
+fi
+
+# --- App ------------------------------------------------------------------
+step "Staging app"
+stage=$(mktemp -d)
+trap 'rm -rf "$stage"' EXIT
+cp -r "$HERE/$APP" "$stage/"
+# The input by-id link embeds the dock's serial; use the one on the target.
+link=$(ssh_ha 'ls /dev/input/by-id/ 2>/dev/null | grep -m1 "HOTSPOTEKUSB.*event-kbd"' || true)
+if [ -n "$link" ]; then
+    sed -i "s#/dev/input/by-id/usb-HOTSPOTEKUSB[^ ]*-event-kbd#/dev/input/by-id/$link#" \
+        "$stage/$APP/config.yaml"
+    echo "dock input link: $link"
+else
+    warn "dock not detected on $HOST; keeping the by-id link from the repo"
+fi
+
+step "Uploading app to /local_apps/$APP"
+tar -C "$stage" -cf - "$APP" | ssh_ha "rm -rf /local_apps/$APP && mkdir -p /local_apps \
+    && tar -xf - -C /local_apps && chown -R root:root /local_apps/$APP"
+
+step "Installing / rebuilding app (builds on the device, takes a few minutes)"
+# install when absent, update when config.yaml's version was bumped,
+# otherwise rebuild (the Supervisor refuses rebuild across a version change).
+ssh_ha "ha store reload >/dev/null
+    info=\$(ha apps info $SLUG)
+    cur=\$(printf '%s\n' \"\$info\" | sed -n 's/^version: //p')
+    new=\$(printf '%s\n' \"\$info\" | sed -n 's/^version_latest: //p')
+    if [ \"\$cur\" = null ]; then
+        ha apps install $SLUG
+    elif [ \"\$cur\" != \"\$new\" ]; then
+        echo \"updating \$cur -> \$new\"; ha apps update $SLUG
+    else
+        ha apps rebuild $SLUG
+    fi"
+
+step "App config (mappings)"
+ssh_ha "d=/app_configs/$SLUG; mkdir -p \$d
+    [ -f \$d/config.json ] && cp \$d/config.json \$d/config.json.bak-$STAMP
+    cat > \$d/config.json" < "$HERE/$APP/config.tv_room.json"
+
+step "Starting app"
+ssh_ha "ha apps restart $SLUG >/dev/null 2>&1 || ha apps start $SLUG"
+sleep 10
+log=$(ssh_ha "ha apps logs $SLUG 2>&1 | tail -8")
+printf '%s\n' "$log"
+if printf '%s\n' "$log" | grep -q 'controller running'; then
+    step "Done: app running and dock connected"
+elif printf '%s\n' "$log" | grep -q 'waiting for dock'; then
+    step "Done: app running, waiting for the dock to be plugged in"
+else
+    warn "app did not report a running controller; check: ssh $HOST ha apps logs $SLUG"
+    exit 1
+fi

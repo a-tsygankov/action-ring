@@ -1,0 +1,10 @@
+tv_room_mute_toggle:
+  alias: TV Room mute toggle
+  description: Toggle mute on the TV Room Sonos Arc (used by the ActionRing large knob press).
+  mode: single
+  sequence:
+    - action: media_player.volume_mute
+      target:
+        entity_id: media_player.tv_room_tv_room
+      data:
+        is_volume_muted: "{{ not state_attr('media_player.tv_room_tv_room', 'is_volume_muted') }}"
