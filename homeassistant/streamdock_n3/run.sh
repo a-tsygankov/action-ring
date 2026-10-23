@@ -4,6 +4,9 @@
 CONFIG=/config/config.json
 [ -f "$CONFIG" ] || cp /opt/streamdock/config.default.json "$CONFIG"
 
+# Marker for restore.sh: log lines after it belong to this start.
+echo "run.sh started $(date +%s)"
+
 VID=5548
 PID=1001
 

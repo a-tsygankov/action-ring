@@ -33,8 +33,10 @@ a generated label (112×112 works best). Put the files in
 ### Live state on keys
 
 A key with `state_entity` is redrawn whenever that entity changes in Home
-Assistant (`ha_daemon.py`). `on`, `off` and `unavailable` (any other state,
-or HA unreachable) override the key's `label`/`color`. Use `\\n` in a JSON
+Assistant (`ha_daemon.py`). `on`, `off` and `unavailable` override the key's
+`label`/`color`: `off` covers off/standby, `unavailable` covers
+unavailable/unknown and HA being unreachable, and `on` covers every other
+state (so `playing`/`idle` media players count as on). Use `\\n` in a JSON
 label for a line break.
 
 ```json

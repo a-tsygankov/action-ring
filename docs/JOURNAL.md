@@ -18,8 +18,8 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Home Assistant OS / Supervisor / Core | 18.3 / 2026.10.3 / 2026.10.2 |
 | SSH | Terminal & SSH app 10.5.0; from the PC: `ssh homeassistant` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
-| Dock software | Local app `local_streamdock_n3` v0.4.0-5, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
-| HA config added | `script.tv_room_mute_toggle` |
+| Dock software | Local app `local_streamdock_n3` v0.4.0-6, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
+| HA config added | `script.tv_room_mute_toggle`, `script.atv_knob`, `script.tv_room_power_toggle` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
 
 ### Repo layout
@@ -36,13 +36,13 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 
 | Control | Event | Action |
 |---|---|---|
-| Large knob | `knob.3.left/right/press` | Apple TV skip back/forward · play/pause |
+| Large knob | `knob.3.left/right/press` | Apple TV: skip back/forward while playing or paused, otherwise focus left/right (`script.atv_knob`) · play/pause |
 | Small knob 1 | `knob.1.left/right/press` | Sonos Arc volume down/up · mute toggle (script) |
 | Small knob 2 | `knob.2.left/right/press` | Apple TV up/down · select |
 | Round 1 / 2 / 3 | `button.7/8/9.press` | Apple TV Menu (back) / Home / Power on (wakes LG via CEC) |
 | Key 1 "Night" | `button.1.press` | Toggle `switch.tv_room_tv_room_night_sound`; LCD shows live state (blue ON / grey OFF / amber ?) |
 | Key 2 "Speech" | `button.2.press` | Toggle `switch.tv_room_tv_room_speech_enhancement`; LCD shows live state (green ON / grey OFF / amber ?) |
-| Key 3 "TV Off" | `button.3.press` | LG off + Apple TV sleep |
+| Key 3 "TV" | `button.3.press` | Power toggle (`script.tv_room_power_toggle`): on → LG off + Apple TV sleep; off → wake Apple TV (LG follows via CEC). LCD shows LG state (red ON / grey OFF) |
 | Key 4 "ATV" | `button.4.press` | LG input → `Apple OTT` (the Apple TV HDMI input) |
 | Key 5 (house icon) | `button.5.press` | Apple TV Home (same as Round 2) |
 | Key 6 | — | Blank, unassigned |
@@ -198,6 +198,22 @@ script cannot.
   glyph on `#262626`). Image keys use `"icon": "/config/icons/<file>"`; the
   folder lives in the app's config share, so new icons need no rebuild.
   `restore.sh` deploys the folder.
+
+### 2026-10-23 — Context-aware knob and TV power toggle
+
+- Apple TV ignores `skip_*` outside playback, so the large knob did nothing
+  on the Home screen. `script.atv_knob` (mode `queued`, keeps fast turns in
+  order) sends `skip_*` when the Apple TV media player is `playing`/`paused`,
+  otherwise `left`/`right`.
+- Key 3 became a power toggle, `script.tv_room_power_toggle`, keyed on
+  `media_player.lg_tv_2`. Power-on goes through the Apple TV (webOS can't power
+  the TV on); called via `script.turn_on` so `ha-call` doesn't hit its 5 s
+  timeout during the wake delay.
+- `ha_daemon.py` now treats any state except off/standby/unavailable/unknown
+  as ON, so media players (`playing`, `idle`, …) work as state keys.
+- `run.sh` prints `run.sh started <epoch>`; `restore.sh` reads only log lines
+  after this start's marker. Before, recent button presses could push the
+  status line out of view and trigger a false warning.
 
 ### 2026-10-23 — Repository
 

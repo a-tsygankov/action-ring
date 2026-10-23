@@ -16,7 +16,13 @@
       "off": { "label": "Speech\\nOFF", "color": "#262626" },
       "unavailable": { "label": "Speech\\n?", "color": "#5c3b00" }
     },
-    "3": { "label": "TV Off", "color": "#a3302c" },
+    "3": {
+      "label": "TV", "color": "#a3302c",
+      "state_entity": "media_player.lg_tv_2",
+      "on": { "label": "TV\\nON", "color": "#a3302c" },
+      "off": { "label": "TV\\nOFF", "color": "#262626" },
+      "unavailable": { "label": "TV\\nOFF", "color": "#262626" }
+    },
     "4": { "label": "ATV", "color": "#4a4a4a" },
     "5": { "label": "Home", "color": "#262626", "icon": "/config/icons/home.png" },
     "6": { "label": "", "color": "#000000" }
@@ -26,8 +32,8 @@
     "knob.1.left": "ha-call media_player.volume_down '{\"entity_id\":\"media_player.tv_room_tv_room\"}'",
     "knob.1.press": "ha-call script.turn_on '{\"entity_id\":\"script.tv_room_mute_toggle\"}'",
 
-    "knob.3.right": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"skip_forward\"}'",
-    "knob.3.left": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"skip_backward\"}'",
+    "knob.3.right": "ha-call script.atv_knob '{\"direction\":\"right\"}'",
+    "knob.3.left": "ha-call script.atv_knob '{\"direction\":\"left\"}'",
     "knob.3.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"play_pause\"}'",
 
     "knob.2.right": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"down\"}'",
@@ -40,10 +46,7 @@
 
     "button.1.press": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_night_sound\"}'",
     "button.2.press": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_speech_enhancement\"}'",
-    "button.3.press": [
-      "ha-call media_player.turn_off '{\"entity_id\":\"media_player.lg_tv_2\"}'",
-      "ha-call media_player.turn_off '{\"entity_id\":\"media_player.vugitv_4k_vugitv_4k\"}'"
-    ],
+    "button.3.press": "ha-call script.turn_on '{\"entity_id\":\"script.tv_room_power_toggle\"}'",
     "button.5.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"home\"}'",
     "button.4.press":"ha-call media_player.select_source '{\"entity_id\":\"media_player.lg_tv_2\",\"source\":\"Apple OTT\"}'"
   }
