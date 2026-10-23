@@ -1,10 +1,27 @@
 {
   "brightness": 60,
   "grab_evdev": true,
+  "youtube": {
+    "screens": {
+      "lg": {
+        "match": [
+          { "entity": "media_player.lg_tv_2", "attr": "source", "in": ["YouTube"] },
+          { "entity": "media_player.lg_tv_2", "attr": "app_id", "in": ["youtube.leanback.v4"] }
+        ]
+      },
+      "atv": {
+        "match": [
+          { "entity": "media_player.vugitv_4k_vugitv_4k", "attr": "app_id", "in": ["com.google.ios.youtube"] }
+        ]
+      }
+    }
+  },
   "atv": {
     "remote": "remote.vugitv_4k_vugitv_4k",
     "media_player": "media_player.vugitv_4k_vugitv_4k",
+    "scrub": "touch",
     "seek_steps": [10, [30, 2], [90, 3]],
+    "touch_steps": [12, [60, 2], [150, 3]],
     "nav_repeats": [1, 2, 3],
     "medium_interval": 0.25,
     "fast_interval": 0.08,
@@ -32,7 +49,17 @@
       "off": { "label": "TV\\nOFF", "color": "#262626" },
       "unavailable": { "label": "TV\\nOFF", "color": "#262626" }
     },
-    "4": { "label": "ATV", "color": "#4a4a4a" },
+    "4": {
+      "label": "ATV", "color": "#4a4a4a",
+      "action": "ha-call media_player.select_source '{\"entity_id\":\"media_player.lg_tv_2\",\"source\":\"Apple OTT\"}'",
+      "modes": [
+        {
+          "when": "youtube",
+          "label": "Chapter", "icon": "/config/icons/next_chapter.png",
+          "action": { "youtube": "next_chapter" }
+        }
+      ]
+    },
     "5": { "label": "Home", "color": "#262626", "icon": "/config/icons/home.png" },
     "6": { "label": "Back", "color": "#262626", "icon": "/config/icons/back.png" }
   },
@@ -58,6 +85,6 @@
     "button.3.press": "ha-call script.turn_on '{\"entity_id\":\"script.tv_room_power_toggle\"}'",
     "button.6.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"menu\"}'",
     "button.5.press":"ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"home\"}'",
-    "button.4.press":"ha-call media_player.select_source '{\"entity_id\":\"media_player.lg_tv_2\",\"source\":\"Apple OTT\"}'"
+    "button.4.press": { "key_action": 4 }
   }
 }

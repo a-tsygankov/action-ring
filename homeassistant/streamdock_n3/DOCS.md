@@ -53,9 +53,20 @@ shown):
   "nav_delay": 0.05,
   "nav_max": 20,
   "skip_max": 6,
-  "seek_hold": 3.0
+  "seek_hold": 3.0,
+  "scrub": "seek",
+  "touch_steps": [12, [60, 2], [150, 3]],
+  "touch_y": 500,
+  "touch_min_x": 150,
+  "touch_max_x": 850,
+  "touch_move_px": 25,
+  "touch_interval": 0.016,
+  "touch_release_after": 0.6,
+  "touch_pause_delay": 0.4
 }
 ```
+
+The TV Room config sets `"scrub": "touch"` (see Preview scrubbing below).
 
 Steps are listed for the slow / medium / fast tiers, either per click or as
 `[amount, clicks]`. `[30, 2]` means 30 s per 2 clicks, i.e. 15 s per click.
@@ -65,6 +76,95 @@ changes the rate: 1 slow + 4 medium + 6 fast + 3 slow clicks scrub
 medium when it comes less than `medium_interval` seconds after the previous
 one, and fast under `fast_interval`. The log shows each call as
 `atv-knob: seek +40s -> 1260s` or `atv-knob: down x3`.
+
+### Preview scrubbing (touch)
+
+With `"scrub": "touch"` in the `atv` section, the horizontal knob scrubs
+during playback the way a Siri Remote swipe does, with tvOS thumbnail
+previews:
+
+1. If the video is playing, it's paused (previews only show while paused).
+2. A virtual finger presses the centre of the touch surface, then drags with
+   the knob. `touch_steps` sets finger travel per click for the slow / medium
+   / fast tiers, in touchpad units out of 1000 across the surface.
+3. At an edge (`touch_min_x`/`touch_max_x`) the finger lifts and re-grips in
+   the centre, like repeated swipes.
+4. After `touch_release_after` seconds without a click the finger lifts. The
+   preview stays on screen; press the knob (OK) to jump there, or Back to
+   cancel.
+
+Touch needs the app's own Apple TV pairing over the Companion protocol
+(`atv_touch.py`, pyatv). This pairing is separate from Home Assistant's,
+because HA's integration doesn't expose touch gestures. Until the app is
+paired, or whenever the connection is down, scrubbing falls back to
+`"seek"`.
+
+Pairing: run `bash homeassistant/restore.sh` in a terminal; it prompts for
+the PIN. To pair by hand from the SSH app:
+
+```bash
+echo '{"address": "<Apple TV IP>"}' > /app_configs/local_streamdock_n3/atv_pair_request.json
+# the TV shows a PIN and the app log says "pairing: waiting for PIN"
+echo 1234 > /app_configs/local_streamdock_n3/atv_pair_pin
+```
+
+The credentials are saved to `atv_companion.json` in the same folder. It is
+a secret: keep it out of the repo and delete it to unpair. The log shows
+`atv-touch: connected to …`, and while scrubbing, `atv-knob: touch drag …`
+and `touch released`.
+
+### Key modes
+
+A key can change its look and action with live state. The first entry in
+`modes` whose `when` holds wins; otherwise the key's own look and `action`
+apply. Map the press with `{"key_action": <key>}`:
+
+```json
+"4": {
+  "label": "ATV", "color": "#4a4a4a",
+  "action": "ha-call media_player.select_source '{…\"source\":\"Apple OTT\"}'",
+  "modes": [
+    { "when": "youtube", "label": "Chapter", "icon": "/config/icons/next_chapter.png",
+      "action": { "youtube": "next_chapter" } }
+  ]
+},
+"button.4.press": { "key_action": 4 }
+```
+
+`when` is `"youtube"` (YouTube in the foreground on any configured screen) or
+a list of conditions, any of which may match:
+`{"entity": …, "attr": "source" | "app_id" | … | "state", "in": [values]}`.
+
+### YouTube: next chapter and ads
+
+The top-level `youtube` section lists screens, i.e. the YouTube app on each
+TV, and how HA shows YouTube in the foreground there:
+
+```json
+"youtube": { "screens": {
+  "lg":  { "match": [ { "entity": "media_player.lg_tv_2", "attr": "source", "in": ["YouTube"] } ] },
+  "atv": { "match": [ { "entity": "media_player.vugitv_4k_vugitv_4k", "attr": "app_id",
+                        "in": ["com.google.ios.youtube"] } ] }
+} }
+```
+
+While a screen's YouTube is in the foreground, the app holds a session with
+it over YouTube's TV-link ("Lounge") protocol (`yt_lounge.py`, pyytlounge).
+That session provides the playing video, its position, play and ad state, and
+seek. `{"youtube": "next_chapter"}` reads the video's chapters from its public
+watch page (`yt_chapters.py`: YouTube's chapter markers, else description
+timestamps) and seeks to the next one. Ad starts and ends are logged
+(`youtube: lg: ad started (15s, skippable)`).
+
+Link each TV once: in its YouTube app open **Settings → Link with TV code**,
+then write the code into `yt_pair_<screen>` in the app's config folder:
+
+```bash
+echo '123 456 789 012' > /app_configs/local_streamdock_n3/yt_pair_lg
+```
+
+The log shows `youtube: lg: linked to '…'`. Tokens are saved to
+`yt_lounge.json`, which is secret and stays out of the repo.
 
 ### Key images
 

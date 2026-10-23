@@ -110,21 +110,63 @@ t0=$(ssh_ha 'date +%s')
 ssh_ha "ha apps restart $SLUG >/dev/null 2>&1 || ha apps start $SLUG"
 # Only judge log lines after this start's "run.sh started <epoch>" marker;
 # older runs and button presses would otherwise mask the result.
-for _ in $(seq 1 15); do
-    sleep 3
-    log=$(ssh_ha "ha apps logs $SLUG 2>&1 | tail -400" | awk -v t0="$t0" '
+since_start() {
+    ssh_ha "ha apps logs $SLUG 2>&1 | tail -400" | awk -v t0="$t0" '
         /^run\.sh started / { on = ($3 >= t0); buf = "" }
         on { buf = buf $0 "\n" }
-        END { printf "%s", buf }')
+        END { printf "%s", buf }'
+}
+started=
+for _ in $(seq 1 15); do
+    sleep 3
+    log=$(since_start)
     if printf '%s' "$log" | grep -q 'controller running'; then
         printf '%s' "$log" | head -8
-        step "Done: app running and dock connected"
-        exit 0
+        started="app running and dock connected"
+        break
     elif printf '%s' "$log" | grep -q 'waiting for dock'; then
-        step "Done: app running, waiting for the dock to be plugged in"
-        exit 0
+        started="app running, waiting for the dock to be plugged in"
+        break
     fi
 done
-printf '%s' "$log" | tail -15
-warn "app did not report a running controller; check: ssh $HOST ha apps logs $SLUG"
-exit 1
+if [ -z "$started" ]; then
+    printf '%s' "$log" | tail -15
+    warn "app did not report a running controller; check: ssh $HOST ha apps logs $SLUG"
+    exit 1
+fi
+
+# --- Apple TV Companion pairing (touch / preview scrubbing) ---------------
+step "Apple TV touch pairing"
+CONF_DIR=/app_configs/$SLUG
+if ! grep -qE '"scrub": *"touch"' "$HERE/$APP/config.tv_room.json"; then
+    echo "touch scrubbing not enabled in config; skipped"
+elif ssh_ha "test -f $CONF_DIR/atv_companion.json"; then
+    echo "already paired"
+else
+    addr=$(ssh_ha 'jq -r "[.data.entries[] | select(.domain==\"apple_tv\")][0].data.address // empty" /homeassistant/.storage/core.config_entries')
+    if [ -z "$addr" ]; then
+        warn "no Apple TV integration in HA yet; pair later (see DOCS.md > Preview scrubbing)"
+    elif [ ! -t 0 ]; then
+        warn "not interactive; pair later by re-running this script in a terminal (see DOCS.md)"
+    else
+        ssh_ha "echo '{\"address\": \"$addr\"}' > $CONF_DIR/atv_pair_request.json"
+        echo "waiting for the TV to show a PIN..."
+        for _ in $(seq 1 20); do
+            sleep 2
+            since_start | grep -q 'pairing: waiting for PIN' && break
+        done
+        read -r -p "PIN shown on the TV: " pin
+        case "$pin" in
+            ''|*[!0-9]*) warn "not a number; pairing abandoned"; exit 1 ;;
+        esac
+        ssh_ha "echo $pin > $CONF_DIR/atv_pair_pin"
+        for _ in $(seq 1 15); do
+            sleep 2
+            if ssh_ha "test -f $CONF_DIR/atv_companion.json"; then echo "paired"; break; fi
+        done
+        ssh_ha "test -f $CONF_DIR/atv_companion.json" \
+            || warn "pairing did not complete; check: ssh $HOST ha apps logs $SLUG"
+    fi
+fi
+
+step "Done: $started"
