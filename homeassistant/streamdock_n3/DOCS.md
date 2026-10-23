@@ -91,6 +91,8 @@ label for a line break.
 }
 ```
 
+## Events
+
 Event names verified on the ActionRing N3 (2026-10-23):
 
 | Control | Events |
@@ -104,14 +106,16 @@ Event names verified on the ActionRing N3 (2026-10-23):
 One rotation event per detent. No `evdev.*` events were emitted in this
 firmware mode, so nothing double-fires.
 
-Apple TV gotcha: `remote.turn_on`/`remote.turn_off` only connect/disconnect
-Home Assistant from the box; they do not change its power. Use
-`media_player.turn_on`/`turn_off` for power. After a `remote.turn_off`, every
-`remote.send_command` fails with "not connected" until `remote.turn_on`.
-
 Every input is printed to the app log as `<description> [<event name>]`, so
-press a control and read the log to find its event name. `ha-call` failures
-also appear there.
+press a control and read the log to find its event name. `ha-call` and
+`atv-knob` failures also appear there.
+
+## Apple TV gotcha
+
+`remote.turn_on`/`remote.turn_off` only connect/disconnect Home Assistant from
+the box; they do not change its power. Use `media_player.turn_on`/`turn_off`
+for power. After a `remote.turn_off`, every `remote.send_command` fails with
+"not connected" until `remote.turn_on`.
 
 ## Devices
 
@@ -134,6 +138,10 @@ daemon when it disappears or re-enumerates. The log shows `waiting for dock`,
 
 ## Updating
 
-From the repo root on the PC run `bash homeassistant/restore.sh`: it uploads
-this folder, rebuilds the app and deploys `config.tv_room.json`. To move to a
-newer upstream revision, change `STREAMDOCK_REF` in the Dockerfile.
+From the repo root on the PC run `bash homeassistant/restore.sh`. It adds any
+missing HA scripts from `ha-config/scripts/`, uploads this folder, then
+installs, updates (after a `version` bump in `config.yaml`) or rebuilds the
+app. It also deploys `config.tv_room.json` and `icons/`, and confirms the
+controller is running. Changes to `config.json` or icons alone only need an
+app restart. To move to a newer upstream revision, change `STREAMDOCK_REF` in
+the Dockerfile.
