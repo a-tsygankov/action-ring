@@ -1,8 +1,10 @@
 # action-ring
 
 ActionRing N3 (Stream Dock N3) as a Home Assistant control surface for the
-TV Room: Sonos Arc, LG OLED and Apple TV, with live switch state on the LCD
-keys.
+TV Room: Sonos Arc, LG OLED and Apple TV. Includes live on/off state on the
+LCD keys (Night Sound, Speech, TV power), speed-adaptive Apple TV knobs (the
+scrub step and menu step grow with turning speed) and icon keys for Home and
+Back.
 
 The dock is plugged into a Raspberry Pi running Home Assistant OS. A local
 Home Assistant app runs the community

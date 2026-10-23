@@ -23,6 +23,49 @@ Supervisor token; no long-lived token is needed.
 }
 ```
 
+### Apple TV knobs
+
+Map a knob's turns to the built-in engine instead of a shell command:
+
+```json
+"knob.3.right": { "atv_knob": { "axis": "horizontal", "direction": 1 } },
+"knob.3.left":  { "atv_knob": { "axis": "horizontal", "direction": -1 } },
+"knob.2.right": { "atv_knob": { "axis": "vertical", "direction": 1 } },
+"knob.2.left":  { "atv_knob": { "axis": "vertical", "direction": -1 } }
+```
+
+The horizontal axis seeks while the Apple TV is playing or paused, and moves
+focus left/right otherwise. The vertical axis always moves focus up/down.
+Steps grow with turning speed, and clicks are batched so fast spins never
+queue up. Entities and tuning go in a top-level `atv` section (defaults
+shown):
+
+```json
+"atv": {
+  "remote": "remote.vugitv_4k_vugitv_4k",
+  "media_player": "media_player.vugitv_4k_vugitv_4k",
+  "seek_steps": [10, [30, 2], [90, 3]],
+  "nav_repeats": [1, 2, 3],
+  "medium_interval": 0.25,
+  "fast_interval": 0.08,
+  "flush_quiet": 0.06,
+  "flush_max": 0.15,
+  "nav_delay": 0.05,
+  "nav_max": 20,
+  "skip_max": 6,
+  "seek_hold": 3.0
+}
+```
+
+Steps are listed for the slow / medium / fast tiers, either per click or as
+`[amount, clicks]`. `[30, 2]` means 30 s per 2 clicks, i.e. 15 s per click.
+Each click is scored at its own tier, so speeding up or slowing down mid-turn
+changes the rate: 1 slow + 4 medium + 6 fast + 3 slow clicks scrub
+10 + 60 + 180 + 30 = 280 s. A click counts as
+medium when it comes less than `medium_interval` seconds after the previous
+one, and fast under `fast_interval`. The log shows each call as
+`atv-knob: seek +40s -> 1260s` or `atv-knob: down x3`.
+
 ### Key images
 
 Set `"icon": "/config/icons/<file>.png"` on a key to show an image instead of
@@ -48,6 +91,8 @@ label for a line break.
 }
 ```
 
+## Events
+
 Event names verified on the ActionRing N3 (2026-10-23):
 
 | Control | Events |
@@ -61,14 +106,16 @@ Event names verified on the ActionRing N3 (2026-10-23):
 One rotation event per detent. No `evdev.*` events were emitted in this
 firmware mode, so nothing double-fires.
 
-Apple TV gotcha: `remote.turn_on`/`remote.turn_off` only connect/disconnect
-Home Assistant from the box; they do not change its power. Use
-`media_player.turn_on`/`turn_off` for power. After a `remote.turn_off`, every
-`remote.send_command` fails with "not connected" until `remote.turn_on`.
-
 Every input is printed to the app log as `<description> [<event name>]`, so
-press a control and read the log to find its event name. `ha-call` failures
-also appear there.
+press a control and read the log to find its event name. `ha-call` and
+`atv-knob` failures also appear there.
+
+## Apple TV gotcha
+
+`remote.turn_on`/`remote.turn_off` only connect/disconnect Home Assistant from
+the box; they do not change its power. Use `media_player.turn_on`/`turn_off`
+for power. After a `remote.turn_off`, every `remote.send_command` fails with
+"not connected" until `remote.turn_on`.
 
 ## Devices
 
@@ -91,6 +138,10 @@ daemon when it disappears or re-enumerates. The log shows `waiting for dock`,
 
 ## Updating
 
-From the repo root on the PC run `bash homeassistant/restore.sh`: it uploads
-this folder, rebuilds the app and deploys `config.tv_room.json`. To move to a
-newer upstream revision, change `STREAMDOCK_REF` in the Dockerfile.
+From the repo root on the PC run `bash homeassistant/restore.sh`. It adds any
+missing HA scripts from `ha-config/scripts/`, uploads this folder, then
+installs, updates (after a `version` bump in `config.yaml`) or rebuilds the
+app. It also deploys `config.tv_room.json` and `icons/`, and confirms the
+controller is running. Changes to `config.json` or icons alone only need an
+app restart. To move to a newer upstream revision, change `STREAMDOCK_REF` in
+the Dockerfile.
