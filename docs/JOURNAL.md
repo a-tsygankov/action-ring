@@ -468,24 +468,6 @@ script cannot.
   `netflix_on_apple_tv`; `--replace-ha-config` restored the repo formatting
   of the managed scripts and left it alone.
 
-### 2026-10-24 — Probe tool for the live test session
-
-- For the tabs design's live test session (spec §10): `probe.py` runs a
-  request of steps written to `probe_request.json` (consumed at once) and
-  logs each as `probe: <n> <kind> … -> ok|error …`, ending with
-  `probe: done`. Step kinds: raw MRP command with options (through
-  `AppleTVTouch.run`, on the pyatv loop), Companion `_mcc` / HID, HA action,
-  YouTube Lounge call, webOS command (`webostv.command` with
-  `return_response`, via the new `CoreAPI.call_response`), wait, and a
-  snapshot (advertised `supportedCommands`, language options, app, HA states,
-  Lounge state). Power-off commands are refused when parsing.
-- `language_option_payload()` builds the `EnableLanguageOption` bytes: an
-  NSKeyedArchiver plist around a hand-encoded `LanguageOption` protobuf
-  (pyatv #720). The archive's property key isn't documented; the probe tries
-  `protobuf` and `data`.
-- `tools/probe.sh <file>` uploads a file from `tools/probes/` (one per §10
-  item 1–6) and prints its log lines. Results go here after the session.
-
 ### 2026-10-23 — Repository
 
 - Published to [a-tsygankov/action-ring](https://github.com/a-tsygankov/action-ring)

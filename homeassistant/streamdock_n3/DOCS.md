@@ -353,7 +353,11 @@ It prints the file's note, uploads the request to `probe_request.json` in the
 app's config folder (consumed at once) and prints the results as they come:
 `probe: 3 mrp ChangePlaybackRate {"playbackRate": 24.0} -> ok`, or
 `-> error CommandError: …`. A failed step doesn't stop the others; the run
-ends with `probe: done`. Power-off commands are refused.
+ends with `probe: done`. Power-off steps are refused when the request is
+read: any `turn_off`/`toggle` action, every `homeassistant.*` and `hassio.*`
+action, `remote.send_command` naming `suspend`/`turn_off`/`sleep`,
+`webostv.button` `POWER`, the Companion `Sleep` button, and webOS commands
+containing `turnoff`, `power` or `reboot`.
 
 ### Key images
 

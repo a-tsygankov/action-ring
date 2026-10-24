@@ -58,10 +58,25 @@ def test_parse_request_rejects_malformed_steps(step):
     {"kind": "ha", "service": "remote.toggle", "data": {}},
     {"kind": "companion", "hid": "Sleep"},
     {"kind": "webos", "entity_id": "media_player.lg", "command": "system/turnOff"},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.atv", "command": "suspend"}},
+    {"kind": "ha", "service": "remote.send_command",
+     "data": {"entity_id": "remote.atv", "command": ["right", "turn_off"]}},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.atv", "command": "Sleep"}},
+    {"kind": "ha", "service": "webostv.button", "data": {"entity_id": "media_player.lg", "button": "POWER"}},
+    {"kind": "ha", "service": "homeassistant.restart", "data": {}},
+    {"kind": "ha", "service": "hassio.host_reboot", "data": {}},
 ])
 def test_parse_request_refuses_power_off(step):
     with pytest.raises(ValueError, match="power"):
         parse_request(json.dumps([step]))
+
+
+def test_parse_request_allows_ordinary_remote_and_button_steps():
+    parse_request(json.dumps([
+        {"kind": "ha", "service": "remote.send_command",
+         "data": {"entity_id": "remote.atv", "command": ["right", "select"]}},
+        {"kind": "ha", "service": "webostv.button", "data": {"entity_id": "media_player.lg", "button": "CC"}},
+    ]))
 
 
 def _archived(payload: bytes, key: str = "protobuf") -> tuple[dict, dict, bytes, dict]:

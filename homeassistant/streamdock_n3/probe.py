@@ -53,8 +53,14 @@ LOUNGE_METHODS = (
     "set_playback_speed", "skip_ad", "get_now_playing",
 )
 HA_ATTRS = ("app_id", "app_name", "source", "media_title", "media_content_type", "media_position")
-# Power-off is never a probe: the TV session would end.
+# Power-off is never a probe: the TV session would end. Refused when parsing:
+# any domain's turn_off/toggle; homeassistant.* and hassio.* (restarts,
+# reboots); remote.send_command naming suspend/turn_off/sleep; webostv.button
+# POWER; Companion HID Sleep; webOS commands naming turnoff/power/reboot.
 POWER_SERVICES = ("turn_off", "toggle")
+POWER_DOMAINS = ("homeassistant", "hassio")
+POWER_REMOTE_WORDS = ("suspend", "turn_off", "sleep")
+POWER_BUTTONS = ("power",)
 POWER_HID = ("sleep",)
 POWER_WEBOS = ("turnoff", "power", "reboot")
 
@@ -75,6 +81,19 @@ def _check(ok: bool, n: int, msg: str) -> None:
 
 def _number(value: Any, low: float, high: float) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and low <= value <= high
+
+
+def _ha_powers_off(service: str, data: dict) -> bool:
+    domain, name = service.split(".")
+    if domain in POWER_DOMAINS or name in POWER_SERVICES:
+        return True
+    if service == "remote.send_command":
+        commands = data.get("command")
+        commands = commands if isinstance(commands, list) else [commands]
+        return any(w in str(c).lower() for c in commands for w in POWER_REMOTE_WORDS)
+    if service == "webostv.button":
+        return str(data.get("button", "")).lower() in POWER_BUTTONS
+    return False
 
 
 def _check_step(n: int, step: Any) -> None:
@@ -98,8 +117,8 @@ def _check_step(n: int, step: Any) -> None:
     elif kind == "ha":
         service = step.get("service")
         _check(isinstance(service, str) and service.count(".") == 1, n, "ha needs service \"domain.service\"")
-        _check(service.split(".")[1] not in POWER_SERVICES, n, "refusing a power-off command")
         _check(isinstance(step.get("data", {}), dict), n, "data must be an object")
+        _check(not _ha_powers_off(service, step.get("data") or {}), n, "refusing a power-off command")
     elif kind == "lounge":
         _check(step.get("method") in LOUNGE_METHODS, n, f"lounge method must be one of {', '.join(LOUNGE_METHODS)}")
         _check(isinstance(step.get("args", []), list), n, "args must be a list")

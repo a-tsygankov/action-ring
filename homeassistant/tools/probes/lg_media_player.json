@@ -1,5 +1,5 @@
 {
-  "note": "Spec §10 item 5: the LG's own Media Player. Play a USB/DLNA file in the LG Media Player, run this, and say what each button did (CC/SAP popups, scan speeds, back to 1x on PLAY). Note the mediaId in the getForegroundAppInfo reply: a real id (not \"_\") makes the luna alert trick worth a phase-2 test. Nothing here changes a setting; CC is pressed twice.",
+  "note": "Spec §10 item 5: the LG's own Media Player. Play a USB/DLNA file in the LG Media Player, run this, and say what each button did (CC/SAP popups, scan speeds, back to 1x on PLAY). Note the mediaId in the getForegroundAppInfo reply: a real id (not \"_\") makes the luna alert trick worth a phase-2 test. CC and SAP may change state (the system caption setting, the audio track): CC is pressed twice and captionEnable is read before and after, but check the captions and audio track afterwards and restore them by hand if they changed.",
   "steps": [
     {"kind": "snapshot", "entities": ["media_player.lg_tv_2"]},
     {"kind": "webos", "entity_id": "media_player.lg_tv_2", "command": "system/getSystemInfo"},
@@ -13,6 +13,8 @@
     {"kind": "wait", "s": 4},
     {"kind": "ha", "service": "webostv.button", "data": {"entity_id": "media_player.lg_tv_2", "button": "CC"}},
     {"kind": "wait", "s": 4},
+    {"kind": "webos", "entity_id": "media_player.lg_tv_2", "command": "settings/getSystemSettings",
+     "payload": {"category": "caption", "keys": ["captionEnable"]}},
     {"kind": "ha", "service": "webostv.button", "data": {"entity_id": "media_player.lg_tv_2", "button": "SAP"}},
     {"kind": "wait", "s": 4},
     {"kind": "ha", "service": "webostv.button", "data": {"entity_id": "media_player.lg_tv_2", "button": "BACK"}},

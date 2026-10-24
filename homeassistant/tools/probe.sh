@@ -45,8 +45,11 @@ printed=0
 deadline=$(( $(date +%s) + TIMEOUT ))
 while [ "$(date +%s)" -lt "$deadline" ]; do
     sleep 2
+    # A failed poll (SSH timeout, ha hiccup) just retries; awk reads all its
+    # input (no early exit) so the pipe never breaks under pipefail.
     lines=$(ssh_ha "ha apps logs $SLUG --lines 1000 2>&1" \
-        | awk -v start="probe: start $run" 'index($0, start) {on = 1} on && /probe: / {print} on && /probe: done/ {exit}')
+        | awk -v start="probe: start $run" 'index($0, start) {on = 1} on && /probe: / {print} on && /probe: done/ {on = 0}') \
+        || continue
     count=$(printf '%s' "$lines" | grep -c 'probe: ' || true)
     if [ "$count" -gt "$printed" ]; then
         printf '%s\n' "$lines" | tail -n +$((printed + 1))
