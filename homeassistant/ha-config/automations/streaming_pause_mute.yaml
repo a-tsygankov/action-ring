@@ -7,16 +7,24 @@
     Only mutes TV audio (Arc source "TV"), so music on the Arc is never
     touched. Unmutes on play, app change, Arc source change or after 5 minutes,
     and only undoes its own mute: skipped if already muted, backs off if unmuted
-    by hand.
+    by hand. Some apps report a pause as "idle" (Netflix); those are listed in
+    idle_pause_apps.
   mode: single
   max_exceeded: silent
+  variables:
+    idle_pause_apps:
+      - com.netflix.Netflix
   triggers:
     - trigger: state
       entity_id: media_player.vugitv_4k_vugitv_4k
-      to: paused
+      to: [paused, idle]
   conditions:
     - condition: template
-      value_template: "{{ state_attr('media_player.vugitv_4k_vugitv_4k', 'app_id') not in [none, ''] }}"
+      value_template: >-
+        {% set app = state_attr('media_player.vugitv_4k_vugitv_4k', 'app_id') %}
+        {{ app not in [none, '']
+           and (is_state('media_player.vugitv_4k_vugitv_4k', 'paused')
+                or app in idle_pause_apps) }}
     - condition: state
       entity_id: media_player.tv_room_tv_room
       attribute: source
@@ -34,7 +42,7 @@
     - wait_for_trigger:
         - trigger: state
           entity_id: media_player.vugitv_4k_vugitv_4k
-          not_to: paused
+          not_to: [paused, idle]
         - trigger: state
           entity_id: media_player.vugitv_4k_vugitv_4k
           attribute: app_id

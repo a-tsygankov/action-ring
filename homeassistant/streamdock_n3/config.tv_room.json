@@ -48,7 +48,15 @@
       "state_entity": "media_player.lg_tv_2",
       "on": { "label": "TV\\nON", "color": "#a3302c" },
       "off": { "label": "TV\\nOFF", "color": "#262626" },
-      "unavailable": { "label": "TV\\nOFF", "color": "#262626" }
+      "unavailable": { "label": "TV\\nOFF", "color": "#262626" },
+      "modes": [
+        {
+          "when": [
+            { "entity": "media_player.tv_room_tv_room", "attr": "is_volume_muted", "in": [true] }
+          ],
+          "label": "TV\\nMUTED", "color": "#c77c02"
+        }
+      ]
     },
     "4": {
       "label": "ATV", "color": "#4a4a4a",

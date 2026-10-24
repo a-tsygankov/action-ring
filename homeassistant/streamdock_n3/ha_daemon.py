@@ -170,7 +170,11 @@ def _refresh_modes() -> None:
         _shown_mode[key] = index
         look = mode[1] if mode else item
         print(f"key {key}: mode {look.get('label', index)!r}", flush=True)
-        _draw_look(key, look, item)
+        if mode is None and item.get("state_entity"):
+            # Back to the key's live state look (on/off/unavailable).
+            _draw(key, item, (_states.get(item["state_entity"]) or {}).get("s"))
+        else:
+            _draw_look(key, look, item)
 
 
 def _draw_look(key: int, look: dict, base: dict) -> None:
@@ -261,6 +265,8 @@ def _watch(bindings: dict[str, list[tuple[int, dict]]], extra: set[str]) -> None
         shown[entity_id] = state
         print(f"ha-state: {entity_id} = {state}", flush=True)
         for key, item in bindings[entity_id]:
+            if _shown_mode.get(key, -1) >= 0:
+                continue  # an active mode owns the key's look
             _draw(key, item, state)
 
     while True:

@@ -18,7 +18,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Home Assistant OS / Supervisor / Core | 18.3 / 2026.10.3 / 2026.10.2 |
 | SSH | Terminal & SSH app 10.5.0; from the PC: `ssh homeassistant` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
-| Dock software | Local app `local_streamdock_n3` v0.4.0-14, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
+| Dock software | Local app `local_streamdock_n3` v0.4.0-15, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
 | HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle`, `automation.streaming_pause_mute` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
 
@@ -44,7 +44,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Round 1 / 2 / 3 | `button.7/8/9.press` | Apple TV Menu (back) / Home / Power on (wakes LG via CEC) |
 | Key 1 "Night" | `button.1.press` | Toggle `switch.tv_room_tv_room_night_sound`; LCD shows live state (blue ON / grey OFF / amber ?) |
 | Key 2 "Speech" | `button.2.press` | Toggle `switch.tv_room_tv_room_speech_enhancement`; LCD shows live state (green ON / grey OFF / amber ?) |
-| Key 3 "TV" | `button.3.press` | Power toggle (`script.tv_room_power_toggle`): on → LG off + Apple TV sleep; off → wake Apple TV (LG follows via CEC). LCD shows LG state (red ON / grey OFF) |
+| Key 3 "TV" | `button.3.press` | Power toggle (`script.tv_room_power_toggle`): on → LG off + Apple TV sleep; off → wake Apple TV (LG follows via CEC). LCD shows LG state (red ON / grey OFF), or amber "TV / MUTED" while the Arc is muted |
 | Key 4 "ATV" / "Next chapter" | `button.4.press` → `{"key_action": 4}` | Normally LG input → `Apple OTT` (the Apple TV HDMI input). While YouTube is in the foreground on the LG or the Apple TV: red skip icon, jumps to the video's next chapter |
 | Key 5 (house icon) | `button.5.press` | Apple TV Home (same as Round 2) |
 | Key 6 (back-arrow icon) | `button.6.press` | Apple TV Back (`menu`, same as Round 1) |
@@ -81,12 +81,21 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 bash homeassistant/restore.sh
 ```
 
-Idempotent. It checks the mapped entities exist, adds missing HA scripts
-(backing up `scripts.yaml`, then `ha core check` + restart), uploads and
-builds the app (patching in the dock's by-id link found on the target),
-deploys the mappings (backing up any existing `config.json`), restarts the
-app and confirms the controller is running. Verified against the live Pi on
-2026-10-23.
+Idempotent. Steps:
+
+1. Checks that the mapped entities exist in HA.
+2. Adds missing HA scripts and automations (backup first, then
+   `ha core check` + restart). Entries that differ from the repo are kept
+   unless you pass `--replace-ha-config`.
+3. Uploads and builds the app, patching in the dock's by-id link found on
+   the target.
+4. Deploys the mappings and icons, backing up any existing `config.json`.
+5. Restarts the app and confirms the controller is running.
+6. Pairs the Apple TV via `pair.sh atv` if needed (prompts for the PIN),
+   then prints `pair.sh status`.
+
+Link YouTube apps afterwards with `bash homeassistant/pair.sh youtube <screen>`.
+Verified against the live Pi.
 
 Alternative for a like-for-like replacement: a full HA backup
 (**Settings → System → Backups**) also carries integration pairings, which the
@@ -367,6 +376,27 @@ script cannot.
 - `restore.sh` now adds missing automations by `id` (as it does scripts by
   key) and checks their entities. Fixed on the way: under `set -e`, a final
   `[ … ] && …` inside a function aborted the script when nothing was added.
+- **Per-app pause reporting** (from `now_playing.log` and the recorder DB):
+  - **Pluto TV** (`tv.pluto.ios`) reports `paused`; the Arc muted and
+    unmuted on every pause/resume (23:05–23:08 on 2026-10-23).
+  - **Netflix** (`com.netflix.Netflix`) reports a pause as `idle` and
+    publishes no title/position, so a `paused` trigger never fired. The
+    automation now also triggers on `idle` for apps in `idle_pause_apps`
+    (Netflix), and resume is any state other than paused/idle. Trade-off:
+    Netflix menus are `idle` too, so menu trailers stay muted until play,
+    app change or the 5-minute cap.
+  - The Apple TV shows no mute icon: the mute is on the Arc, not the Apple
+    TV. So the dock shows it instead: key 3 has a mode (Arc
+    `is_volume_muted` = true) that draws an amber "TV / MUTED", whoever
+    muted. Key modes now coexist with `state_entity`: an active mode owns
+    the look, and the key returns to its on/off look when the mode ends.
+    Seen live: key 3 switched to MUTED and back with pause/resume.
+- Confirmed on the TV in Tubi, Pluto and Netflix (idle-as-pause).
+- `restore.sh` updates existing HA entries on request: each entry (script
+  key / automation `- id:` item) is compared with the repo fragment. A
+  missing one is added; a matching one is left alone; a differing one is
+  reported and kept unless `--replace-ha-config` is given (backup first).
+  Edits made in HA's UI are never overwritten silently.
 
 ### 2026-10-23 — Repository
 
@@ -383,7 +413,5 @@ script cannot.
       note which apps' players respond to touch scrubbing.
 - [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
       chapter there (Apple TV done).
-- [ ] Streaming pause mute: confirm in a second app (e.g. pause in the TV
-      app: mutes, resumes with sound); Tubi confirmed.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.

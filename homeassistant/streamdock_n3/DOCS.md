@@ -137,6 +137,18 @@ apply. Map the press with `{"key_action": <key>}`:
 a list of conditions, any of which may match:
 `{"entity": …, "attr": "source" | "app_id" | … | "state", "in": [values]}`.
 
+Modes also work on a key with `state_entity`: while a mode is active its look
+wins, and when it ends the key returns to its live on/off look. A mode
+without `action` leaves the key's press unchanged. Key 3 uses this to show
+the Arc's mute:
+
+```json
+"modes": [{
+  "when": [{ "entity": "media_player.tv_room_tv_room", "attr": "is_volume_muted", "in": [true] }],
+  "label": "TV\\nMUTED", "color": "#c77c02"
+}]
+```
+
 ### YouTube: next chapter and ads
 
 The top-level `youtube` section lists screens, i.e. the YouTube app on each
