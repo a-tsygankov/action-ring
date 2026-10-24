@@ -40,6 +40,8 @@ PROVIDERS = {
     "tvs.sbd.4000": ("apple", "com.apple.TVWatchList"),
 }
 TOKEN_MAX_AGE = 86400  # seconds
+CLOCK_GRACE = 30 * 60  # seconds a running clock still counts after the live window ends
+SOON = 15 * 60  # seconds before a listed start when polling speeds up to poll_s
 OPEN_TIMEOUT = 60  # seconds for a started game's app to come up before it is forgotten
 HTTP_TIMEOUT = 15
 USER_AGENT = "Mozilla/5.0"
@@ -69,18 +71,31 @@ def parse_tokens(html: str) -> tuple[str, str] | None:
     return (sk.group(1), cf.group(1)) if sk and cf else None
 
 
-def _is_live(item: dict, now_ms: float) -> bool:
+def _badge(item: dict) -> dict:
+    return (item.get("eventTime") or {}).get("liveBadgeTime") or {}
+
+
+def _ended(item: dict) -> bool:
     clock = item.get("clockScore")
-    if isinstance(clock, dict):
-        # A running clock is authoritative: an ended game stays out even while
-        # the (generous) live badge window is still open.
-        return not clock.get("hasEventEnded")
-    badge = (item.get("eventTime") or {}).get("liveBadgeTime") or {}
-    start, end = badge.get("startTime"), badge.get("endTime")
+    return isinstance(clock, dict) and bool(clock.get("hasEventEnded"))
+
+
+def _is_live(item: dict, now_ms: float) -> bool:
+    start, end = _badge(item).get("startTime"), _badge(item).get("endTime")
+    if isinstance(item.get("clockScore"), dict):
+        # A clock decides: an ended game stays out even while the (generous)
+        # live badge window is open. A clock left "running" by a stale feed
+        # stops counting CLOCK_GRACE after the window.
+        return not _ended(item) and (end is None or now_ms <= end + CLOCK_GRACE * 1000)
     return start is not None and end is not None and start <= now_ms <= end
 
 
 def _game(item: dict) -> Game | None:
+    """The item as a Game if it is a soccer match on one of our providers."""
+    if item.get("sportName") != "Soccer":
+        return None
+    if len(item.get("competitors") or []) != 2:
+        return None  # studio shows (MLS Countdown, MLS 360, ...) have no teams
     playable = (item.get("playables") or [None])[0] or {}
     provider = PROVIDERS.get(playable.get("channelId"))
     if provider is None:
@@ -101,19 +116,48 @@ def _game(item: dict) -> Game | None:
     )
 
 
+def _items(payload: dict) -> list[dict]:
+    items = ((payload.get("data") or {}).get("shelf") or {}).get("items") or []
+    return [item for item in items if isinstance(item, dict)]
+
+
 def parse_games(payload: dict, now: float) -> list[Game]:
     """Live soccer games on our providers from one UTS search shelf response."""
-    items = ((payload.get("data") or {}).get("shelf") or {}).get("items") or []
     out: list[Game] = []
-    for item in items:
-        if not isinstance(item, dict) or item.get("sportName") != "Soccer":
-            continue
-        if not _is_live(item, now * 1000):
-            continue
+    for item in _items(payload):
         game = _game(item)
-        if game is not None:
+        if game is not None and _is_live(item, now * 1000):
             out.append(game)
     return out
+
+
+def next_start(payload: dict, now: float) -> float | None:
+    """Epoch seconds when the next listed game's live window opens, or None."""
+    starts = [
+        _badge(item)["startTime"] / 1000
+        for item in _items(payload)
+        if _game(item) is not None
+        and not _ended(item)
+        and isinstance(_badge(item).get("startTime"), (int, float))
+        and _badge(item)["startTime"] > now * 1000
+    ]
+    return min(starts, default=None)
+
+
+def poll_interval(live: bool, start: float | None, now: float, poll_s: float, idle_poll_s: float) -> float:
+    """Seconds to the next background fetch.
+
+    poll_s while a game is live or one starts within SOON; otherwise
+    idle_poll_s, but waking SOON before the next listed start.
+    """
+    if live:
+        return poll_s
+    if start is None:
+        return idle_poll_s
+    until_soon = start - SOON - now
+    if until_soon <= 0:
+        return poll_s
+    return max(poll_s, min(idle_poll_s, until_soon))
 
 
 def order(games: list[Game]) -> list[Game]:
@@ -137,7 +181,8 @@ class LiveSoccer:
     """The live game list, a cursor through it, and whether a started game is on screen.
 
     cfg ("soccer" section): atv, atv_remote, lg, atv_source, power_on_wait,
-    token_page, cache_s, poll_s, select_after_s.
+    token_page, cache_s, poll_s, idle_poll_s, select_after_s. `clock` is wall
+    time (Apple's listing is in epoch ms); `monotonic` times waits.
     """
 
     def __init__(
@@ -149,17 +194,20 @@ class LiveSoccer:
         clock: Callable[[], float] = time.time,
         sleep: Callable[[float], None] = time.sleep,
         on_change: Callable[[], None] | None = None,
+        monotonic: Callable[[], float] = time.monotonic,
     ):
         self._call = call
         self._state_of = state_of
         self._cfg = cfg
         self._fetch = fetch
         self._clock = clock
+        self._monotonic = monotonic
         self._sleep = sleep
         self._on_change = on_change or (lambda: None)
         self._lock = threading.Lock()  # one refresh at a time
         self._games: list[Game] = []
         self._fetched_at: float | None = None
+        self._next_start: float | None = None  # next listed game's live window opens (epoch s)
         self._tokens: tuple[str, str] | None = None
         self._tokens_at = 0.0
         self._cursor = 0
@@ -182,22 +230,36 @@ class LiveSoccer:
             try:
                 payloads = self._shelves()
                 games = order([g for p in payloads for g in parse_games(p, now)])
+                starts = [t for t in (next_start(p, now) for p in payloads) if t is not None]
             except Exception as err:  # never let a key press or the poller die on this
                 log(f"refresh failed: {type(err).__name__}: {err}")
                 return
             if [g.id for g in games] != [g.id for g in self._games]:
                 log(f"{len(games)} live: " + "; ".join(f"{g.title} ({g.provider})" for g in games))
             self._games, self._fetched_at = games, now
+            self._next_start = min(starts, default=None)
         self._on_change()
 
     def poll_forever(self) -> None:
-        """Background refresh for the key's live look; never raises."""
+        """Background refresh for the key's live look; never raises.
+
+        Every poll_s while a game is live or about to start, else every
+        idle_poll_s (the listing is undocumented: use it lightly).
+        """
         while True:
+            wait = float(self._cfg.get("idle_poll_s", 1800))
             try:
                 self.refresh(max_age=float(self._cfg.get("cache_s", 60)))
+                wait = poll_interval(
+                    bool(self._games),
+                    self._next_start,
+                    self._clock(),
+                    float(self._cfg.get("poll_s", 180)),
+                    wait,
+                )
             except Exception as err:
                 log(f"poll: {type(err).__name__}: {err}")
-            self._sleep(float(self._cfg.get("poll_s", 180)))
+            self._sleep(wait)
 
     def _shelves(self) -> list[dict]:
         if self._tokens is None or self._clock() - self._tokens_at >= TOKEN_MAX_AGE:
@@ -232,7 +294,7 @@ class LiveSoccer:
         if not self._games:
             log("no live games")
             return
-        if not ensure_on(self._call, self._state_of, self._cfg, sleep=self._sleep, clock=self._clock):
+        if not ensure_on(self._call, self._state_of, self._cfg, sleep=self._sleep, clock=self._monotonic):
             log("TV did not turn on")
             return
         select_atv_input(self._call, self._state_of, self._cfg)
@@ -254,7 +316,7 @@ class LiveSoccer:
         i %= len(games)
         game = games[i]
         self._cursor = i
-        self._started, self._started_at, self._seen = game, self._clock(), False
+        self._started, self._started_at, self._seen = game, self._monotonic(), False
         self._on_change()  # {soccer_pos} changed
         log(f"playing {i + 1}/{len(games)}: {game.title} ({game.provider})")
         atv = self._cfg["atv"]
@@ -280,7 +342,7 @@ class LiveSoccer:
         if app == game.app:
             self._seen = True
             return True
-        if self._seen or self._clock() - self._started_at > OPEN_TIMEOUT:
+        if self._seen or self._monotonic() - self._started_at > OPEN_TIMEOUT:
             self._started = None  # another app took over, or the game never opened
         return False
 

@@ -57,8 +57,9 @@ Runs the upstream daemon unchanged and adds:
    speaker that leads its group.
 
 8. Live soccer (soccer.py): a "soccer" config section (atv, atv_remote, lg,
-   atv_source, power_on_wait, token_page, cache_s, poll_s, select_after_s)
-   polls the Apple TV app listing for live Paramount+ / MLS games.
+   atv_source, power_on_wait, token_page, cache_s, poll_s, idle_poll_s,
+   select_after_s) polls the Apple TV app listing for live Paramount+ / MLS
+   games.
    {"soccer": "start"} powers on and plays the first, {"soccer": "next"}
    the next one (wrapping). Condition "soccer_live" holds while any game is
    live; labels get {soccer_count} and {soccer_pos}; context "live_game"

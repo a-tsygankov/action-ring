@@ -266,14 +266,20 @@ MLS (Apple TV) games (`soccer.py`):
 "soccer": { "atv": "media_player.vugitv_4k_vugitv_4k", "atv_remote": "remote.vugitv_4k_vugitv_4k",
             "lg": "media_player.lg_tv_2", "atv_source": "Apple OTT", "power_on_wait": 25,
             "token_page": "https://tv.apple.com/us/channel/mls/tvs.sbd.7000",
-            "cache_s": 60, "poll_s": 180, "select_after_s": 8 }
+            "cache_s": 60, "poll_s": 180, "idle_poll_s": 1800, "select_after_s": 8 }
 ```
 
 The list comes from the Apple TV app's own listing (the UTS API behind
-tv.apple.com): two searches, `Paramount+` and `MLS`, every `poll_s` seconds.
-A game counts when it is soccer, it is live (the clock is running, or it is
-inside Apple's live window when there is no clock), and its main provider is
-Paramount+ or Apple TV. Games are ordered by kickoff, then league. The
+tv.apple.com): two searches, `Paramount+` and `MLS`. They run every
+`poll_s` seconds while a game is live or one starts within 15 minutes, and
+every `idle_poll_s` seconds otherwise; an idle wait still ends 15 minutes
+before the next listed start. The listing is undocumented, so the app keeps
+its use light. A game counts when it is soccer between two teams (studio
+shows such as MLS Countdown are left out), it is live, and its main provider
+is Paramount+ or Apple TV. Live means the clock is running, or, when there
+is no clock, the game is inside Apple's live window. A running clock stops
+counting 30 minutes after that window ends. Games are ordered by kickoff,
+then league. The
 listing needs two public web-page tokens; the app reads them from
 `token_page` once a day, or again when Apple rejects them. They are never
 saved.

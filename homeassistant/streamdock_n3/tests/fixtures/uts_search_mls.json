@@ -49,8 +49,8 @@
      "eventTime": {
       "gameKickOffStartTime": 1792863000000,
       "liveBadgeTime": {
-       "endTime": 1792884600000,
-       "startTime": 1792863000000
+       "startTime": 1792846800000,
+       "endTime": 1792868400000
       },
       "playerInfoDisplayTime": {
        "endTime": 1792873800000,
@@ -496,6 +496,154 @@
      "title": "Columbus Crew vs. Toronto FC",
      "type": "SportingEvent",
      "url": "https://tv.apple.com/us/sporting-event/columbus-crew-vs-toronto-fc/umc.cse.70f3jrgof87ebxqvlxqbcbkqv"
+    },
+    {
+     "airingType": "Live",
+     "eventTime": {
+      "gameKickOffStartTime": 1792881000000,
+      "liveBadgeTime": {
+       "startTime": 1792846800000,
+       "endTime": 1792868400000
+      },
+      "playerInfoDisplayTime": {
+       "endTime": 1792884600000,
+       "startTime": 1792881000000
+      },
+      "playerInfoTransportBarTime": {
+       "endTime": 1792884600000,
+       "startTime": 1792880700000
+      },
+      "tuneInTime": {
+       "endTime": 1792891800000,
+       "startTime": 1792880700000
+      }
+     },
+     "id": "umc.cse.lkxye2n033t7susymaowjm4a",
+     "intents": [
+      "PLAY"
+     ],
+     "isEligibleForMultiView": false,
+     "isGeoRestricted": false,
+     "leagueAbbreviation": "mls",
+     "leagueId": "umc.csl.3c9plmy5skze52ff5ce24mo4g",
+     "leagueName": "MLS",
+     "leagueShortName": "MLS",
+     "playables": [
+      {
+       "airingType": "Live",
+       "autoExitOnBroadcastEndInSeconds": 54,
+       "canonicalId": "umc.cse.lkxye2n033t7susymaowjm4a",
+       "channelId": "tvs.sbd.4000",
+       "contentId": "umc.cmr.mls.sp.2pdjm83j6pduhpgjfpleilbfh",
+       "contentType": "SportingEvent",
+       "duration": 3600,
+       "entitlementReason": "Free",
+       "eventTime": {
+        "gameKickOffStartTime": 1792881000000,
+        "liveBadgeTime": {
+         "endTime": 1792891800000,
+         "startTime": 1792881000000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792884600000,
+         "startTime": 1792881000000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792884600000,
+         "startTime": 1792880700000
+        },
+        "tuneInTime": {
+         "endTime": 1792891800000,
+         "startTime": 1792880700000
+        }
+       },
+       "externalId": "mls2026_pre_en_31_EN",
+       "externalServiceId": "com.apple.atvp.mls.svod.ebs.US",
+       "id": "tvs.sbd.4000:mls2026_pre_en_31_EN:d6390b78",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": true,
+       "isEntitledToPlayOnDevice": true,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isSignInNotRequired": false,
+       "isUpgradeEligible": false,
+       "liveSportsPostPlayShelfFetchPolicy": {
+        "enabled": true,
+        "fetchPolicyOnInvalidPrefetchTime": {
+         "enabled": true,
+         "timestampOffsetForGameInProgressInSeconds": 104,
+         "timestampOffsetOnGameEndInSeconds": 7
+        },
+        "prefetch": true,
+        "prefetchTimestamp": 1792882787994
+       },
+       "locales": [
+        {
+         "displayName": "English",
+         "locale": "en"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": true,
+       "primaryLocale": {
+        "displayName": "English",
+        "locale": "en"
+       },
+       "releaseDate": 1792881000000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.5105",
+       "serviceName": "MLS Live US",
+       "sharedWatchEnabled": true,
+       "sharedWatchId": "mls:umc.cmr.mls.sp.2pdjm83j6pduhpgjfpleilbfh:live",
+       "subBrandId": "tvs.sbd.7000",
+       "title": "MLS Countdown",
+       "type": "EbsEvent",
+       "upsellExitPolicy": {
+        "displayPolicy": {
+         "playbackInSeconds": 60
+        },
+        "rateLimitPolicies": [
+         {
+          "key": "brandId:tvs.sbd.4000::subBrandId:tvs.sbd.7000",
+          "policy": {
+           "intervalTimeInSeconds": 86400,
+           "max": 3
+          }
+         },
+         {
+          "key": "contentId:umc.cse.lkxye2n033t7susymaowjm4a::playableType:ebsevent",
+          "policy": {
+           "intervalTimeInSeconds": 86400,
+           "max": 1
+          }
+         }
+        ],
+        "showExitUpsell": true,
+        "upsellOfferId": {
+         "channelId": "tvs.sbd.4000",
+         "editorialDataId": "WebBanner"
+        }
+       },
+       "url": "https://tv.apple.com/us/sporting-event/mls-countdown/umc.cse.lkxye2n033t7susymaowjm4a?playableId=tvs.sbd.4000%3Amls2026_pre_en_31_EN",
+       "useSeparateQoSReportingBucket": false
+      }
+     ],
+     "requiresLocationConsent": false,
+     "secondaryActions": [
+      "AddToUpNext"
+     ],
+     "shortTitle": "MLS Countdown",
+     "showModal": true,
+     "sportId": "umc.csp.y1ye10qgphjwmbdsld07rf38",
+     "sportName": "Soccer",
+     "title": "MLS Countdown",
+     "treatAsShow": true,
+     "type": "SportingEvent",
+     "url": "https://tv.apple.com/us/sporting-event/mls-countdown/umc.cse.lkxye2n033t7susymaowjm4a"
     },
     {
      "airingType": "Live",

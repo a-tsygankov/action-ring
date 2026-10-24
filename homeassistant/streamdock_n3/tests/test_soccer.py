@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 import soccer
-from soccer import Game, LiveSoccer, order, parse_games, parse_tokens
+from soccer import Game, LiveSoccer, next_start, order, parse_games, parse_tokens, poll_interval
 
 FIXTURES = Path(__file__).parent / "fixtures"
 # Fixed "now" for the fixtures (2026-10-24 14:33:20Z): see test_parse_games_*.
@@ -23,6 +23,7 @@ CFG = {
     "cache_s": 60,
     "poll_s": 180,
     "select_after_s": 8,
+    "idle_poll_s": 1800,
 }
 P_PLUS = "com.cbsvideo.app"
 TV_APP = "com.apple.TVWatchList"
@@ -83,7 +84,9 @@ class FakeFetch:
 def _live(states=None, fetch=None, t=None):
     rec, t = Recorder(), t or FakeTime()
     st = states if states is not None else {"media_player.lg": {"s": "on", "a": {"source": "Apple OTT"}}}
-    live = LiveSoccer(rec, st.get, CFG, fetch=fetch or FakeFetch(), clock=t.clock, sleep=t.sleep)
+    live = LiveSoccer(
+        rec, st.get, CFG, fetch=fetch or FakeFetch(), clock=t.clock, sleep=t.sleep, monotonic=t.clock
+    )
     return live, rec, st, t
 
 
@@ -106,11 +109,41 @@ def test_parse_games_filters_live_soccer_and_providers():
     assert charlton.league == "EFL Championship"
     assert charlton.kickoff == 1792841400.0
     assert charlton.url.startswith("pplus://www.paramountplus.com/live-tv/stream/english-football-league/")
-    # MLS fixture: Montreal (clock running) is live; Philadelphia ended, Columbus upcoming.
+    # MLS fixture: Montreal (clock running) is live; Philadelphia ended, Columbus
+    # upcoming; the "MLS Countdown" studio show is inside its window but has no
+    # competitors, so it is not a game.
     mls = parse_games(json.loads(_fixture("uts_search_mls.json")), NOW)
     assert [g.id for g in mls] == ["umc.cse.1vpiinvtiko54yrue5pxq8f5s"]
+    assert "umc.cse.lkxye2n033t7susymaowjm4a" not in {g.id for g in mls}
     assert mls[0].provider == "apple" and mls[0].app == TV_APP
     assert mls[0].url.startswith("https://tv.apple.com/us/sporting-event/cf-montreal-vs-nashville-sc/")
+
+
+def test_running_clock_expires_30_min_after_the_window():
+    payload = json.loads(_fixture("uts_search_mls.json"))
+    end = 1792868400.0  # Montreal's live badge window end
+    assert [g.id for g in parse_games(payload, end + 29 * 60)] == ["umc.cse.1vpiinvtiko54yrue5pxq8f5s"]
+    later = {g.id for g in parse_games(payload, end + 31 * 60)}  # Columbus is on by then
+    assert "umc.cse.1vpiinvtiko54yrue5pxq8f5s" not in later
+
+
+def test_next_start_is_the_earliest_upcoming_game():
+    # Napoli v Roma; not Montreal (already on), the rugby game, the studio show
+    # or the ended Philadelphia game.
+    payloads = [json.loads(_fixture(f)) for f in ("uts_search_paramount.json", "uts_search_mls.json")]
+    assert min(filter(None, (next_start(p, NOW) for p in payloads))) == 1792857600.0
+    assert next_start(payloads[1], NOW) == 1792870200.0  # Columbus v Toronto
+    assert next_start({}, NOW) is None
+
+
+def test_poll_interval():
+    fast, idle = 180, 1800
+    assert poll_interval(True, None, NOW, fast, idle) == fast  # a game is live
+    assert poll_interval(False, None, NOW, fast, idle) == idle  # nothing listed
+    assert poll_interval(False, NOW + 600, NOW, fast, idle) == fast  # starts within 15 min
+    assert poll_interval(False, NOW + 1000, NOW, fast, idle) == fast
+    assert poll_interval(False, NOW + 1200, NOW, fast, idle) == 300  # wake 15 min before it
+    assert poll_interval(False, NOW + 7200, NOW, fast, idle) == idle
 
 
 def test_parse_games_tolerates_junk():
@@ -153,6 +186,17 @@ def test_start_gives_up_when_tv_stays_off(capsys):
     live.start()
     assert rec.names() == [("remote", "turn_on"), ("media_player", "turn_on")]
     assert "soccer: TV did not turn on" in capsys.readouterr().out
+
+
+def test_power_on_deadline_uses_the_monotonic_clock():
+    wall = iter(NOW + 3600 * n for n in range(1000))  # a wall clock that keeps jumping (NTP)
+    t = FakeTime()
+    st = {"media_player.lg": {"s": "off", "a": {}}}
+    live = LiveSoccer(Recorder(), st.get, CFG, fetch=FakeFetch(), clock=lambda: next(wall),
+                      sleep=t.sleep, monotonic=t.clock)
+    live.start()
+    # The full 25 s wait despite the jumps: 2 s remote settle plus 0.5 s polls.
+    assert t.sleeps[0] == 2 and len(t.sleeps) == 1 + 50
 
 
 def test_start_without_live_games_does_nothing(capsys):
@@ -292,8 +336,8 @@ def test_tokens_refetched_daily_and_on_4xx():
     fetch.urls.clear()
     live.refresh()
     assert rejected and fetch.urls.count(CFG["token_page"]) == 1
-    # Refetched: a day on, only the two games with a running clock are still live.
-    assert len(live.games()) == 2
+    assert sum("searchTerm=" in u for u in fetch.urls) == 2  # both shelves refetched
+    assert live.games() == []  # a day on, nothing in the fixtures is live any more
 
 
 def test_vars():
@@ -330,7 +374,7 @@ def test_poll_forever_survives_errors(monkeypatch):
     with pytest.raises(SystemExit):
         live.poll_forever()
     assert len(calls) == 3
-    assert t.sleeps == [180, 180]
+    assert t.sleeps == [1800, 1800]  # nothing live or about to start: idle interval
 
 
 def test_constants():

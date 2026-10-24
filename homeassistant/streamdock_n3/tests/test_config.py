@@ -184,6 +184,7 @@ def test_soccer_config_complete():
         "cache_s": 60,
         "poll_s": 180,
         "select_after_s": 8,
+        "idle_poll_s": 1800,
     }
 
 
