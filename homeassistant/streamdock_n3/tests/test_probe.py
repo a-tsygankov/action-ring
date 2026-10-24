@@ -65,6 +65,13 @@ def test_parse_request_rejects_malformed_steps(step):
     {"kind": "ha", "service": "webostv.button", "data": {"entity_id": "media_player.lg", "button": "POWER"}},
     {"kind": "ha", "service": "homeassistant.restart", "data": {}},
     {"kind": "ha", "service": "hassio.host_reboot", "data": {}},
+    {"kind": "ha", "service": "script.turn_on", "data": {"entity_id": "script.tv_room_power_toggle"}},
+    {"kind": "ha", "service": "script.turn_on", "data": {"entity_id": ["script.x", "script.tv_room_power_toggle"]}},
+    {"kind": "ha", "service": "script.tv_room_power_toggle", "data": {}},
+    {"kind": "ha", "service": "webostv.command", "data": {"entity_id": "media_player.lg", "command": "system/turnOff"}},
+    {"kind": "ha", "service": "webostv.command",
+     "data": {"entity_id": "media_player.lg", "command": "com.webos.service.tvpower/power/turnOffScreen"}},
+    {"kind": "ha", "service": "webostv.command", "data": {"entity_id": "media_player.lg", "command": "system/reboot"}},
 ])
 def test_parse_request_refuses_power_off(step):
     with pytest.raises(ValueError, match="power"):
@@ -76,6 +83,9 @@ def test_parse_request_allows_ordinary_remote_and_button_steps():
         {"kind": "ha", "service": "remote.send_command",
          "data": {"entity_id": "remote.atv", "command": ["right", "select"]}},
         {"kind": "ha", "service": "webostv.button", "data": {"entity_id": "media_player.lg", "button": "CC"}},
+        {"kind": "ha", "service": "script.turn_on", "data": {"entity_id": "script.tv_room_mute_toggle"}},
+        {"kind": "ha", "service": "webostv.command",
+         "data": {"entity_id": "media_player.lg", "command": "com.webos.media/getForegroundAppInfo"}},
     ]))
 
 

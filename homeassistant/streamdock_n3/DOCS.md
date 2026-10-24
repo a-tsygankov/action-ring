@@ -356,8 +356,10 @@ app's config folder (consumed at once) and prints the results as they come:
 ends with `probe: done`. Power-off steps are refused when the request is
 read: any `turn_off`/`toggle` action, every `homeassistant.*` and `hassio.*`
 action, `remote.send_command` naming `suspend`/`turn_off`/`sleep`,
-`webostv.button` `POWER`, the Companion `Sleep` button, and webOS commands
-containing `turnoff`, `power` or `reboot`.
+`webostv.button` `POWER`, any `script.*` action naming
+`script.tv_room_power_toggle`, the Companion `Sleep` button, and webOS
+commands (a `webos` step or an `ha` `webostv.command`) containing `turnoff`,
+`power` or `reboot`.
 
 ### Key images
 

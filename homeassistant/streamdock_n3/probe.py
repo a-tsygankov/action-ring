@@ -56,13 +56,16 @@ HA_ATTRS = ("app_id", "app_name", "source", "media_title", "media_content_type",
 # Power-off is never a probe: the TV session would end. Refused when parsing:
 # any domain's turn_off/toggle; homeassistant.* and hassio.* (restarts,
 # reboots); remote.send_command naming suspend/turn_off/sleep; webostv.button
-# POWER; Companion HID Sleep; webOS commands naming turnoff/power/reboot.
+# POWER; script.* calls naming the TV power toggle script; Companion HID
+# Sleep; webOS commands (the webos kind or ha webostv.command) naming
+# turnoff/power/reboot.
 POWER_SERVICES = ("turn_off", "toggle")
 POWER_DOMAINS = ("homeassistant", "hassio")
 POWER_REMOTE_WORDS = ("suspend", "turn_off", "sleep")
 POWER_BUTTONS = ("power",)
 POWER_HID = ("sleep",)
 POWER_WEBOS = ("turnoff", "power", "reboot")
+POWER_SCRIPTS = ("script.tv_room_power_toggle",)
 
 Call = Callable[..., Any]  # call(domain, service, data, response=False)
 
@@ -83,10 +86,20 @@ def _number(value: Any, low: float, high: float) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and low <= value <= high
 
 
+def _webos_powers_off(command: Any) -> bool:
+    return any(w in str(command).lower() for w in POWER_WEBOS)
+
+
 def _ha_powers_off(service: str, data: dict) -> bool:
     domain, name = service.split(".")
     if domain in POWER_DOMAINS or name in POWER_SERVICES:
         return True
+    if domain == "script":
+        targets = data.get("entity_id")
+        targets = targets if isinstance(targets, list) else [targets]
+        return service in POWER_SCRIPTS or any(str(t) in POWER_SCRIPTS for t in targets)
+    if service == "webostv.command":
+        return _webos_powers_off(data.get("command", ""))
     if service == "remote.send_command":
         commands = data.get("command")
         commands = commands if isinstance(commands, list) else [commands]
@@ -126,7 +139,7 @@ def _check_step(n: int, step: Any) -> None:
         _check(isinstance(step.get("entity_id"), str), n, "webos needs entity_id")
         command = step.get("command")
         _check(isinstance(command, str) and command, n, "webos needs a command")
-        _check(not any(w in command.lower() for w in POWER_WEBOS), n, "refusing a power-off command")
+        _check(not _webos_powers_off(command), n, "refusing a power-off command")
         _check(isinstance(step.get("payload", {}), dict), n, "payload must be an object")
     elif kind == "wait":
         _check(_number(step.get("s"), 0, MAX_WAIT_S), n, f"wait needs s in 0..{MAX_WAIT_S}")
