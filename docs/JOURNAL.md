@@ -424,6 +424,8 @@ script cannot.
 - Simulated: idle after a touch scrub (lift → select → play only if still
   paused), press during the wait (one select, no auto), seek scrub
   paused/playing, press in menus.
+- Confirmed on the TV: idle after a scrub jumps and plays; pressing the knob
+  commits once with no extra pause.
 
 ### 2026-10-23 — Repository
 
