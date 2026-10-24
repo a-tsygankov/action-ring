@@ -306,6 +306,12 @@ script cannot.
 - Docker: `pyytlounge` installs in its own layer, so the slow
   pyatv/miniaudio compile stays cached. miniaudio has no aarch64 wheel; its
   build needs `g++` (removed after) and `libatomic1` (kept).
+- Confirmed on the Apple TV: linked "YouTube on TV" (`pair.sh youtube atv`),
+  a 12-chapter video, and key 4 jumped 162 → 181 → 240 → 293 s across
+  chapter starts.
+- Gotcha: `ha apps logs` returns only about the last 100 lines by default.
+  The scripts pass `--lines 1000`; without it, busy logs (knob turns) hid
+  startup and pairing results.
 
 ### 2026-10-23 — Repository
 
@@ -321,8 +327,8 @@ script cannot.
 - [ ] Preview scrubbing: confirm previews on the TV and tune `touch_steps`
       and `touch_release_after`; note which apps' players respond to touch
       scrubbing.
-- [ ] Link both YouTube apps (LG, Apple TV) and confirm next chapter on
-      each.
+- [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
+      chapter there (Apple TV done).
 - [ ] Ad detection outside YouTube (Tubi etc. on Apple TV): log Apple TV
       now-playing changes during an ad break, then derive a per-app rule.
 - [ ] Govee not integrated in HA; lighting controls pending.

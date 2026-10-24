@@ -22,7 +22,7 @@ DIR=/app_configs/$SLUG
 ssh_ha() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$@"; }
 die() { echo "ERROR: $*" >&2; exit 1; }
 mtime() { ssh_ha "stat -c %Y $1 2>/dev/null || echo 0"; }
-last_log() { ssh_ha "ha apps logs $SLUG 2>&1 | grep '$1' | tail -${2:-1}"; }
+last_log() { ssh_ha "ha apps logs $SLUG --lines 1000 2>&1 | grep '$1' | tail -${2:-1}"; }
 
 # Poll (2 s) until the remote shell test $1 succeeds; give up after $2 tries.
 wait_for() {
@@ -44,7 +44,7 @@ pair_atv() {
 
     echo "Turn the TV on. Asking the Apple TV for a PIN..."
     ssh_ha "rm -f $DIR/atv_pair_pin; echo '{\"address\": \"$addr\"}' > $DIR/atv_pair_request.json"
-    wait_for "test ! -f $DIR/atv_pair_request.json || ha apps logs $SLUG 2>&1 | tail -5 | grep -q 'waiting for PIN'" 30 \
+    wait_for "test ! -f $DIR/atv_pair_request.json || ha apps logs $SLUG --lines 1000 2>&1 | tail -5 | grep -q 'waiting for PIN'" 30 \
         || die "the app did not start pairing; check: ssh $HOST ha apps logs $SLUG"
     ssh_ha "test -f $DIR/atv_pair_request.json" \
         || die "$(last_log 'atv-touch:')"
@@ -56,7 +56,7 @@ pair_atv() {
     wait_for "test ! -f $DIR/atv_pair_request.json" 20 || die "pairing timed out"
     [ "$(mtime "$DIR/atv_companion.json")" -gt "$before" ] || die "$(last_log 'atv-touch:')"
     echo "Paired. Waiting for the touch connection..."
-    wait_for "ha apps logs $SLUG 2>&1 | grep 'atv-touch:' | tail -1 | grep -q 'connected to'" 15 \
+    wait_for "ha apps logs $SLUG --lines 1000 2>&1 | grep 'atv-touch:' | tail -1 | grep -q 'connected to'" 15 \
         && last_log 'atv-touch:' || echo "Not connected yet; check: ssh $HOST ha apps logs $SLUG"
 }
 

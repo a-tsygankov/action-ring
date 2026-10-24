@@ -111,7 +111,7 @@ ssh_ha "ha apps restart $SLUG >/dev/null 2>&1 || ha apps start $SLUG"
 # Only judge log lines after this start's "run.sh started <epoch>" marker;
 # older runs and button presses would otherwise mask the result.
 since_start() {
-    ssh_ha "ha apps logs $SLUG 2>&1 | tail -400" | awk -v t0="$t0" '
+    ssh_ha "ha apps logs $SLUG --lines 1000 2>&1" | awk -v t0="$t0" '
         /^run\.sh started / { on = ($3 >= t0); buf = "" }
         on { buf = buf $0 "\n" }
         END { printf "%s", buf }'
