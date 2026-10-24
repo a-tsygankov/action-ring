@@ -125,6 +125,69 @@ a secret: keep it out of the repo and delete it to unpair. The log shows
 `atv-touch: connected to …`, and while scrubbing, `atv-knob: touch drag …`
 and `touch released`.
 
+### Tabs
+
+The six LCD keys show one page at a time. A `tabs` section defines the pages;
+the top-level `keys` stay `{}` (without `tabs`, `keys` is the only page, as
+before):
+
+```json
+"tabs": {
+  "timeouts": { "open": 10, "after_press": 5, "context_debounce": 1 },
+  "round": { "7": ["apps", "apps_more"], "8": ["sonos"] },
+  "context": { "lg": "media_player.lg_tv_2", "atv": "media_player.vugitv_4k_vugitv_4k",
+               "atv_source": "Apple OTT",
+               "youtube_apps": { "atv": ["com.google.ios.youtube"], "lg": ["youtube.leanback.v4"] },
+               "lg_media_apps": ["com.webos.app.mediadiscovery"],
+               "lg_idle_app_prefixes": ["com.webos.app.hdmi", "com.webos.app.livetv", "com.webos.app.home"] },
+  "launch": { "lg": "media_player.lg_tv_2", "atv": "media_player.vugitv_4k_vugitv_4k",
+              "atv_remote": "remote.vugitv_4k_vugitv_4k", "atv_source": "Apple OTT",
+              "power_on_wait": 25 },
+  "pages": {
+    "apps": { "close_on_press": true, "keys": {
+      "1": { "icon": "netflix",
+             "action": { "launch": { "device": "atv", "app": "com.netflix.Netflix" } } } } },
+    "context:idle": { "keys": { … } }
+  }
+}
+```
+
+- **Context pages** `context:idle`, `context:streaming`, `context:youtube`,
+  `context:lg_media`, `context:lg_app`, `context:live_game` follow what is in
+  the foreground (`context.py`): the LG off or on its home/HDMI/live TV →
+  idle; the Apple TV input → its app (YouTube → youtube, any other app →
+  streaming, no app → idle); on the LG itself, YouTube, the media player or
+  any other app. A new layout is drawn after it has held for
+  `context_debounce` seconds.
+- **Temporary pages** (here `apps`, `apps_more`, `sonos`) open from a round
+  button. `round` maps a button to its cycle of pages: each press shows the
+  next page in the cycle, and after the last one the cycle starts again. A
+  page closes back to the context after `open` seconds, or `after_press`
+  seconds after a key press on it; with `close_on_press` a key press closes
+  it at once.
+- **Buttons:** map `button.1–6.press` to `{"tab_key": N}` (`{"key_action": N}`
+  is an alias) and the tab round buttons to `{"tab_round": N}`. Other events
+  keep their own actions (`button.9`, the knobs).
+
+Key specs inside pages use the normal key format (`label`, `color`, `icon`,
+`state_entity` with `on`/`off`/`unavailable`, `modes`, `action`).
+`"icon": "night__on"` is a bare icon id for `/config/icons/night__on.png`;
+full paths still work. Labels may hold `{name}` placeholders that the app fills
+at run time; an unknown name is shown as written.
+
+Key actions, besides shell strings (`ha-call domain.service '<json>'`):
+
+| Action | Does |
+|---|---|
+| `{"launch": {"device": "atv", "app": "<bundle id>"}}` | Powers the TV on if it is off (Apple TV wake, HDMI-CEC), switches the LG to `atv_source`, starts the app on the Apple TV |
+| `{"launch": {"device": "lg", "app": "<webOS app id>"}}` | Powers on if needed, starts the app on the LG (`system.launcher/launch`) |
+| `{"next_playing": [entities]}` | Next track on the first of those speakers that is playing and leads its group |
+| `{"youtube": "play_pause" \| "next" \| "previous" \| "next_chapter" \| "subtitles"}` | Controls the linked YouTube app (see below); `subtitles` toggles captions |
+
+Named `when` conditions for modes: `youtube` (YouTube in the foreground on a
+screen), `youtube_playing`, `youtube_subtitles` (its live play and caption
+state).
+
 ### Key modes
 
 A key can change its look and action with live state. The first entry in
