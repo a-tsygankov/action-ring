@@ -171,6 +171,20 @@ echo '123 456 789 012' > /app_configs/local_streamdock_n3/yt_pair_lg
 The log shows `youtube: lg: linked to '…'`. Tokens are saved to
 `yt_lounge.json`, which is secret and stays out of the repo.
 
+### Now-playing log (ad research)
+
+`"now_playing_log": { "entities": ["media_player.…"] }` records what changes
+in those media players (`np_log.py`). Each line names only the fields that
+changed: state, app, title, series/episode, content type/id, duration. It also
+records `pos_jump=<expected>-><reported>` when the position doesn't match
+continuous playback. The goal is to find how a given app (e.g. Tubi) shows
+an ad break. Lines go to the app log (`np: …`) and to `now_playing.log` in the
+app's config folder (2 MB cap, previous file kept as `.log.1`):
+
+```bash
+ssh homeassistant tail -f /app_configs/local_streamdock_n3/now_playing.log
+```
+
 ### Key images
 
 Set `"icon": "/config/icons/<file>.png"` on a key to show an image instead of

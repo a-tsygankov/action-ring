@@ -1,0 +1,59 @@
+- id: streaming_pause_mute
+  alias: Streaming pause mute
+  description: >-
+    Mute the TV Room Arc while the Apple TV is paused in any app, and unmute
+    when it plays again. Mainly for ad breaks that can't be skipped: Tubi
+    reports "paused" for a whole break and sometimes never reports its end.
+    Only mutes TV audio (Arc source "TV"), so music on the Arc is never
+    touched. Unmutes on play, app change, Arc source change or after 5 minutes,
+    and only undoes its own mute: skipped if already muted, backs off if unmuted
+    by hand.
+  mode: single
+  max_exceeded: silent
+  triggers:
+    - trigger: state
+      entity_id: media_player.vugitv_4k_vugitv_4k
+      to: paused
+  conditions:
+    - condition: template
+      value_template: "{{ state_attr('media_player.vugitv_4k_vugitv_4k', 'app_id') not in [none, ''] }}"
+    - condition: state
+      entity_id: media_player.tv_room_tv_room
+      attribute: source
+      state: TV
+    - condition: state
+      entity_id: media_player.tv_room_tv_room
+      attribute: is_volume_muted
+      state: false
+  actions:
+    - action: media_player.volume_mute
+      target:
+        entity_id: media_player.tv_room_tv_room
+      data:
+        is_volume_muted: true
+    - wait_for_trigger:
+        - trigger: state
+          entity_id: media_player.vugitv_4k_vugitv_4k
+          not_to: paused
+        - trigger: state
+          entity_id: media_player.vugitv_4k_vugitv_4k
+          attribute: app_id
+        - trigger: state
+          entity_id: media_player.tv_room_tv_room
+          attribute: is_volume_muted
+          to: false
+        - trigger: state
+          entity_id: media_player.tv_room_tv_room
+          attribute: source
+      timeout: "00:05:00"
+    - if:
+        - condition: state
+          entity_id: media_player.tv_room_tv_room
+          attribute: is_volume_muted
+          state: true
+      then:
+        - action: media_player.volume_mute
+          target:
+            entity_id: media_player.tv_room_tv_room
+          data:
+            is_volume_muted: false

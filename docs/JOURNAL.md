@@ -18,18 +18,19 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Home Assistant OS / Supervisor / Core | 18.3 / 2026.10.3 / 2026.10.2 |
 | SSH | Terminal & SSH app 10.5.0; from the PC: `ssh homeassistant` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
-| Dock software | Local app `local_streamdock_n3` v0.4.0-11, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
-| HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle` |
+| Dock software | Local app `local_streamdock_n3` v0.4.0-14, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
+| HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle`, `automation.streaming_pause_mute` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
 
 ### Repo layout
 
 | Path | Purpose |
 |---|---|
-| `homeassistant/streamdock_n3/` | The HA app (Dockerfile, `config.yaml`, `run.sh` watchdog, `ha_daemon.py` live key state + HA calls, `knob_accel.py` Apple TV knob engine, `atv_touch.py` Companion touch connection, `yt_lounge.py` + `yt_chapters.py` YouTube link and chapters, `ha-call`, `patch_ids.py`, `DOCS.md`) |
+| `homeassistant/streamdock_n3/` | The HA app (Dockerfile, `config.yaml`, `run.sh` watchdog, `ha_daemon.py` live key state + HA calls, `knob_accel.py` Apple TV knob engine, `atv_touch.py` Companion touch connection, `yt_lounge.py` + `yt_chapters.py` YouTube link and chapters, `np_log.py` now-playing log, `ha-call`, `patch_ids.py`, `DOCS.md`) |
 | `homeassistant/streamdock_n3/config.tv_room.json` | Live dock mappings (source of truth) |
 | `homeassistant/streamdock_n3/icons/` | Key images, deployed to `/app_configs/local_streamdock_n3/icons/` (`/config/icons/` in the app) |
 | `homeassistant/ha-config/scripts/*.yaml` | HA scripts, one top-level key per file |
+| `homeassistant/ha-config/automations/*.yaml` | HA automations, one `- id:` entry per file |
 | `homeassistant/restore.sh` | Restore everything above onto a HAOS device |
 | `homeassistant/pair.sh` | Pair the Apple TV (touch) and link YouTube apps; `status` |
 
@@ -315,6 +316,58 @@ script cannot.
   The scripts pass `--lines 1000`; without it, busy logs (knob turns) hid
   startup and pairing results.
 
+### 2026-10-24 — Now-playing log for ad research
+
+- Outside YouTube there is no ad signal, so `np_log.py` records how the Apple
+  TV's HA media player changes: only changed fields per line (state, app,
+  title, series/episode, content type/id, duration), plus `pos_jump` when the
+  reported position doesn't match continuous playback since the last report.
+  Output goes to the app log (`np:`) and to `/app_configs/local_streamdock_n3/now_playing.log`
+  (2 MB cap). Enabled by `"now_playing_log": {"entities": [...]}`.
+- Simulated ad break: quiet during normal progress; one line on the ad
+  (title blanked, 30 s duration, position jumped to 0) and one on the way back.
+- Live: logs the Apple TV app as `com.apple.TVWatchList` with title,
+  content id, duration and position.
+- **Tubi (`com.adrise.tubitv`), first capture** (ad break triggered by
+  scrubbing past an ad marker; pod of 60 + 45 + 4 × 15 s = 165 s):
+  - During the break HA reported nothing new. The state stayed `paused` for
+    the whole 165 s while ads played, and title, duration and content id
+    were unchanged.
+  - At the end the state became `playing` with a forward jump of exactly the
+    pod length (1719 → 1884 s), then about 2 s later a jump back to movie
+    time (1885 → 1752 s). Tubi stitches ads into the timeline, then maps
+    back.
+  - So the end of a break is unambiguous; its start ("paused") looks like a
+    user pause. The log now also records `supported_features` (Tubi normal:
+    450487) and the position timestamp.
+- **Second capture** (natural 30 s break; pause/play pressed during it): the
+  break again started as `paused` on time, with `supported_features`
+  unchanged. The pause/play during the ad left no trace (Tubi locks
+  playback during breaks), and this time no end was reported at all; HA
+  stayed `paused` after the movie resumed.
+- Conclusion: Tubi ads can't be skipped (server-side stitched, playback
+  locked). "Paused in Tubi" is the only live signal, and its end may never
+  arrive.
+- **Solution: `automation.streaming_pause_mute`** (HA automation, so it is
+  visible in the HA UI and works without the app;
+  `ha-config/automations/streaming_pause_mute.yaml`). Confirmed on Tubi,
+  then generalized to every app. When the Apple TV goes `paused` in any app
+  (app_id set) while the Arc plays TV audio (`source` = `TV`) and isn't
+  muted, it mutes the Arc. It unmutes when the state leaves `paused`, the
+  app changes, the Arc's source changes (music started on the Arc), or after
+  5 minutes (the cap covers a missing end report). It only undoes its own
+  mute: it skips if the Arc was already muted and backs off if unmuted by
+  hand. A deliberate pause also mutes, which is harmless while paused.
+- Arc `source` is `TV` while it plays the TV/Apple TV and empty for music
+  (read from HA's recorder DB; Sonos states aren't in `core.restore_state`).
+- The first, Tubi-only version (`tubi_ad_mute`) was removed from
+  `automations.yaml`; its orphaned registry entry
+  `automation.tubi_ad_break_mute` can be deleted in HA → Settings →
+  Entities.
+- `restore.sh` now adds missing automations by `id` (as it does scripts by
+  key) and checks their entities. Fixed on the way: under `set -e`, a final
+  `[ … ] && …` inside a function aborted the script when nothing was added.
+
 ### 2026-10-23 — Repository
 
 - Published to [a-tsygankov/action-ring](https://github.com/a-tsygankov/action-ring)
@@ -330,7 +383,7 @@ script cannot.
       note which apps' players respond to touch scrubbing.
 - [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
       chapter there (Apple TV done).
-- [ ] Ad detection outside YouTube (Tubi etc. on Apple TV): log Apple TV
-      now-playing changes during an ad break, then derive a per-app rule.
+- [ ] Streaming pause mute: confirm in a second app (e.g. pause in the TV
+      app: mutes, resumes with sound); Tubi confirmed.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.
