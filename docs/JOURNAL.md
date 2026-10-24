@@ -81,12 +81,21 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 bash homeassistant/restore.sh
 ```
 
-Idempotent. It checks the mapped entities exist, adds missing HA scripts
-(backing up `scripts.yaml`, then `ha core check` + restart), uploads and
-builds the app (patching in the dock's by-id link found on the target),
-deploys the mappings (backing up any existing `config.json`), restarts the
-app and confirms the controller is running. Verified against the live Pi on
-2026-10-23.
+Idempotent. Steps:
+
+1. Checks that the mapped entities exist in HA.
+2. Adds missing HA scripts and automations (backup first, then
+   `ha core check` + restart). Entries that differ from the repo are kept
+   unless you pass `--replace-ha-config`.
+3. Uploads and builds the app, patching in the dock's by-id link found on
+   the target.
+4. Deploys the mappings and icons, backing up any existing `config.json`.
+5. Restarts the app and confirms the controller is running.
+6. Pairs the Apple TV via `pair.sh atv` if needed (prompts for the PIN),
+   then prints `pair.sh status`.
+
+Link YouTube apps afterwards with `bash homeassistant/pair.sh youtube <screen>`.
+Verified against the live Pi.
 
 Alternative for a like-for-like replacement: a full HA backup
 (**Settings → System → Backups**) also carries integration pairings, which the
@@ -367,6 +376,22 @@ script cannot.
 - `restore.sh` now adds missing automations by `id` (as it does scripts by
   key) and checks their entities. Fixed on the way: under `set -e`, a final
   `[ … ] && …` inside a function aborted the script when nothing was added.
+- **Per-app pause reporting** (from `now_playing.log` and the recorder DB):
+  - **Pluto TV** (`tv.pluto.ios`) reports `paused`; the Arc muted and
+    unmuted on every pause/resume (23:05–23:08 on 2026-10-23).
+  - **Netflix** (`com.netflix.Netflix`) reports a pause as `idle` and
+    publishes no title/position, so a `paused` trigger never fired. The
+    automation now also triggers on `idle` for apps in `idle_pause_apps`
+    (Netflix), and resume is any state other than paused/idle. Trade-off:
+    Netflix menus are `idle` too, so menu trailers stay muted until play,
+    app change or the 5-minute cap.
+  - The Apple TV shows no mute icon: the mute is on the Arc, not the Apple
+    TV.
+- `restore.sh` updates existing HA entries on request: each entry (script
+  key / automation `- id:` item) is compared with the repo fragment. A
+  missing one is added; a matching one is left alone; a differing one is
+  reported and kept unless `--replace-ha-config` is given (backup first).
+  Edits made in HA's UI are never overwritten silently.
 
 ### 2026-10-23 — Repository
 
@@ -383,7 +408,8 @@ script cannot.
       note which apps' players respond to touch scrubbing.
 - [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
       chapter there (Apple TV done).
-- [ ] Streaming pause mute: confirm in a second app (e.g. pause in the TV
-      app: mutes, resumes with sound); Tubi confirmed.
+- [ ] Streaming pause mute: confirm Netflix (idle-as-pause); Tubi and Pluto
+      confirmed. Decide on a visible mute indicator (the Apple TV can't show
+      the Arc's mute).
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.

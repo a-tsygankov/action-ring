@@ -2,14 +2,26 @@
 # Restore the ActionRing N3 / Home Assistant setup from this repo onto a
 # Home Assistant OS device. Idempotent: safe to re-run on a configured device.
 #
-#   homeassistant/restore.sh [ssh-host]        (default host: homeassistant)
+#   homeassistant/restore.sh [--replace-ha-config] [ssh-host]
+#
+# HA scripts/automations from ha-config/ are added when missing. One that
+# exists but differs from the repo is reported and kept (it may have been
+# edited in HA's UI) unless --replace-ha-config is given.
 #
 # Prerequisites (manual, see docs/JOURNAL.md "Restore"): HAOS onboarded,
 # Terminal & SSH app accepting this PC's key, integrations paired, dock
 # plugged into the Pi.
 set -euo pipefail
 
-HOST="${1:-homeassistant}"
+HOST=homeassistant
+REPLACE=0
+for arg in "$@"; do
+    case "$arg" in
+        --replace-ha-config) REPLACE=1 ;;
+        -*) echo "unknown option: $arg" >&2; exit 2 ;;
+        *) HOST=$arg ;;
+    esac
+done
 HERE="$(cd "$(dirname "$0")" && pwd)"
 APP=streamdock_n3
 SLUG=local_streamdock_n3
@@ -43,30 +55,50 @@ else
 fi
 
 # --- HA scripts and automations -------------------------------------------
-# Append each repo fragment that HA doesn't have yet (backing the file up
-# first); existing entries are left alone, so edits made in HA survive.
-#   add_fragments <ha yaml file> <repo dir> <name-of-entry regex prefix>
+# Each repo fragment is one entry: a top-level "name:" (scripts) or one
+# "- id: name" list item (automations). On the Pi the matching entry is found
+# as the lines from its start up to the next entry, then:
+#   missing          -> appended                          ("added")
+#   same as repo     -> left alone                        ("present")
+#   differs          -> kept, unless --replace-ha-config  ("differs" / "updated")
+# The HA file is backed up before any write.
+# Remote helper: sh -s <file> <start-regex> <next-entry-regex> <fragment> <replace> <stamp>
+MERGE_ENTRY='
+f=$1 start=$2 nxt=$3 frag=$4 replace=$5 stamp=$6
+touch "$f"
+pick() { awk -v s="$start" -v n="$nxt" "on && \$0 ~ n {on=0} \$0 ~ s {on=1} $1" "$f"; }
+block=$(pick on)
+if [ -z "$block" ]; then action=added
+elif [ "$block" = "$(cat "$frag")" ]; then echo present; exit 0
+elif [ "$replace" = 1 ]; then action=updated
+else echo "differs from repo (kept; --replace-ha-config to update)"; exit 0
+fi
+cp "$f" "$f.bak-$stamp"
+pick "!on" > "$f.new"
+# A fresh install may hold an empty mapping/list literal; drop it.
+if grep -qxE "\{\}|\[\]" "$f.new"; then : > "$f.new"; fi
+if [ -s "$f.new" ] && [ -n "$(tail -c1 "$f.new")" ]; then echo >> "$f.new"; fi
+cat "$frag" >> "$f.new" && mv "$f.new" "$f"
+echo "$action"
+'
 core_restart=
 add_fragments() {
-    local target=$1 dir=$2 kind=$3 frag key pattern result
+    local target=$1 dir=$2 kind=$3 frag key start nxt result
     for frag in "$dir"/*.yaml; do
         [ -e "$frag" ] || continue
         if [ "$kind" = script ]; then
-            key=$(head -1 "$frag" | sed 's/:.*//')          # "name:" at top level
-            pattern="^$key:"
+            key=$(head -1 "$frag" | sed 's/:.*//')                   # "name:"
+            start="^$key:"
+            nxt='^[A-Za-z0-9_]+:'
         else
             key=$(head -1 "$frag" | sed "s/^- id: *//; s/['\"]//g")  # "- id: name"
-            pattern="^- id: ['\\\"]?$key['\\\"]?\$"
+            start="^- id: .?$key.?\$"
+            nxt='^- '
         fi
-        result=$(ssh_ha "f=$target; touch \$f
-            if grep -qE \"$pattern\" \$f; then echo present; exit; fi
-            cp \$f \$f.bak-$STAMP
-            # A fresh install may hold an empty mapping/list literal; drop it.
-            if grep -qxE '\\{\\}|\\[\\]' \$f; then : > \$f; fi
-            [ -s \$f ] && [ -n \"\$(tail -c1 \$f)\" ] && echo >> \$f
-            cat >> \$f; echo added" < "$frag")
+        ssh_ha "cat > /tmp/ha-fragment.yaml" < "$frag"
+        result=$(ssh_ha "sh -s -- $target '$start' '$nxt' /tmp/ha-fragment.yaml $REPLACE $STAMP" <<<"$MERGE_ENTRY")
         echo "$kind $key: $result"
-        if [ "$result" = added ]; then core_restart=1; fi
+        case "$result" in added|updated) core_restart=1 ;; esac
     done
 }
 step "Home Assistant scripts and automations"
