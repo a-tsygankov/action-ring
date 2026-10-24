@@ -30,6 +30,9 @@ Runs the upstream daemon unchanged and adds:
 
 4. YouTube (yt_lounge.py): {"youtube": "next_chapter"} jumps to the next
    chapter of the video playing in a linked YouTube TV app.
+
+5. Now-playing log (np_log.py): "now_playing_log": {"entities": [...]} logs
+   what changes in those media players, to find ad markers per app.
 """
 
 from __future__ import annotations
@@ -60,6 +63,7 @@ _device = None
 _draw_lock = threading.Lock()
 _knobs: AppleTVKnobs | None = None
 _youtube: Any = None  # yt_lounge.YouTubeScreens
+_np_log: Any = None  # np_log.NowPlayingLog
 _keys: dict[str, dict] = {}  # config "keys", for key modes
 _shown_mode: dict[int, int] = {}  # key -> index of the mode on screen (-1 = base)
 
@@ -292,6 +296,9 @@ def _watch(bindings: dict[str, list[tuple[int, dict]]], extra: set[str]) -> None
                     for entity_id in entities:
                         show(entity_id)
                     _refresh_modes()
+                    if _np_log is not None:
+                        for entity_id in {*event.get("a", {}), *event.get("c", {})}:
+                            _np_log.update(entity_id, state_of(entity_id))
         except Exception as err:  # keep the keys alive across HA restarts
             print(f"ha-state: {err!r}; retrying in {RETRY_SECONDS}s", flush=True)
         # Show "unavailable" while disconnected, so stale state isn't trusted.
@@ -313,7 +320,7 @@ def _bindings(config: dict[str, Any]) -> dict[str, list[tuple[int, dict]]]:
 
 
 def main() -> int:
-    global _knobs, _youtube, _keys
+    global _knobs, _youtube, _keys, _np_log
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", type=Path)
     args, _ = parser.parse_known_args()
@@ -322,6 +329,12 @@ def main() -> int:
 
     bindings = _bindings(config)
     extra: set[str] = _mode_entities()
+    np_entities = (config.get("now_playing_log") or {}).get("entities") or []
+    if np_entities:
+        from np_log import NowPlayingLog
+
+        _np_log = NowPlayingLog(np_entities)
+        extra |= set(np_entities)
     yt = config.get("youtube")
     if isinstance(yt, dict) and yt.get("screens"):
         try:

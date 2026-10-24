@@ -18,7 +18,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Home Assistant OS / Supervisor / Core | 18.3 / 2026.10.3 / 2026.10.2 |
 | SSH | Terminal & SSH app 10.5.0; from the PC: `ssh homeassistant` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
-| Dock software | Local app `local_streamdock_n3` v0.4.0-11, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
+| Dock software | Local app `local_streamdock_n3` v0.4.0-12, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
 | HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
 
@@ -26,7 +26,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 
 | Path | Purpose |
 |---|---|
-| `homeassistant/streamdock_n3/` | The HA app (Dockerfile, `config.yaml`, `run.sh` watchdog, `ha_daemon.py` live key state + HA calls, `knob_accel.py` Apple TV knob engine, `atv_touch.py` Companion touch connection, `yt_lounge.py` + `yt_chapters.py` YouTube link and chapters, `ha-call`, `patch_ids.py`, `DOCS.md`) |
+| `homeassistant/streamdock_n3/` | The HA app (Dockerfile, `config.yaml`, `run.sh` watchdog, `ha_daemon.py` live key state + HA calls, `knob_accel.py` Apple TV knob engine, `atv_touch.py` Companion touch connection, `yt_lounge.py` + `yt_chapters.py` YouTube link and chapters, `np_log.py` now-playing log, `ha-call`, `patch_ids.py`, `DOCS.md`) |
 | `homeassistant/streamdock_n3/config.tv_room.json` | Live dock mappings (source of truth) |
 | `homeassistant/streamdock_n3/icons/` | Key images, deployed to `/app_configs/local_streamdock_n3/icons/` (`/config/icons/` in the app) |
 | `homeassistant/ha-config/scripts/*.yaml` | HA scripts, one top-level key per file |
@@ -315,6 +315,19 @@ script cannot.
   The scripts pass `--lines 1000`; without it, busy logs (knob turns) hid
   startup and pairing results.
 
+### 2026-10-24 — Now-playing log for ad research
+
+- Outside YouTube there is no ad signal, so `np_log.py` records how the Apple
+  TV's HA media player changes: only changed fields per line (state, app,
+  title, series/episode, content type/id, duration), plus `pos_jump` when the
+  reported position doesn't match continuous playback since the last report.
+  Output goes to the app log (`np:`) and to `/app_configs/local_streamdock_n3/now_playing.log`
+  (2 MB cap). Enabled by `"now_playing_log": {"entities": [...]}`.
+- Simulated ad break: quiet during normal progress; one line on the ad
+  (title blanked, 30 s duration, position jumped to 0) and one on the way back.
+- Live: logs the Apple TV app as `com.apple.TVWatchList` with title,
+  content id, duration and position.
+
 ### 2026-10-23 — Repository
 
 - Published to [a-tsygankov/action-ring](https://github.com/a-tsygankov/action-ring)
@@ -330,7 +343,8 @@ script cannot.
       note which apps' players respond to touch scrubbing.
 - [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
       chapter there (Apple TV done).
-- [ ] Ad detection outside YouTube (Tubi etc. on Apple TV): log Apple TV
-      now-playing changes during an ad break, then derive a per-app rule.
+- [ ] Ad detection outside YouTube (Tubi etc. on Apple TV): logging is live
+      (`now_playing.log`); capture a Tubi ad break, then derive a per-app
+      rule.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.

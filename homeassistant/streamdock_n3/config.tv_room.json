@@ -1,6 +1,7 @@
 {
   "brightness": 60,
   "grab_evdev": true,
+  "now_playing_log": { "entities": ["media_player.vugitv_4k_vugitv_4k"] },
   "youtube": {
     "screens": {
       "lg": {
