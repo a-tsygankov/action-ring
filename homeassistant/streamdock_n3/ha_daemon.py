@@ -55,6 +55,14 @@ Runs the upstream daemon unchanged and adds:
    "tabs.launch": lg, atv, atv_remote, atv_source, power_on_wait);
    {"next_playing": [entities]} skips to the next track on the first playing
    speaker that leads its group.
+
+8. Live soccer (soccer.py): a "soccer" config section (atv, atv_remote, lg,
+   atv_source, power_on_wait, token_page, cache_s, poll_s, select_after_s)
+   polls the Apple TV app listing for live Paramount+ / MLS games.
+   {"soccer": "start"} powers on and plays the first, {"soccer": "next"}
+   the next one (wrapping). Condition "soccer_live" holds while any game is
+   live; labels get {soccer_count} and {soccer_pos}; context "live_game"
+   applies while a started game's app is in the foreground.
 """
 
 from __future__ import annotations
@@ -85,6 +93,7 @@ TICK_SECONDS = 0.2
 SLOW_PASS_SECONDS = 0.5
 EMPTY_LOOK = Look(None, "", "#000000")  # a key the visible page leaves undefined
 YOUTUBE_COMMANDS = ("next_chapter", "next", "previous", "play_pause", "subtitles")
+SOCCER_COMMANDS = ("start", "next")
 
 _ready = threading.Event()
 _device = None
@@ -92,6 +101,7 @@ _draw_lock = threading.Lock()
 _knobs: AppleTVKnobs | None = None
 _youtube: Any = None  # yt_lounge.YouTubeScreens
 _np_log: Any = None  # np_log.NowPlayingLog
+_soccer: Any = None  # soccer.LiveSoccer; set in main() with a "soccer" config
 _engine = TabEngine({}, {})  # replaced in main() before the device starts
 _ctx_cfg: dict | None = None  # config "tabs.context"; None = no context detection
 _launch_cfg: dict | None = None  # config "tabs.launch"; None = launch actions do nothing
@@ -115,15 +125,18 @@ _conds: dict[str, Callable[[], bool]] = {
     "youtube": lambda: _youtube is not None and _youtube.any_active(),
     "youtube_playing": lambda: _youtube is not None and _youtube.playing(),
     "youtube_subtitles": lambda: _youtube is not None and _youtube.subtitles_on(),
+    "soccer_live": lambda: _soccer is not None and bool(_soccer.games()),
 }
 
-# Whether the Apple TV is showing a live soccer game (context "live_game").
-_watching_game: Callable[[], bool] = lambda: False  # noqa: E731
+
+def _watching_game() -> bool:
+    """Whether the Apple TV is showing a live soccer game (context "live_game")."""
+    return _soccer is not None and _soccer.watching(state_of)
 
 
 def _vars() -> dict[str, str]:
     """Values for {name} placeholders in key labels."""
-    return {}
+    return _soccer.vars() if _soccer is not None else {}
 
 
 def _signal() -> None:
@@ -168,6 +181,15 @@ def _run_actions(actions: Any, *, dry_run: bool) -> None:
             return
         # Lounge commands wait on the network; keep the SDK reader thread free.
         run = _youtube.next_chapter if command == "next_chapter" else lambda: _youtube.command(command)
+        threading.Thread(target=_safe, args=(run,), daemon=True).start()
+        return
+    if isinstance(actions, dict) and "soccer" in actions:
+        command = actions["soccer"]
+        if dry_run or _soccer is None or command not in SOCCER_COMMANDS:
+            print(f"soccer: ignoring {command!r}", flush=True)
+            return
+        # Fetching, powering on and the select check take seconds.
+        run = _soccer.start if command == "start" else _soccer.next
         threading.Thread(target=_safe, args=(run,), daemon=True).start()
         return
     if isinstance(actions, dict) and "launch" in actions:
@@ -425,7 +447,7 @@ def _watch(entities: list[str]) -> None:
 
 
 def main() -> int:
-    global _knobs, _youtube, _np_log, _engine, _ctx_cfg, _launch_cfg, _core
+    global _knobs, _youtube, _np_log, _engine, _ctx_cfg, _launch_cfg, _core, _soccer
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", type=Path)
     args, _ = parser.parse_known_args()
@@ -443,6 +465,13 @@ def main() -> int:
         _launch_cfg = tabs_cfg["launch"]
         entities |= {e for e in (_launch_cfg.get("lg"),) if e}
     entities |= _action_entities(pages)
+    soccer_cfg = config.get("soccer")
+    if isinstance(soccer_cfg, dict):
+        from soccer import LiveSoccer
+
+        _soccer = LiveSoccer(_core.call, state_of, soccer_cfg, on_change=_signal)
+        entities |= {e for e in (soccer_cfg.get("lg"), soccer_cfg.get("atv")) if e}
+        threading.Thread(target=_soccer.poll_forever, daemon=True).start()
     np_entities = (config.get("now_playing_log") or {}).get("entities") or []
     if np_entities:
         from np_log import NowPlayingLog

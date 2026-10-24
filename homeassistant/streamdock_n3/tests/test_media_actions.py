@@ -1,6 +1,6 @@
 """media_actions: power-first app launch and next track on the playing speaker."""
 
-from media_actions import launch, next_playing
+from media_actions import ensure_on, launch, next_playing
 
 LG = "media_player.lg_tv_2"
 ATV = "media_player.atv"
@@ -111,6 +111,20 @@ def test_launch_lg_uses_launcher():
             },
         )
     ]
+
+
+def test_ensure_on_does_nothing_when_on():
+    rec, st = Recorder(), {LG: {"s": "on", "a": {}}}
+    assert ensure_on(rec, st.get, CFG)
+    assert rec.calls == []
+
+
+def test_ensure_on_false_when_tv_never_wakes(capsys):
+    rec, st = Recorder(), {LG: {"s": "off", "a": {}}}
+    t = FakeTime()
+    assert ensure_on(rec, st.get, CFG, sleep=t.sleep, clock=t.clock) is False
+    assert rec.names() == [("remote", "turn_on"), ("media_player", "turn_on")]
+    assert capsys.readouterr().out == ""  # callers log with their own prefix
 
 
 def test_next_playing_skips_group_members_and_idle():

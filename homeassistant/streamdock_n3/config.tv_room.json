@@ -34,6 +34,17 @@
     "fast_interval": 0.08,
     "nav_delay": 0.05
   },
+  "soccer": {
+    "atv": "media_player.vugitv_4k_vugitv_4k",
+    "atv_remote": "remote.vugitv_4k_vugitv_4k",
+    "lg": "media_player.lg_tv_2",
+    "atv_source": "Apple OTT",
+    "power_on_wait": 25,
+    "token_page": "https://tv.apple.com/us/channel/mls/tvs.sbd.7000",
+    "cache_s": 60,
+    "poll_s": 180,
+    "select_after_s": 8
+  },
   "tabs": {
     "timeouts": { "open": 10, "after_press": 5, "context_debounce": 1 },
     "round": { "7": ["apps", "apps_more"], "8": ["sonos"] },
@@ -168,7 +179,11 @@
             ],
             "action": "ha-call script.turn_on '{\"entity_id\":\"script.tv_room_power_toggle\"}'"
           },
-          "2": { "icon": "soccer_live__none" },
+          "2": {
+            "icon": "soccer_live__none", "label": "",
+            "modes": [ { "when": "soccer_live", "icon": "soccer_live__live" } ],
+            "action": { "soccer": "start" }
+          },
           "3": {
             "icon": "apple_tv_input",
             "action": "ha-call media_player.select_source '{\"entity_id\":\"media_player.lg_tv_2\",\"source\":\"Apple OTT\"}'"
@@ -341,10 +356,7 @@
             ],
             "action": "ha-call media_player.media_play_pause '{\"entity_id\":\"media_player.vugitv_4k_vugitv_4k\"}'"
           },
-          "2": {
-            "icon": "skip_back_10",
-            "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"skip_backward\"}'"
-          },
+          "2": { "label": "NEXT\\n{soccer_pos}", "color": "#1d6b32", "action": { "soccer": "next" } },
           "3": {
             "icon": "night__off",
             "state_entity": "switch.tv_room_tv_room_night_sound",

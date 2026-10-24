@@ -1,7 +1,7 @@
-"""Media key actions: launch an app (powering the TV on first) and next track.
+"""Media key actions: power the TV on, launch an app, and next track.
 
 Pure functions of an injected service `call` (as CoreAPI.call), a state lookup
-and, for launch, an injectable sleep/clock, so they are testable without Home
+and, for power-on, an injectable sleep/clock, so they are testable without Home
 Assistant or the device.
 """
 
@@ -23,6 +23,38 @@ def _lg_on(state_of: StateLookup, lg: str) -> bool:
     return variant(st.get("s") if st else None) == "on"
 
 
+def ensure_on(
+    call: Call,
+    state_of: StateLookup,
+    cfg: dict,
+    *,
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+) -> bool:
+    """Power the TV on through the Apple TV if it is off; False if it stayed off."""
+    lg = cfg["lg"]
+    if _lg_on(state_of, lg):
+        return True
+    # Apple TV first: its HDMI-CEC wake-up powers the LG. The remote
+    # turn_on also heals a disconnected HA remote.
+    call("remote", "turn_on", {"entity_id": cfg["atv_remote"]})
+    sleep(REMOTE_SETTLE_SECONDS)
+    call("media_player", "turn_on", {"entity_id": cfg["atv"]})
+    deadline = clock() + float(cfg.get("power_on_wait", 25))
+    while not _lg_on(state_of, lg):
+        if clock() >= deadline:
+            return False
+        sleep(POLL_SECONDS)
+    return True
+
+
+def select_atv_input(call: Call, state_of: StateLookup, cfg: dict) -> None:
+    """Switch the LG to the Apple TV input ("atv_source") unless it is already there."""
+    lg, source = cfg["lg"], cfg["atv_source"]
+    if ((state_of(lg) or {}).get("a") or {}).get("source") != source:
+        call("media_player", "select_source", {"entity_id": lg, "source": source})
+
+
 def launch(
     call: Call,
     state_of: StateLookup,
@@ -35,23 +67,11 @@ def launch(
 ) -> bool:
     """Start `app` on the Apple TV ("atv") or the LG itself ("lg"); False if the TV stayed off."""
     lg, atv = cfg["lg"], cfg["atv"]
-    if not _lg_on(state_of, lg):
-        # Apple TV first: its HDMI-CEC wake-up powers the LG. The remote
-        # turn_on also heals a disconnected HA remote.
-        call("remote", "turn_on", {"entity_id": cfg["atv_remote"]})
-        sleep(REMOTE_SETTLE_SECONDS)
-        call("media_player", "turn_on", {"entity_id": atv})
-        deadline = clock() + float(cfg.get("power_on_wait", 25))
-        while not _lg_on(state_of, lg):
-            if clock() >= deadline:
-                print("launch: TV did not turn on", flush=True)
-                return False
-            sleep(POLL_SECONDS)
+    if not ensure_on(call, state_of, cfg, sleep=sleep, clock=clock):
+        print("launch: TV did not turn on", flush=True)
+        return False
     if device == "atv":
-        source = cfg["atv_source"]
-        lg_state = state_of(lg) or {}
-        if (lg_state.get("a") or {}).get("source") != source:
-            call("media_player", "select_source", {"entity_id": lg, "source": source})
+        select_atv_input(call, state_of, cfg)
         call(
             "media_player",
             "play_media",

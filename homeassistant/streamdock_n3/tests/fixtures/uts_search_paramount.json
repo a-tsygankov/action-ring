@@ -1,0 +1,893 @@
+{
+ "data": {
+  "channels": {
+   "tvs.sbd.10120": {
+    "id": "tvs.sbd.10120",
+    "appName": "Paramount+",
+    "appBundleIds": [
+     "com.cbsvideo.app"
+    ]
+   }
+  },
+  "shelf": {
+   "id": "uts.col.search.SE",
+   "displayType": "sportsCardLockup",
+   "header": {
+    "supportsSeeAllView": true,
+    "title": "Sports",
+    "url": "https://tv.apple.com/us/shelf/sports/uts.col.search.SE?searchTerm=Paramount+"
+   },
+   "items": [
+    {
+     "airingType": "Live",
+     "competitors": [
+      {
+       "abbreviation": "POR",
+       "backgroundColor": "#0D2999",
+       "id": "umc.cst.5lfb8q9zbquvf7q4x09nqgw4k",
+       "isFavorite": false,
+       "isHome": true,
+       "leagueId": "umc.csl.59w1rdae5wd4y5384jfbfda32",
+       "name": "Portsmouth FC",
+       "shortName": "Portsmouth",
+       "type": "Team"
+      },
+      {
+       "abbreviation": "MIL",
+       "backgroundColor": "#051547",
+       "id": "umc.cst.5jr8j92qeszxl6mds01w2eoc3",
+       "isFavorite": false,
+       "isHome": false,
+       "leagueId": "umc.csl.59w1rdae5wd4y5384jfbfda32",
+       "name": "Millwall FC",
+       "shortName": "Millwall",
+       "type": "Team"
+      }
+     ],
+     "eventTime": {
+      "gameKickOffStartTime": 1792841400000,
+      "liveBadgeTime": {
+       "endTime": 1792856100000,
+       "startTime": 1792841400000
+      },
+      "playerInfoDisplayTime": {
+       "endTime": 1792852200000,
+       "startTime": 1792841400000
+      },
+      "playerInfoTransportBarTime": {
+       "endTime": 1792852200000,
+       "startTime": 1792841400000
+      },
+      "tuneInTime": {
+       "endTime": 1792856100000,
+       "startTime": 1792841400000
+      }
+     },
+     "id": "umc.cse.4wrf8hojx3x43yehe5k2c4v18",
+     "intents": [
+      "NAVIGATE"
+     ],
+     "isEligibleForMultiView": false,
+     "isGeoRestricted": false,
+     "leagueAbbreviation": "engchm",
+     "leagueId": "umc.csl.59w1rdae5wd4y5384jfbfda32",
+     "leagueName": "EFL Championship",
+     "leagueShortName": "EFL Championship",
+     "playables": [
+      {
+       "airingType": "Live",
+       "canonicalId": "umc.cse.4wrf8hojx3x43yehe5k2c4v18",
+       "channelId": "tvs.sbd.10120",
+       "contentId": "umc.cmr.ppebs.sp.6b1uyel1n6s03vsidsy9to50e",
+       "contentType": "SportingEvent",
+       "entitlementReason": "Unknown",
+       "eventTime": {
+        "gameKickOffStartTime": 1792841400000,
+        "liveBadgeTime": {
+         "endTime": 1792856100000,
+         "startTime": 1792841400000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792852200000,
+         "startTime": 1792841400000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792852200000,
+         "startTime": 1792841400000
+        },
+        "tuneInTime": {
+         "endTime": 1792856100000,
+         "startTime": 1792841400000
+        }
+       },
+       "externalId": "37dda9c5-8427-4f37-9d51-17d40ef80a61",
+       "externalServiceId": "com.CBS.CBSTV.US.ebs.sub-v3",
+       "id": "tvs.sbd.10120:37dda9c5-8427-4f37-9d51-17d40ef80a61:21dfba98",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": false,
+       "isEntitledToPlayOnDevice": false,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isUpgradeEligible": false,
+       "locales": [
+        {
+         "audioTrackFormats": [
+          "AAC"
+         ],
+         "displayName": "English (United States)",
+         "locale": "en_US"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": false,
+       "playbackModes": [
+        "Monoscopic"
+       ],
+       "primaryLocale": {
+        "displayName": "English (United States)",
+        "locale": "en_US"
+       },
+       "punchoutUrls": {
+        "open": "pplus://www.paramountplus.com/live-tv/stream/english-football-league/37dda9c5-8427-4f37-9d51-17d40ef80a61?searchReferral=appleatv&source=spotlight#open",
+        "play": "pplus://www.paramountplus.com/live-tv/stream/english-football-league/37dda9c5-8427-4f37-9d51-17d40ef80a61?searchReferral=appleatv&source=spotlight"
+       },
+       "releaseDate": 1792840800000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.1347622",
+       "serviceName": "US Digital Sports",
+       "title": "Portsmouth vs. Millwall",
+       "type": "EbsEvent",
+       "useSeparateQoSReportingBucket": false,
+       "videoColorRange": "SDR",
+       "videoQuality": "HD"
+      }
+     ],
+     "playbackModes": [
+      "Monoscopic"
+     ],
+     "requiresLocationConsent": false,
+     "secondaryActions": [
+      "AddToUpNext"
+     ],
+     "shortTitle": "Portsmouth vs. Millwall",
+     "showModal": false,
+     "sportId": "umc.csp.y1ye10qgphjwmbdsld07rf38",
+     "sportName": "Soccer",
+     "title": "Portsmouth FC vs. Millwall FC",
+     "type": "SportingEvent",
+     "url": "https://tv.apple.com/us/sporting-event/portsmouth-fc-vs-millwall-fc/umc.cse.4wrf8hojx3x43yehe5k2c4v18",
+     "clockScore": {
+      "clockTime": "90+4:00.000",
+      "hasEventEnded": true,
+      "periodType": "Half",
+      "periodValue": 2,
+      "lastUpdatedTime": 1792849990000
+     }
+    },
+    {
+     "airingType": "Live",
+     "competitors": [
+      {
+       "abbreviation": "CHA",
+       "backgroundColor": "#A73032",
+       "id": "umc.cst.h65ggmr83le4dvcu072sqp8b",
+       "isFavorite": false,
+       "isHome": true,
+       "leagueId": "umc.csl.59w1rdae5wd4y5384jfbfda32",
+       "name": "Charlton Athletic",
+       "shortName": "Charlton",
+       "type": "Team"
+      },
+      {
+       "abbreviation": "NOR",
+       "backgroundColor": "#3D8A48",
+       "id": "umc.cst.3bc6rx7ozo59nv00hjrz87xsc",
+       "isFavorite": false,
+       "isHome": false,
+       "leagueId": "umc.csl.59w1rdae5wd4y5384jfbfda32",
+       "name": "Norwich City",
+       "shortName": "Norwich",
+       "type": "Team"
+      }
+     ],
+     "eventTime": {
+      "gameKickOffStartTime": 1792841400000,
+      "liveBadgeTime": {
+       "endTime": 1792856100000,
+       "startTime": 1792841400000
+      },
+      "playerInfoDisplayTime": {
+       "endTime": 1792852200000,
+       "startTime": 1792841400000
+      },
+      "playerInfoTransportBarTime": {
+       "endTime": 1792852200000,
+       "startTime": 1792841400000
+      },
+      "tuneInTime": {
+       "endTime": 1792856100000,
+       "startTime": 1792841400000
+      }
+     },
+     "id": "umc.cse.37en2vfv6drgjmfc8axpibi8a",
+     "intents": [
+      "NAVIGATE"
+     ],
+     "isEligibleForMultiView": false,
+     "isGeoRestricted": false,
+     "leagueAbbreviation": "engchm",
+     "leagueId": "umc.csl.59w1rdae5wd4y5384jfbfda32",
+     "leagueName": "EFL Championship",
+     "leagueShortName": "EFL Championship",
+     "playables": [
+      {
+       "airingType": "Live",
+       "canonicalId": "umc.cse.37en2vfv6drgjmfc8axpibi8a",
+       "channelId": "tvs.sbd.10120",
+       "contentId": "umc.cmr.ppebs.sp.1jczbgfzmesm6arsea4uts232",
+       "contentType": "SportingEvent",
+       "entitlementReason": "Unknown",
+       "eventTime": {
+        "gameKickOffStartTime": 1792841400000,
+        "liveBadgeTime": {
+         "endTime": 1792856100000,
+         "startTime": 1792841400000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792852200000,
+         "startTime": 1792841400000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792852200000,
+         "startTime": 1792841400000
+        },
+        "tuneInTime": {
+         "endTime": 1792856100000,
+         "startTime": 1792841400000
+        }
+       },
+       "externalId": "aed28659-0eaf-4a61-b38d-415b491291a3",
+       "externalServiceId": "com.CBS.CBSTV.US.ebs.sub-v3",
+       "id": "tvs.sbd.10120:aed28659-0eaf-4a61-b38d-415b491291a3:21dfba98",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": false,
+       "isEntitledToPlayOnDevice": false,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isUpgradeEligible": false,
+       "locales": [
+        {
+         "audioTrackFormats": [
+          "AAC"
+         ],
+         "displayName": "English (United States)",
+         "locale": "en_US"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": false,
+       "playbackModes": [
+        "Monoscopic"
+       ],
+       "primaryLocale": {
+        "displayName": "English (United States)",
+        "locale": "en_US"
+       },
+       "punchoutUrls": {
+        "open": "pplus://www.paramountplus.com/live-tv/stream/english-football-league/aed28659-0eaf-4a61-b38d-415b491291a3?searchReferral=appleatv&source=spotlight#open",
+        "play": "pplus://www.paramountplus.com/live-tv/stream/english-football-league/aed28659-0eaf-4a61-b38d-415b491291a3?searchReferral=appleatv&source=spotlight"
+       },
+       "releaseDate": 1792840800000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.1347622",
+       "serviceName": "US Digital Sports",
+       "title": "Charlton Athletic vs. Norwich City",
+       "type": "EbsEvent",
+       "useSeparateQoSReportingBucket": false,
+       "videoColorRange": "SDR",
+       "videoQuality": "HD"
+      }
+     ],
+     "playbackModes": [
+      "Monoscopic"
+     ],
+     "requiresLocationConsent": false,
+     "secondaryActions": [
+      "AddToUpNext"
+     ],
+     "shortTitle": "Charlton vs. Norwich",
+     "showModal": false,
+     "sportId": "umc.csp.y1ye10qgphjwmbdsld07rf38",
+     "sportName": "Soccer",
+     "title": "Charlton Athletic vs. Norwich City",
+     "type": "SportingEvent",
+     "url": "https://tv.apple.com/us/sporting-event/charlton-athletic-vs-norwich-city/umc.cse.37en2vfv6drgjmfc8axpibi8a",
+     "clockScore": {
+      "clockTime": "52:10.000",
+      "hasEventEnded": false,
+      "periodType": "Half",
+      "periodValue": 2,
+      "lastUpdatedTime": 1792849990000
+     }
+    },
+    {
+     "airingType": "Live",
+     "competitors": [
+      {
+       "abbreviation": "TOT",
+       "backgroundColor": "#111836",
+       "id": "umc.cst.1440rrjdq8ro6pof9hjsfyvb",
+       "isFavorite": false,
+       "isHome": true,
+       "leagueId": "umc.csl.6mwap5v1y9bns4x629scmbimv",
+       "name": "Tottenham Hotspur",
+       "shortName": "Spurs",
+       "type": "Team"
+      },
+      {
+       "abbreviation": "ARS",
+       "backgroundColor": "#C52E32",
+       "id": "umc.cst.1rrq6s6vizzfswyfa613r63h0",
+       "isFavorite": false,
+       "isHome": false,
+       "leagueId": "umc.csl.1fved7t8i1upckle2tprgkg3",
+       "name": "Arsenal FC",
+       "shortName": "Arsenal",
+       "type": "Team"
+      }
+     ],
+     "eventTime": {
+      "gameKickOffStartTime": 1792842300000,
+      "liveBadgeTime": {
+       "endTime": 1792855800000,
+       "startTime": 1792842300000
+      },
+      "playerInfoDisplayTime": {
+       "endTime": 1792853100000,
+       "startTime": 1792842300000
+      },
+      "playerInfoTransportBarTime": {
+       "endTime": 1792853100000,
+       "startTime": 1792842300000
+      },
+      "tuneInTime": {
+       "endTime": 1792855800000,
+       "startTime": 1792842300000
+      }
+     },
+     "id": "umc.cse.7cplj98aglynqjm12kcaj9i11",
+     "intents": [
+      "NAVIGATE"
+     ],
+     "isEligibleForMultiView": false,
+     "isGeoRestricted": false,
+     "leagueAbbreviation": "fa_women_super_league",
+     "leagueId": "umc.csl.6mwap5v1y9bns4x629scmbimv",
+     "leagueName": "English Women's Super League",
+     "leagueShortName": "English Women's Super League",
+     "playables": [
+      {
+       "airingType": "Live",
+       "canonicalId": "umc.cse.7cplj98aglynqjm12kcaj9i11",
+       "channelId": "tvs.sbd.10120",
+       "contentId": "umc.cmr.ppebs.sp.4jifk0tbisi189bsgi4mzzqqj",
+       "contentType": "SportingEvent",
+       "entitlementReason": "Unknown",
+       "eventTime": {
+        "gameKickOffStartTime": 1792842300000,
+        "liveBadgeTime": {
+         "endTime": 1792855800000,
+         "startTime": 1792842300000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792853100000,
+         "startTime": 1792842300000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792853100000,
+         "startTime": 1792842300000
+        },
+        "tuneInTime": {
+         "endTime": 1792855800000,
+         "startTime": 1792842300000
+        }
+       },
+       "externalId": "cc754dad-9b46-42d5-8275-c6227a7c5472",
+       "externalServiceId": "com.CBS.CBSTV.US.ebs.sub-v3",
+       "id": "tvs.sbd.10120:cc754dad-9b46-42d5-8275-c6227a7c5472:eeca5a1a",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": false,
+       "isEntitledToPlayOnDevice": false,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isUpgradeEligible": false,
+       "locales": [
+        {
+         "audioTrackFormats": [
+          "AAC"
+         ],
+         "displayName": "English (United States)",
+         "locale": "en_US"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": false,
+       "playbackModes": [
+        "Monoscopic"
+       ],
+       "primaryLocale": {
+        "displayName": "English (United States)",
+        "locale": "en_US"
+       },
+       "punchoutUrls": {
+        "open": "pplus://www.paramountplus.com/live-tv/stream/barclays-womens-super-league/cc754dad-9b46-42d5-8275-c6227a7c5472?searchReferral=appleatv&source=spotlight#open",
+        "play": "pplus://www.paramountplus.com/live-tv/stream/barclays-womens-super-league/cc754dad-9b46-42d5-8275-c6227a7c5472?searchReferral=appleatv&source=spotlight"
+       },
+       "releaseDate": 1792841700000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.1347622",
+       "serviceName": "US Digital Sports",
+       "title": "Tottenham vs. Arsenal",
+       "type": "EbsEvent",
+       "useSeparateQoSReportingBucket": false,
+       "videoColorRange": "SDR",
+       "videoQuality": "HD"
+      }
+     ],
+     "playbackModes": [
+      "Monoscopic"
+     ],
+     "requiresLocationConsent": false,
+     "secondaryActions": [
+      "AddToUpNext"
+     ],
+     "shortTitle": "Spurs vs. Arsenal",
+     "showModal": false,
+     "sportId": "umc.csp.y1ye10qgphjwmbdsld07rf38",
+     "sportName": "Soccer",
+     "title": "Tottenham Hotspur vs. Arsenal FC",
+     "type": "SportingEvent",
+     "url": "https://tv.apple.com/us/sporting-event/tottenham-hotspur-vs-arsenal-fc/umc.cse.7cplj98aglynqjm12kcaj9i11"
+    },
+    {
+     "airingType": "Live",
+     "competitors": [
+      {
+       "abbreviation": "WIRL",
+       "id": "umc.cst.skg9j0ne4l5wvd65jdx9l2wr",
+       "isFavorite": false,
+       "isHome": false,
+       "leagueId": "",
+       "name": "Ireland",
+       "type": "Team"
+      },
+      {
+       "abbreviation": "WSAF",
+       "id": "umc.cst.5x0x29ae43gl5x4ot2jhrbd87",
+       "isFavorite": false,
+       "isHome": true,
+       "leagueId": "",
+       "name": "South Africa",
+       "type": "Team"
+      }
+     ],
+     "eventTime": {
+      "gameKickOffStartTime": 1792844400000,
+      "liveBadgeTime": {
+       "endTime": 1792860000000,
+       "startTime": 1792846800000
+      },
+      "playerInfoDisplayTime": {
+       "endTime": 1792857600000,
+       "startTime": 1792846800000
+      },
+      "playerInfoTransportBarTime": {
+       "endTime": 1792857600000,
+       "startTime": 1792846800000
+      },
+      "tuneInTime": {
+       "endTime": 1792860000000,
+       "startTime": 1792846800000
+      }
+     },
+     "id": "umc.cse.56sfsvxg99ms8o8ccz5kzxsca",
+     "intents": [
+      "NAVIGATE"
+     ],
+     "isEligibleForMultiView": false,
+     "isGeoRestricted": false,
+     "leagueAbbreviation": "wgs",
+     "leagueId": "umc.csl.5qqjycot47cim6ltsfj53voew",
+     "leagueName": "WXV Global Series",
+     "leagueShortName": "WXV Global Series",
+     "playables": [
+      {
+       "airingType": "Live",
+       "canonicalId": "umc.cse.56sfsvxg99ms8o8ccz5kzxsca",
+       "channelId": "tvs.sbd.10120",
+       "contentId": "umc.cmr.ppebs.sp.g9kj3i8r08gwktrqbavz200m",
+       "contentType": "SportingEvent",
+       "entitlementReason": "Unknown",
+       "eventTime": {
+        "gameKickOffStartTime": 1792844400000,
+        "liveBadgeTime": {
+         "endTime": 1792860000000,
+         "startTime": 1792846800000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792857600000,
+         "startTime": 1792846800000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792857600000,
+         "startTime": 1792846800000
+        },
+        "tuneInTime": {
+         "endTime": 1792860000000,
+         "startTime": 1792846800000
+        }
+       },
+       "externalId": "1a8188e5-e345-454b-b45d-86479a591762",
+       "externalServiceId": "com.CBS.CBSTV.US.ebs.sub-v3",
+       "id": "tvs.sbd.10120:1a8188e5-e345-454b-b45d-86479a591762:c1749012",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": false,
+       "isEntitledToPlayOnDevice": false,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isUpgradeEligible": false,
+       "locales": [
+        {
+         "audioTrackFormats": [
+          "AAC"
+         ],
+         "displayName": "English (United States)",
+         "locale": "en_US"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": false,
+       "playbackModes": [
+        "Monoscopic"
+       ],
+       "primaryLocale": {
+        "displayName": "English (United States)",
+        "locale": "en_US"
+       },
+       "punchoutUrls": {
+        "open": "pplus://www.paramountplus.com/live-tv/stream/world-rugby/1a8188e5-e345-454b-b45d-86479a591762?searchReferral=appleatv&source=spotlight#open",
+        "play": "pplus://www.paramountplus.com/live-tv/stream/world-rugby/1a8188e5-e345-454b-b45d-86479a591762?searchReferral=appleatv&source=spotlight"
+       },
+       "releaseDate": 1792846200000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.1347622",
+       "serviceName": "US Digital Sports",
+       "title": "South Africa vs. Ireland",
+       "type": "EbsEvent",
+       "useSeparateQoSReportingBucket": false,
+       "videoColorRange": "SDR",
+       "videoQuality": "HD"
+      }
+     ],
+     "playbackModes": [
+      "Monoscopic"
+     ],
+     "requiresLocationConsent": false,
+     "secondaryActions": [
+      "AddToUpNext"
+     ],
+     "shortTitle": "South Africa vs. Ireland",
+     "showModal": false,
+     "sportId": "umc.csp.4qqeu68fxugcno208uimt7b05",
+     "sportName": "Rugby",
+     "title": "South Africa vs. Ireland",
+     "type": "SportingEvent",
+     "url": "https://tv.apple.com/us/sporting-event/south-africa-vs-ireland/umc.cse.56sfsvxg99ms8o8ccz5kzxsca"
+    },
+    {
+     "airingType": "Live",
+     "competitors": [
+      {
+       "abbreviation": "CAG",
+       "backgroundColor": "#092a4c",
+       "id": "umc.cst.wiy2azl3lo3qstf8f5e4hvub",
+       "isFavorite": false,
+       "isHome": true,
+       "leagueId": "umc.csl.1wr618hvywicw1y9ib4uen974",
+       "name": "Cagliari Calcio",
+       "shortName": "Cagliari",
+       "type": "Team"
+      },
+      {
+       "abbreviation": "BOL",
+       "backgroundColor": "#1a2f48",
+       "id": "umc.cst.4c35a1k205oxq74gzbpnmyb8",
+       "isFavorite": false,
+       "isHome": false,
+       "leagueId": "umc.csl.1wr618hvywicw1y9ib4uen974",
+       "name": "Bologna FC 1909",
+       "nickname": "Bologna",
+       "shortName": "Bologna",
+       "type": "Team"
+      }
+     ],
+     "eventTime": {
+      "gameKickOffStartTime": 1792846800000,
+      "liveBadgeTime": {
+       "endTime": 1792858200000,
+       "startTime": 1792846800000
+      },
+      "playerInfoDisplayTime": {
+       "endTime": 1792857600000,
+       "startTime": 1792846800000
+      },
+      "playerInfoTransportBarTime": {
+       "endTime": 1792857600000,
+       "startTime": 1792846800000
+      },
+      "tuneInTime": {
+       "endTime": 1792858200000,
+       "startTime": 1792846800000
+      }
+     },
+     "id": "umc.cse.15ho9jsjw68gh9r3k0ju55qso",
+     "intents": [
+      "NAVIGATE"
+     ],
+     "isEligibleForMultiView": false,
+     "isGeoRestricted": false,
+     "leagueAbbreviation": "itsa",
+     "leagueId": "umc.csl.1wr618hvywicw1y9ib4uen974",
+     "leagueName": "Serie A",
+     "leagueShortName": "Serie A",
+     "playables": [
+      {
+       "airingType": "Live",
+       "canonicalId": "umc.cse.15ho9jsjw68gh9r3k0ju55qso",
+       "channelId": "tvs.sbd.1000371",
+       "contentId": "umc.cmr.ppebs.sp.xn0ud617pj4q7or7fkwnry4i",
+       "contentType": "SportingEvent",
+       "entitlementReason": "Unknown",
+       "eventTime": {
+        "gameKickOffStartTime": 1792846800000,
+        "liveBadgeTime": {
+         "endTime": 1792858200000,
+         "startTime": 1792846800000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792857600000,
+         "startTime": 1792846800000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792857600000,
+         "startTime": 1792846800000
+        },
+        "tuneInTime": {
+         "endTime": 1792858200000,
+         "startTime": 1792846800000
+        }
+       },
+       "externalId": "ef9c83d2-4f96-4473-8f98-fcba88795dec",
+       "externalServiceId": "com.CBS.CBSTV.US.ebs.sub-v3",
+       "id": "tvs.sbd.10120:ef9c83d2-4f96-4473-8f98-fcba88795dec:bd42be66",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": false,
+       "isEntitledToPlayOnDevice": false,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isUpgradeEligible": false,
+       "locales": [
+        {
+         "audioTrackFormats": [
+          "AAC"
+         ],
+         "displayName": "English (United States)",
+         "locale": "en_US"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": false,
+       "playbackModes": [
+        "Monoscopic"
+       ],
+       "primaryLocale": {
+        "displayName": "English (United States)",
+        "locale": "en_US"
+       },
+       "punchoutUrls": {
+        "open": "pplus://www.paramountplus.com/live-tv/stream/serie-a/ef9c83d2-4f96-4473-8f98-fcba88795dec?searchReferral=appleatv&source=spotlight#open",
+        "play": "pplus://www.paramountplus.com/live-tv/stream/serie-a/ef9c83d2-4f96-4473-8f98-fcba88795dec?searchReferral=appleatv&source=spotlight"
+       },
+       "releaseDate": 1792846200000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.1347622",
+       "serviceName": "US Digital Sports",
+       "title": "Cagliari vs. Bologna",
+       "type": "EbsEvent",
+       "useSeparateQoSReportingBucket": false,
+       "videoColorRange": "SDR",
+       "videoQuality": "HD"
+      }
+     ],
+     "playbackModes": [
+      "Monoscopic"
+     ],
+     "requiresLocationConsent": false,
+     "secondaryActions": [
+      "AddToUpNext"
+     ],
+     "shortTitle": "Cagliari vs. Bologna",
+     "showModal": false,
+     "sportId": "umc.csp.y1ye10qgphjwmbdsld07rf38",
+     "sportName": "Soccer",
+     "title": "Cagliari Calcio vs. Bologna FC 1909",
+     "type": "SportingEvent",
+     "url": "https://tv.apple.com/us/sporting-event/cagliari-calcio-vs-bologna-fc-1909/umc.cse.15ho9jsjw68gh9r3k0ju55qso"
+    },
+    {
+     "airingType": "Live",
+     "competitors": [
+      {
+       "abbreviation": "NAP",
+       "backgroundColor": "#182849",
+       "id": "umc.cst.q3zeanqqj3rll7lo4bl3agsl",
+       "isFavorite": false,
+       "isHome": true,
+       "leagueId": "umc.csl.1wr618hvywicw1y9ib4uen974",
+       "name": "SSC Napoli",
+       "shortName": "Napoli",
+       "type": "Team"
+      },
+      {
+       "abbreviation": "ROM",
+       "backgroundColor": "#990A2C",
+       "id": "umc.cst.5p16yuv30j28od0oj18k98lpd",
+       "isFavorite": false,
+       "isHome": false,
+       "leagueId": "umc.csl.1wr618hvywicw1y9ib4uen974",
+       "name": "AS Roma",
+       "shortName": "Roma",
+       "type": "Team"
+      }
+     ],
+     "eventTime": {
+      "gameKickOffStartTime": 1792857600000,
+      "liveBadgeTime": {
+       "endTime": 1792873200000,
+       "startTime": 1792857600000
+      },
+      "playerInfoDisplayTime": {
+       "endTime": 1792868400000,
+       "startTime": 1792857600000
+      },
+      "playerInfoTransportBarTime": {
+       "endTime": 1792868400000,
+       "startTime": 1792857600000
+      },
+      "tuneInTime": {
+       "endTime": 1792873200000,
+       "startTime": 1792857600000
+      }
+     },
+     "id": "umc.cse.35g35pp9ropax7038sphbc3lq",
+     "intents": [
+      "NAVIGATE"
+     ],
+     "isEligibleForMultiView": false,
+     "isGeoRestricted": false,
+     "leagueAbbreviation": "itsa",
+     "leagueId": "umc.csl.1wr618hvywicw1y9ib4uen974",
+     "leagueName": "Serie A",
+     "leagueShortName": "Serie A",
+     "playables": [
+      {
+       "airingType": "Live",
+       "canonicalId": "umc.cse.35g35pp9ropax7038sphbc3lq",
+       "channelId": "tvs.sbd.10120",
+       "contentId": "umc.cmr.ppebs.sp.stdwbo3r1cm2rchigknjrp06",
+       "contentType": "SportingEvent",
+       "entitlementReason": "Unknown",
+       "eventTime": {
+        "gameKickOffStartTime": 1792857600000,
+        "liveBadgeTime": {
+         "endTime": 1792873200000,
+         "startTime": 1792857600000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792868400000,
+         "startTime": 1792857600000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792868400000,
+         "startTime": 1792857600000
+        },
+        "tuneInTime": {
+         "endTime": 1792873200000,
+         "startTime": 1792857600000
+        }
+       },
+       "externalId": "6f7a5df2-a679-45b4-9ae5-ca496bcb5403",
+       "externalServiceId": "com.CBS.CBSTV.US.ebs.sub-v3",
+       "id": "tvs.sbd.10120:6f7a5df2-a679-45b4-9ae5-ca496bcb5403:9cb0dc94",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": false,
+       "isEntitledToPlayOnDevice": false,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isUpgradeEligible": false,
+       "locales": [
+        {
+         "audioTrackFormats": [
+          "AAC"
+         ],
+         "displayName": "English (United States)",
+         "locale": "en_US"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": false,
+       "playbackModes": [
+        "Monoscopic"
+       ],
+       "primaryLocale": {
+        "displayName": "English (United States)",
+        "locale": "en_US"
+       },
+       "punchoutUrls": {
+        "open": "pplus://www.paramountplus.com/live-tv/stream/serie-a/6f7a5df2-a679-45b4-9ae5-ca496bcb5403?searchReferral=appleatv&source=spotlight#open",
+        "play": "pplus://www.paramountplus.com/live-tv/stream/serie-a/6f7a5df2-a679-45b4-9ae5-ca496bcb5403?searchReferral=appleatv&source=spotlight"
+       },
+       "releaseDate": 1792857000000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.1347622",
+       "serviceName": "US Digital Sports",
+       "title": "Napoli vs. Roma",
+       "type": "EbsEvent",
+       "useSeparateQoSReportingBucket": false,
+       "videoColorRange": "SDR",
+       "videoQuality": "HD"
+      }
+     ],
+     "playbackModes": [
+      "Monoscopic"
+     ],
+     "requiresLocationConsent": false,
+     "secondaryActions": [
+      "AddToUpNext"
+     ],
+     "shortTitle": "Napoli vs. Roma",
+     "showModal": false,
+     "sportId": "umc.csp.y1ye10qgphjwmbdsld07rf38",
+     "sportName": "Soccer",
+     "title": "SSC Napoli vs. AS Roma",
+     "type": "SportingEvent",
+     "url": "https://tv.apple.com/us/sporting-event/ssc-napoli-vs-as-roma/umc.cse.35g35pp9ropax7038sphbc3lq"
+    }
+   ]
+  }
+ }
+}

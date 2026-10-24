@@ -183,10 +183,11 @@ Key actions, besides shell strings (`ha-call domain.service '<json>'`):
 | `{"launch": {"device": "lg", "app": "<webOS app id>"}}` | Powers on if needed, starts the app on the LG (`system.launcher/launch`) |
 | `{"next_playing": [entities]}` | Next track on the first of those speakers that is playing and leads its group |
 | `{"youtube": "play_pause" \| "next" \| "previous" \| "next_chapter" \| "subtitles"}` | Controls the linked YouTube app (see below); `subtitles` toggles captions |
+| `{"soccer": "start" \| "next"}` | Plays the first live soccer game (powering on first), or the next one (see Live soccer) |
 
 Named `when` conditions for modes: `youtube` (YouTube in the foreground on a
 screen), `youtube_playing`, `youtube_subtitles` (its live play and caption
-state).
+state), `soccer_live` (a live soccer game is listed).
 
 ### Key modes
 
@@ -255,6 +256,43 @@ echo '123 456 789 012' > /app_configs/local_streamdock_n3/yt_pair_lg
 
 The log shows `youtube: lg: linked to '…'`. Tokens are saved to
 `yt_lounge.json`, which is secret and stays out of the repo.
+
+### Live soccer
+
+The top-level `soccer` section turns on a live-soccer key for Paramount+ and
+MLS (Apple TV) games (`soccer.py`):
+
+```json
+"soccer": { "atv": "media_player.vugitv_4k_vugitv_4k", "atv_remote": "remote.vugitv_4k_vugitv_4k",
+            "lg": "media_player.lg_tv_2", "atv_source": "Apple OTT", "power_on_wait": 25,
+            "token_page": "https://tv.apple.com/us/channel/mls/tvs.sbd.7000",
+            "cache_s": 60, "poll_s": 180, "select_after_s": 8 }
+```
+
+The list comes from the Apple TV app's own listing (the UTS API behind
+tv.apple.com): two searches, `Paramount+` and `MLS`, every `poll_s` seconds.
+A game counts when it is soccer, it is live (the clock is running, or it is
+inside Apple's live window when there is no clock), and its main provider is
+Paramount+ or Apple TV. Games are ordered by kickoff, then league. The
+listing needs two public web-page tokens; the app reads them from
+`token_page` once a day, or again when Apple rejects them. They are never
+saved.
+
+- `{"soccer": "start"}` fetches again if the list is older than `cache_s`,
+  powers the TV on through the Apple TV if needed, switches the LG to
+  `atv_source`, and opens the first game. The game opens from the same link
+  the Apple TV app uses (`pplus://…` for Paramount+, a
+  `tv.apple.com/…/sporting-event/…` link for MLS). If that app is in front
+  but not playing after `select_after_s` seconds (a profile picker or a
+  "watch live" prompt), one `select` is sent.
+- `{"soccer": "next"}` opens the next game, starting over after the last.
+- The `soccer_live` condition lights the key while any game is live. Labels
+  can show `{soccer_count}` (live games) and `{soccer_pos}` (e.g. `2/3`).
+- While a started game's app stays in front, the context page is
+  `context:live_game`. It returns to normal once another app opens.
+
+The log shows `soccer: 3 live: …`, `soccer: playing 1/3: …` and fetch
+errors. After an error the last list is kept.
 
 ### Now-playing log (ad research)
 

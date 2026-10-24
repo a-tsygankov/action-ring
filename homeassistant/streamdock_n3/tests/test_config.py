@@ -38,7 +38,7 @@ KNOWN_ENTITIES = {
     "script.tv_room_power_toggle",
 }
 CONTEXT_LAYOUTS = ("idle", "streaming", "youtube", "lg_media", "lg_app", "live_game")
-NAMED_CONDITIONS = {"youtube", "youtube_playing", "youtube_subtitles"}
+NAMED_CONDITIONS = {"youtube", "youtube_playing", "youtube_subtitles", "soccer_live"}
 # (device, app) per launch key, from the Global Constraints bundle ids.
 LAUNCH_IDS = {
     ("apps", "1"): ("atv", "com.netflix.Netflix"),
@@ -121,6 +121,8 @@ def test_entities_are_known():
     launch = TABS["launch"]
     used |= {launch["lg"], launch["atv"], launch["atv_remote"]}
     used |= {TABS["context"]["lg"], TABS["context"]["atv"]}
+    soccer = CONFIG["soccer"]
+    used |= {soccer["lg"], soccer["atv"], soccer["atv_remote"]}
     assert used - KNOWN_ENTITIES == set()
     assert "script.tv_room_power_toggle" in used  # the shell-string parser saw entities
 
@@ -169,3 +171,36 @@ def test_round_keys_are_digits_and_pages_exist():
         assert isinstance(cycle, list) and cycle, button
         for page in cycle:
             assert page in PAGES, (button, page)
+
+
+def test_soccer_config_complete():
+    assert CONFIG["soccer"] == {
+        "atv": ATV,
+        "atv_remote": "remote.vugitv_4k_vugitv_4k",
+        "lg": LG,
+        "atv_source": "Apple OTT",
+        "power_on_wait": 25,
+        "token_page": "https://tv.apple.com/us/channel/mls/tvs.sbd.7000",
+        "cache_s": 60,
+        "poll_s": 180,
+        "select_after_s": 8,
+    }
+
+
+def test_soccer_keys():
+    assert PAGES["context:idle"]["keys"]["2"] == {
+        "icon": "soccer_live__none",
+        "label": "",
+        "modes": [{"when": "soccer_live", "icon": "soccer_live__live"}],
+        "action": {"soccer": "start"},
+    }
+    assert PAGES["context:live_game"]["keys"]["2"] == {
+        "label": "NEXT\\n{soccer_pos}",
+        "color": "#1d6b32",
+        "action": {"soccer": "next"},
+    }
+
+
+def test_every_soccer_action_is_known():
+    soccer = [a["soccer"] for a in all_actions() if isinstance(a, dict) and "soccer" in a]
+    assert sorted(soccer) == ["next", "start"]
