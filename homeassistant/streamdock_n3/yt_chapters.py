@@ -55,6 +55,31 @@ def parse_chapters(page: str) -> list[tuple[float, str]]:
     return []
 
 
+def caption_languages(page: str) -> list[str]:
+    """languageCode of each caption track on the watch page, in page order, no repeats."""
+    start = page.find('"captionTracks":[')
+    if start < 0:
+        return []
+    try:
+        tracks, _ = json.JSONDecoder().raw_decode(page, start + len('"captionTracks":'))
+    except ValueError:
+        return []
+    langs: list[str] = []
+    for track in tracks:
+        code = track.get("languageCode") if isinstance(track, dict) else None
+        if code and code not in langs:
+            langs.append(code)
+    return langs
+
+
+def pick_caption(langs: list[str], preferred: str = "en") -> str | None:
+    """preferred (or a regional variant such as en-US), else the first language, else None."""
+    for lang in langs:
+        if lang == preferred or lang.startswith(preferred + "-"):
+            return lang
+    return langs[0] if langs else None
+
+
 def chapters(video_id: str) -> list[tuple[float, str]]:
     return parse_chapters(fetch_page(video_id))
 

@@ -34,7 +34,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | `homeassistant/ha-config/automations/*.yaml` | HA automations, one `- id:` entry per file |
 | `homeassistant/restore.sh` | Restore everything above onto a HAOS device |
 | `homeassistant/pair.sh` | Pair the Apple TV (`atv` touch, `atv airplay` media protocol) and link YouTube apps; `status` |
-| `homeassistant/tools/` | Ad research: `mrp_summary.py`, `replay_ad_detect.py`, `sanitize_mrp.py`, sanitized `fixtures/` |
+| `homeassistant/tools/` | Ad research: `mrp_summary.py`, `replay_ad_detect.py`, `sanitize_mrp.py`, sanitized `fixtures/`; live tests: `probe.sh` + `probes/*.json` |
 | `docs/AD_DETECTION_GUIDE.md` | Guide for AI agents: analyze a new app and add its ad rule |
 
 ### Control mappings (TV Room)

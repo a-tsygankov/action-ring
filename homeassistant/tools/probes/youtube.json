@@ -1,0 +1,24 @@
+{
+  "note": "Spec §10 item 4: YouTube next / previous / captions. Play a YouTube video on the Apple TV (the Lounge link must be connected: pair.sh status), run this, and say which steps changed the video and when captions appeared or went away. Compare the snapshots' Lounge subtitles field with the screen.",
+  "steps": [
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "media_player.media_next_track",
+     "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 6},
+    {"kind": "ha", "service": "media_player.media_previous_track",
+     "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 6},
+    {"kind": "companion", "mcc": "NextTrack"},
+    {"kind": "wait", "s": 6},
+    {"kind": "lounge", "method": "next"},
+    {"kind": "wait", "s": 6},
+    {"kind": "lounge", "method": "previous"},
+    {"kind": "wait", "s": 6},
+    {"kind": "lounge", "method": "set_closed_captions", "args": ["en", "$video_id"]},
+    {"kind": "wait", "s": 5},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "lounge", "method": "set_closed_captions", "args": [null, "$video_id"]},
+    {"kind": "wait", "s": 5},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]}
+  ]
+}

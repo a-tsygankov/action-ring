@@ -39,10 +39,14 @@ fi
 
 # --- Entities the mappings depend on -------------------------------------
 step "Checking referenced entities exist"
-# Values of entity_id in the mappings (JSON with escaped quotes) and scripts
-# (YAML). script.* is skipped: those are created by the next step.
+# Values of entity_id/state_entity/... keys in the mappings (JSON with escaped
+# quotes) and scripts (YAML), plus every quoted media_player/switch/remote/
+# script id (the "entity" of a `when`, next_playing lists, templates).
+# Service names (ha-call media_player.x, action: x) are unquoted and skipped.
+# script.* is skipped: those are created by the next step.
 entities=$(cat "$HERE/$APP/config.tv_room.json" "$HERE"/ha-config/scripts/*.yaml "$HERE"/ha-config/automations/*.yaml \
-    | grep -oE '(entity_id|state_entity|remote|media_player)[\\":[:space:]]+[a-z_]+\.[a-z0-9_]+' \
+    | grep -oE -e '(entity_id|state_entity|remote|media_player)[\\":[:space:]]+\[?[a-z_]+\.[a-z0-9_]+' \
+        -e "[\"'](media_player|switch|remote|script)\.[a-z0-9_]+" \
     | grep -oE '[a-z_]+\.[a-z0-9_]+$' | grep -v '^script\.' | sort -u)
 missing=$(printf '%s\n' "$entities" | ssh_ha '
     known=$(jq -r ".data.entities[].entity_id" /homeassistant/.storage/core.entity_registry)

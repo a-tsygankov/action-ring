@@ -1,0 +1,23 @@
+{
+  "note": "Spec §10 item 3: subtitles and audio through MRP language options (Apple TV app and Pluto first, then any app whose snapshot lists EnableLanguageOption). Play a title, run this, and say when subtitles appeared or went away. The payload's archive key is undocumented, so two variants are tried; the first snapshot lists the app's language identifiers. MRP steps need the AirPlay pairing. Nothing here changes a setting.",
+  "steps": [
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "mrp", "command": "EnableLanguageOption",
+     "options": {"languageOption": {"type": 1, "languageTag": "en"}}},
+    {"kind": "wait", "s": 5},
+    {"kind": "mrp", "command": "DisableLanguageOption",
+     "options": {"languageOption": {"type": 1}}},
+    {"kind": "wait", "s": 5},
+    {"kind": "mrp", "command": "EnableLanguageOption",
+     "options": {"languageOption": {"type": 1, "languageTag": "en", "archive_key": "data"}}},
+    {"kind": "wait", "s": 5},
+    {"kind": "mrp", "command": "DisableLanguageOption",
+     "options": {"languageOption": {"type": 1, "archive_key": "data"}}},
+    {"kind": "wait", "s": 5},
+    {"kind": "mrp", "command": "EnableLanguageOption",
+     "options": {"languageOption": {"type": 0, "languageTag": "en"}}},
+    {"kind": "wait", "s": 3},
+    {"kind": "companion", "mcc": "GetCaptionSettings"},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]}
+  ]
+}

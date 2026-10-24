@@ -125,38 +125,121 @@ a secret: keep it out of the repo and delete it to unpair. The log shows
 `atv-touch: connected to …`, and while scrubbing, `atv-knob: touch drag …`
 and `touch released`.
 
-### Key modes
+### Tabs
 
-A key can change its look and action with live state. The first entry in
-`modes` whose `when` holds wins; otherwise the key's own look and `action`
-apply. Map the press with `{"key_action": <key>}`:
+The six LCD keys show one page at a time. A `tabs` section defines the pages;
+the top-level `keys` stay `{}` (without `tabs`, `keys` is the only page, as
+before):
 
 ```json
-"4": {
-  "label": "ATV", "color": "#4a4a4a",
-  "action": "ha-call media_player.select_source '{…\"source\":\"Apple OTT\"}'",
-  "modes": [
-    { "when": "youtube", "label": "Chapter", "icon": "/config/icons/next_chapter.png",
-      "action": { "youtube": "next_chapter" } }
-  ]
-},
-"button.4.press": { "key_action": 4 }
+"tabs": {
+  "timeouts": { "open": 10, "after_press": 5, "context_debounce": 1 },
+  "round": { "7": ["apps", "apps_more"], "8": ["sonos"] },
+  "context": { "lg": "media_player.lg_tv_2", "atv": "media_player.vugitv_4k_vugitv_4k",
+               "atv_source": "Apple OTT",
+               "youtube_apps": { "atv": ["com.google.ios.youtube"], "lg": ["youtube.leanback.v4"] },
+               "lg_media_apps": ["com.webos.app.mediadiscovery"],
+               "lg_idle_app_prefixes": ["com.webos.app.hdmi", "com.webos.app.livetv", "com.webos.app.home"] },
+  "launch": { "lg": "media_player.lg_tv_2", "atv": "media_player.vugitv_4k_vugitv_4k",
+              "atv_remote": "remote.vugitv_4k_vugitv_4k", "atv_source": "Apple OTT",
+              "power_on_wait": 25 },
+  "pages": {
+    "apps": { "close_on_press": true, "keys": {
+      "1": { "icon": "netflix",
+             "action": { "launch": { "device": "atv", "app": "com.netflix.Netflix" } } } } },
+    "context:idle": { "keys": { … } }
+  }
+}
 ```
 
-`when` is `"youtube"` (YouTube in the foreground on any configured screen) or
-a list of conditions, any of which may match:
+- **Context pages** `context:idle`, `context:streaming`, `context:youtube`,
+  `context:lg_media`, `context:lg_app`, `context:live_game` follow what is in
+  the foreground (`context.py`): the LG off or on its home/HDMI/live TV →
+  idle; the Apple TV input → its app (YouTube → youtube, any other app →
+  streaming, no app → idle); on the LG itself, YouTube, the media player or
+  any other app. A new layout is drawn after it has held for
+  `context_debounce` seconds.
+- **Temporary pages** (here `apps`, `apps_more`, `sonos`) open from a round
+  button. `round` maps a button to its cycle of pages: each press shows the
+  next page in the cycle, and after the last one the cycle starts again. A
+  page closes back to the context after `open` seconds, or `after_press`
+  seconds after a key press on it; with `close_on_press` a key press closes
+  it at once.
+- **Buttons:** map `button.1–6.press` to `{"tab_key": N}` (`{"key_action": N}`
+  is an alias) and the tab round buttons to `{"tab_round": N}`. Other events
+  keep their own actions (`button.9`, the knobs).
+
+Key specs inside pages use the normal key format (`label`, `color`, `icon`,
+`state_entity` with `on`/`off`/`unavailable`, `modes`, `action`).
+`"icon": "night__on"` is a bare icon id for `/config/icons/night__on.png`;
+full paths still work. Labels may hold `{name}` placeholders that the app fills
+at run time; an unknown name is shown as written.
+
+Key actions, besides shell strings (`ha-call domain.service '<json>'`):
+
+| Action | Does |
+|---|---|
+| `{"launch": {"device": "atv", "app": "<bundle id>"}}` | Powers the TV on if it is off (Apple TV wake, HDMI-CEC), switches the LG to `atv_source`, starts the app on the Apple TV |
+| `{"launch": {"device": "lg", "app": "<webOS app id>"}}` | Powers on if needed, starts the app on the LG (`system.launcher/launch`) |
+| `{"next_playing": [entities]}` | Next track on the first of those speakers that is playing and leads its group |
+| `{"youtube": "play_pause" \| "next" \| "previous" \| "next_chapter" \| "subtitles"}` | Controls the linked YouTube app (see below); `subtitles` toggles captions |
+| `{"soccer": "start" \| "next"}` | Plays the first live soccer game (powering on first), or the next one (see Live soccer) |
+
+Named `when` conditions for modes: `youtube` (YouTube in the foreground on a
+screen), `youtube_playing`, `youtube_subtitles` (its live play and caption
+state), `soccer_live` (a live soccer game is listed).
+
+### Key modes
+
+A key on any page can change its look and action with live state. The first
+entry in `modes` whose `when` holds wins; otherwise the key's own look and
+`action` apply. The press needs no extra mapping: `button.N.press` →
+`{"tab_key": N}` runs whatever the visible page's key N resolves to. On the
+`context:youtube` page, Back goes to the LG's own YouTube app when that is in
+the foreground, else to the Apple TV:
+
+```json
+"6": {
+  "icon": "back",
+  "modes": [{
+    "when": [ { "entity": "media_player.lg_tv_2", "attr": "source", "in": ["YouTube"] },
+              { "entity": "media_player.lg_tv_2", "attr": "app_id", "in": ["youtube.leanback.v4"] } ],
+    "action": "ha-call webostv.button '{…\"button\":\"BACK\"}'"
+  }],
+  "action": "ha-call remote.send_command '{…\"command\":\"menu\"}'"
+}
+```
+
+`when` is a named condition (`"youtube"`, `"youtube_playing"`,
+`"youtube_subtitles"`, `"soccer_live"`, see above) or a list of conditions,
+any of which may match:
 `{"entity": …, "attr": "source" | "app_id" | … | "state", "in": [values]}`.
+The LIVE key on `context:idle` lights up while a game is listed:
+
+```json
+"2": {
+  "icon": "soccer_live__none", "label": "",
+  "modes": [ { "when": "soccer_live", "icon": "soccer_live__live" } ],
+  "action": { "soccer": "start" }
+}
+```
 
 Modes also work on a key with `state_entity`: while a mode is active its look
 wins, and when it ends the key returns to its live on/off look. A mode
-without `action` leaves the key's press unchanged. Key 3 uses this to show
-the Arc's mute:
+without `action` leaves the key's press unchanged. The power key on
+`context:idle` uses this to show the Arc's mute over the TV's on/off icon:
 
 ```json
-"modes": [{
-  "when": [{ "entity": "media_player.tv_room_tv_room", "attr": "is_volume_muted", "in": [true] }],
-  "label": "TV\\nMUTED", "color": "#c77c02"
-}]
+"1": {
+  "icon": "tv_power__off",
+  "state_entity": "media_player.lg_tv_2",
+  "on": { "icon": "tv_power__on" }, "off": { "icon": "tv_power__off" },
+  "modes": [{
+    "when": [{ "entity": "media_player.tv_room_tv_room", "attr": "is_volume_muted", "in": [true] }],
+    "icon": "tv_power__muted"
+  }],
+  "action": "ha-call script.turn_on '{\"entity_id\":\"script.tv_room_power_toggle\"}'"
+}
 ```
 
 ### YouTube: next chapter and ads
@@ -193,6 +276,49 @@ echo '123 456 789 012' > /app_configs/local_streamdock_n3/yt_pair_lg
 The log shows `youtube: lg: linked to '…'`. Tokens are saved to
 `yt_lounge.json`, which is secret and stays out of the repo.
 
+### Live soccer
+
+The top-level `soccer` section turns on a live-soccer key for Paramount+ and
+MLS (Apple TV) games (`soccer.py`):
+
+```json
+"soccer": { "atv": "media_player.vugitv_4k_vugitv_4k", "atv_remote": "remote.vugitv_4k_vugitv_4k",
+            "lg": "media_player.lg_tv_2", "atv_source": "Apple OTT", "power_on_wait": 25,
+            "token_page": "https://tv.apple.com/us/channel/mls/tvs.sbd.7000",
+            "cache_s": 60, "poll_s": 180, "idle_poll_s": 1800, "select_after_s": 8 }
+```
+
+The list comes from the Apple TV app's own listing (the UTS API behind
+tv.apple.com): two searches, `Paramount+` and `MLS`. They run every
+`poll_s` seconds while a game is live or one starts within 15 minutes, and
+every `idle_poll_s` seconds otherwise; an idle wait still ends 15 minutes
+before the next listed start. The listing is undocumented, so the app keeps
+its use light. A game counts when it is soccer between two teams (studio
+shows such as MLS Countdown are left out), it is live, and its main provider
+is Paramount+ or Apple TV. Live means the clock is running, or, when there
+is no clock, the game is inside Apple's live window. A running clock stops
+counting 30 minutes after that window ends. Games are ordered by kickoff,
+then league. The
+listing needs two public web-page tokens; the app reads them from
+`token_page` once a day, or again when Apple rejects them. They are never
+saved.
+
+- `{"soccer": "start"}` fetches again if the list is older than `cache_s`,
+  powers the TV on through the Apple TV if needed, switches the LG to
+  `atv_source`, and opens the first game. The game opens from the same link
+  the Apple TV app uses (`pplus://…` for Paramount+, a
+  `tv.apple.com/…/sporting-event/…` link for MLS). If that app is in front
+  but not playing after `select_after_s` seconds (a profile picker or a
+  "watch live" prompt), one `select` is sent.
+- `{"soccer": "next"}` opens the next game, starting over after the last.
+- The `soccer_live` condition lights the key while any game is live. Labels
+  can show `{soccer_count}` (live games) and `{soccer_pos}` (e.g. `2/3`).
+- While a started game's app stays in front, the context page is
+  `context:live_game`. It returns to normal once another app opens.
+
+The log shows `soccer: 3 live: …`, `soccer: playing 1/3: …` and fetch
+errors. After an error the last list is kept.
+
 ### Now-playing log (ad research)
 
 `"now_playing_log": { "entities": ["media_player.…"] }` records what changes
@@ -223,6 +349,37 @@ PIN on the TV), it has its own media-remote (MRP) session:
 How the Pluto rule was found, the per-app findings, and how to add another
 app are in `docs/AD_DETECTION_GUIDE.md` in the repo.
 
+### Probes (live tests)
+
+To find out which controls an app accepts, the app runs probe requests
+(`probe.py`) while its Apple TV connection is up. Each request lists steps:
+raw MRP commands (`ChangePlaybackRate`, `EnableLanguageOption`, ...; these need
+the AirPlay pairing), Companion media-control and button commands, HA
+actions, YouTube Lounge calls, webOS commands (with the TV's reply), waits,
+and snapshots. A snapshot logs the Apple TV player's advertised commands and
+language options, the playing app, the Lounge state, and the HA state of the
+listed entities (only entities the app already follows).
+
+The probe files for the test session live in `homeassistant/tools/probes/`,
+one per test group. Start the app under test on the TV, then from the repo
+root on the PC run:
+
+```bash
+bash homeassistant/tools/probe.sh homeassistant/tools/probes/ff_rew.json
+```
+
+It prints the file's note, uploads the request to `probe_request.json` in the
+app's config folder (consumed at once) and prints the results as they come:
+`probe: 3 mrp ChangePlaybackRate {"playbackRate": 24.0} -> ok`, or
+`-> error CommandError: …`. A failed step doesn't stop the others; the run
+ends with `probe: done`. Power-off steps are refused when the request is
+read: any `turn_off`/`toggle` action, every `homeassistant.*` and `hassio.*`
+action, `remote.send_command` naming `suspend`/`turn_off`/`sleep`,
+`webostv.button` `POWER`, any `script.*` action naming
+`script.tv_room_power_toggle`, the Companion `Sleep` button, and webOS
+commands (a `webos` step or an `ha` `webostv.command`) containing `turnoff`,
+`power` or `reboot`.
+
 ### Key images
 
 Set `"icon": "/config/icons/<file>.png"` on a key to show an image instead of
@@ -234,7 +391,8 @@ a generated label (112×112 works best). Put the files in
 
 A key with `state_entity` is redrawn whenever that entity changes in Home
 Assistant (`ha_daemon.py`). `on`, `off` and `unavailable` override the key's
-`label`/`color`: `off` covers off/standby, `unavailable` covers
+`icon`, `label` and `color` (a field a variant leaves out keeps the key's
+own): `off` covers off/standby, `unavailable` covers
 unavailable/unknown and HA being unreachable, and `on` covers every other
 state (so `playing`/`idle` media players count as on). Use `\\n` in a JSON
 label for a line break.

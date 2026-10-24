@@ -1,0 +1,861 @@
+{
+ "data": {
+  "channels": {
+   "tvs.sbd.4000": {
+    "id": "tvs.sbd.4000",
+    "appName": "TV",
+    "appBundleIds": [
+     "com.apple.TVWatchList"
+    ]
+   }
+  },
+  "shelf": {
+   "id": "uts.col.search.SE",
+   "displayType": "sportsCardLockup",
+   "header": {
+    "supportsSeeAllView": true,
+    "title": "Sports",
+    "url": "https://tv.apple.com/us/shelf/sports/uts.col.search.SE?searchTerm=MLS"
+   },
+   "items": [
+    {
+     "airingType": "Live",
+     "competitors": [
+      {
+       "abbreviation": "MTL",
+       "backgroundColor": "#003DA6",
+       "id": "umc.cst.2apzse1smd6k4zf714oywbuod",
+       "isFavorite": false,
+       "isHome": true,
+       "leagueId": "umc.csl.3c9plmy5skze52ff5ce24mo4g",
+       "name": "CF Montréal",
+       "nickname": "Montréal",
+       "shortName": "Montréal",
+       "type": "Team"
+      },
+      {
+       "abbreviation": "NSH",
+       "backgroundColor": "#EDE939",
+       "id": "umc.cst.46onf4t748fnaezr18epvj1gb",
+       "isFavorite": false,
+       "isHome": false,
+       "leagueId": "umc.csl.3c9plmy5skze52ff5ce24mo4g",
+       "name": "Nashville SC",
+       "nickname": "Nashville",
+       "shortName": "Nashville",
+       "type": "Team"
+      }
+     ],
+     "eventTime": {
+      "gameKickOffStartTime": 1792863000000,
+      "liveBadgeTime": {
+       "startTime": 1792846800000,
+       "endTime": 1792868400000
+      },
+      "playerInfoDisplayTime": {
+       "endTime": 1792873800000,
+       "startTime": 1792863000000
+      },
+      "playerInfoTransportBarTime": {
+       "endTime": 1792873800000,
+       "startTime": 1792862700000
+      },
+      "tuneInTime": {
+       "endTime": 1792884600000,
+       "startTime": 1792862700000
+      }
+     },
+     "id": "umc.cse.1vpiinvtiko54yrue5pxq8f5s",
+     "intents": [
+      "NAVIGATE"
+     ],
+     "isEligibleForMultiView": false,
+     "isGeoRestricted": false,
+     "leagueAbbreviation": "mls",
+     "leagueId": "umc.csl.3c9plmy5skze52ff5ce24mo4g",
+     "leagueName": "MLS",
+     "leagueShortName": "MLS",
+     "playables": [
+      {
+       "airingType": "Live",
+       "canonicalId": "umc.cse.1vpiinvtiko54yrue5pxq8f5s",
+       "channelId": "tvs.sbd.4000",
+       "contentId": "umc.cmr.mls.sp.2dysgbud00ttwslnqwqbpos4k",
+       "contentType": "SportingEvent",
+       "duration": 5400,
+       "entitlementReason": "Unknown",
+       "eventTime": {
+        "gameKickOffStartTime": 1792863000000,
+        "liveBadgeTime": {
+         "endTime": 1792884600000,
+         "startTime": 1792863000000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792873800000,
+         "startTime": 1792863000000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792873800000,
+         "startTime": 1792862700000
+        },
+        "tuneInTime": {
+         "endTime": 1792884600000,
+         "startTime": 1792862700000
+        }
+       },
+       "externalId": "MLS-MAT-0009NT_EN",
+       "externalServiceId": "com.apple.atvp.mls.svod.ebs.US",
+       "id": "tvs.sbd.4000:MLS-MAT-0009NT_EN:b97b8346",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": false,
+       "isEntitledToPlayOnDevice": false,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isSignInNotRequired": false,
+       "isUpgradeEligible": false,
+       "locales": [
+        {
+         "displayName": "English",
+         "locale": "en"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": true,
+       "primaryLocale": {
+        "displayName": "English",
+        "locale": "en"
+       },
+       "recapType": "Full",
+       "releaseDate": 1792863000000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.5105",
+       "serviceName": "MLS Live US",
+       "sharedWatchEnabled": true,
+       "sharedWatchId": "mls:umc.cmr.mls.sp.2dysgbud00ttwslnqwqbpos4k:live",
+       "subBrandId": "tvs.sbd.7000",
+       "title": "MTL vs. NSH, 10.24.26",
+       "type": "EbsEvent",
+       "url": "https://tv.apple.com/us/sporting-event/cf-montreal-vs-nashville-sc/umc.cse.1vpiinvtiko54yrue5pxq8f5s?playableId=tvs.sbd.4000%3AMLS-MAT-0009NT_EN",
+       "useSeparateQoSReportingBucket": false
+      },
+      {
+       "airingType": "Live",
+       "canonicalId": "umc.cse.1vpiinvtiko54yrue5pxq8f5s",
+       "channelId": "tvs.sbd.4000",
+       "contentId": "umc.cmr.mls.sp.7j7f64zeqb8e3iph9cfwszkag",
+       "contentType": "SportingEvent",
+       "duration": 5400,
+       "entitlementReason": "Unknown",
+       "eventTime": {
+        "gameKickOffStartTime": 1792863000000,
+        "liveBadgeTime": {
+         "endTime": 1792884600000,
+         "startTime": 1792863000000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792873800000,
+         "startTime": 1792863000000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792873800000,
+         "startTime": 1792862700000
+        },
+        "tuneInTime": {
+         "endTime": 1792884600000,
+         "startTime": 1792862700000
+        }
+       },
+       "externalId": "MLS-MAT-0009NT_SP",
+       "externalServiceId": "com.apple.atvp.mls.svod.ebs.US",
+       "id": "tvs.sbd.4000:MLS-MAT-0009NT_SP:b97b8346",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": false,
+       "isEntitledToPlayOnDevice": false,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isSignInNotRequired": false,
+       "isUpgradeEligible": false,
+       "locales": [
+        {
+         "displayName": "Spanish",
+         "locale": "es"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": true,
+       "primaryLocale": {
+        "displayName": "Spanish",
+        "locale": "es"
+       },
+       "recapType": "Full",
+       "releaseDate": 1792863000000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.5105",
+       "serviceName": "MLS Live US",
+       "sharedWatchEnabled": true,
+       "sharedWatchId": "mls:umc.cmr.mls.sp.7j7f64zeqb8e3iph9cfwszkag:live",
+       "subBrandId": "tvs.sbd.7000",
+       "title": "MTL vs. NSH, 10.24.26",
+       "type": "EbsEvent",
+       "url": "https://tv.apple.com/us/sporting-event/cf-montreal-vs-nashville-sc/umc.cse.1vpiinvtiko54yrue5pxq8f5s?playableId=tvs.sbd.4000%3AMLS-MAT-0009NT_SP",
+       "useSeparateQoSReportingBucket": false
+      },
+      {
+       "airingType": "Live",
+       "canonicalId": "umc.cse.1vpiinvtiko54yrue5pxq8f5s",
+       "channelId": "tvs.sbd.4000",
+       "contentId": "umc.cmr.mls.sp.2h2gqhil1mng1qa8t0rixyd0j",
+       "contentType": "SportingEvent",
+       "duration": 5400,
+       "entitlementReason": "Unknown",
+       "eventTime": {
+        "gameKickOffStartTime": 1792863000000,
+        "liveBadgeTime": {
+         "endTime": 1792884600000,
+         "startTime": 1792863000000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792873800000,
+         "startTime": 1792863000000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792873800000,
+         "startTime": 1792862700000
+        },
+        "tuneInTime": {
+         "endTime": 1792884600000,
+         "startTime": 1792862700000
+        }
+       },
+       "externalId": "MLS-MAT-0009NT_FR",
+       "externalServiceId": "com.apple.atvp.mls.svod.ebs.US",
+       "id": "tvs.sbd.4000:MLS-MAT-0009NT_FR:b97b8346",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": false,
+       "isEntitledToPlayOnDevice": false,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isSignInNotRequired": false,
+       "isUpgradeEligible": false,
+       "locales": [
+        {
+         "displayName": "French",
+         "locale": "fr"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": true,
+       "primaryLocale": {
+        "displayName": "French",
+        "locale": "fr"
+       },
+       "recapType": "Full",
+       "releaseDate": 1792863000000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.5105",
+       "serviceName": "MLS Live US",
+       "sharedWatchEnabled": true,
+       "sharedWatchId": "mls:umc.cmr.mls.sp.2h2gqhil1mng1qa8t0rixyd0j:live",
+       "subBrandId": "tvs.sbd.7000",
+       "title": "MTL vs. NSH, 10.24.26",
+       "type": "EbsEvent",
+       "url": "https://tv.apple.com/us/sporting-event/cf-montreal-vs-nashville-sc/umc.cse.1vpiinvtiko54yrue5pxq8f5s?playableId=tvs.sbd.4000%3AMLS-MAT-0009NT_FR",
+       "useSeparateQoSReportingBucket": false
+      }
+     ],
+     "requiresLocationConsent": false,
+     "secondaryActions": [
+      "AddToUpNext"
+     ],
+     "shortTitle": "Montréal vs. Nashville",
+     "showModal": true,
+     "sportId": "umc.csp.y1ye10qgphjwmbdsld07rf38",
+     "sportName": "Soccer",
+     "title": "CF Montréal vs. Nashville SC",
+     "type": "SportingEvent",
+     "url": "https://tv.apple.com/us/sporting-event/cf-montreal-vs-nashville-sc/umc.cse.1vpiinvtiko54yrue5pxq8f5s",
+     "clockScore": {
+      "clockTime": "52:10.000",
+      "hasEventEnded": false,
+      "periodType": "Half",
+      "periodValue": 2,
+      "lastUpdatedTime": 1792849990000
+     }
+    },
+    {
+     "airingType": "Live",
+     "competitors": [
+      {
+       "abbreviation": "CLB",
+       "backgroundColor": "#000000",
+       "id": "umc.cst.587zw131a571s5kd5thmzuvx3",
+       "isFavorite": false,
+       "isHome": true,
+       "leagueId": "umc.csl.3c9plmy5skze52ff5ce24mo4g",
+       "name": "Columbus Crew",
+       "nickname": "Columbus",
+       "shortName": "Columbus",
+       "type": "Team"
+      },
+      {
+       "abbreviation": "TOR",
+       "backgroundColor": "#AE132A",
+       "id": "umc.cst.47il3szeqh00xtuepkdlxmc",
+       "isFavorite": false,
+       "isHome": false,
+       "leagueId": "umc.csl.3c9plmy5skze52ff5ce24mo4g",
+       "name": "Toronto FC",
+       "nickname": "Toronto",
+       "shortName": "Toronto",
+       "type": "Team"
+      }
+     ],
+     "eventTime": {
+      "gameKickOffStartTime": 1792870200000,
+      "liveBadgeTime": {
+       "endTime": 1792891800000,
+       "startTime": 1792870200000
+      },
+      "playerInfoDisplayTime": {
+       "endTime": 1792881000000,
+       "startTime": 1792870200000
+      },
+      "playerInfoTransportBarTime": {
+       "endTime": 1792881000000,
+       "startTime": 1792869900000
+      },
+      "tuneInTime": {
+       "endTime": 1792891800000,
+       "startTime": 1792869900000
+      }
+     },
+     "id": "umc.cse.70f3jrgof87ebxqvlxqbcbkqv",
+     "intents": [
+      "NAVIGATE"
+     ],
+     "isEligibleForMultiView": false,
+     "isGeoRestricted": false,
+     "leagueAbbreviation": "mls",
+     "leagueId": "umc.csl.3c9plmy5skze52ff5ce24mo4g",
+     "leagueName": "MLS",
+     "leagueShortName": "MLS",
+     "playables": [
+      {
+       "airingType": "Live",
+       "canonicalId": "umc.cse.70f3jrgof87ebxqvlxqbcbkqv",
+       "channelId": "tvs.sbd.4000",
+       "contentId": "umc.cmr.mls.sp.38ugwbty4i58a1fw07nlw7a57",
+       "contentType": "SportingEvent",
+       "duration": 5400,
+       "entitlementReason": "Unknown",
+       "eventTime": {
+        "gameKickOffStartTime": 1792870200000,
+        "liveBadgeTime": {
+         "endTime": 1792891800000,
+         "startTime": 1792870200000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792881000000,
+         "startTime": 1792870200000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792881000000,
+         "startTime": 1792869900000
+        },
+        "tuneInTime": {
+         "endTime": 1792891800000,
+         "startTime": 1792869900000
+        }
+       },
+       "externalId": "MLS-MAT-0009NO_EN",
+       "externalServiceId": "com.apple.atvp.mls.svod.ebs.US",
+       "id": "tvs.sbd.4000:MLS-MAT-0009NO_EN:93b8a8bf",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": false,
+       "isEntitledToPlayOnDevice": false,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isSignInNotRequired": false,
+       "isUpgradeEligible": false,
+       "locales": [
+        {
+         "displayName": "English",
+         "locale": "en"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": true,
+       "primaryLocale": {
+        "displayName": "English",
+        "locale": "en"
+       },
+       "recapType": "Full",
+       "releaseDate": 1792870200000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.5105",
+       "serviceName": "MLS Live US",
+       "sharedWatchEnabled": true,
+       "sharedWatchId": "mls:umc.cmr.mls.sp.38ugwbty4i58a1fw07nlw7a57:live",
+       "subBrandId": "tvs.sbd.7000",
+       "title": "CLB vs. TOR, 10.24.26",
+       "type": "EbsEvent",
+       "url": "https://tv.apple.com/us/sporting-event/columbus-crew-vs-toronto-fc/umc.cse.70f3jrgof87ebxqvlxqbcbkqv?playableId=tvs.sbd.4000%3AMLS-MAT-0009NO_EN",
+       "useSeparateQoSReportingBucket": false
+      },
+      {
+       "airingType": "Live",
+       "canonicalId": "umc.cse.70f3jrgof87ebxqvlxqbcbkqv",
+       "channelId": "tvs.sbd.4000",
+       "contentId": "umc.cmr.mls.sp.4wy0nk1eug80zlkrxrxy9b8r1",
+       "contentType": "SportingEvent",
+       "duration": 5400,
+       "entitlementReason": "Unknown",
+       "eventTime": {
+        "gameKickOffStartTime": 1792870200000,
+        "liveBadgeTime": {
+         "endTime": 1792891800000,
+         "startTime": 1792870200000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792881000000,
+         "startTime": 1792870200000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792881000000,
+         "startTime": 1792869900000
+        },
+        "tuneInTime": {
+         "endTime": 1792891800000,
+         "startTime": 1792869900000
+        }
+       },
+       "externalId": "MLS-MAT-0009NO_SP",
+       "externalServiceId": "com.apple.atvp.mls.svod.ebs.US",
+       "id": "tvs.sbd.4000:MLS-MAT-0009NO_SP:93b8a8bf",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": false,
+       "isEntitledToPlayOnDevice": false,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isSignInNotRequired": false,
+       "isUpgradeEligible": false,
+       "locales": [
+        {
+         "displayName": "Spanish",
+         "locale": "es"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": true,
+       "primaryLocale": {
+        "displayName": "Spanish",
+        "locale": "es"
+       },
+       "recapType": "Full",
+       "releaseDate": 1792870200000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.5105",
+       "serviceName": "MLS Live US",
+       "sharedWatchEnabled": true,
+       "sharedWatchId": "mls:umc.cmr.mls.sp.4wy0nk1eug80zlkrxrxy9b8r1:live",
+       "subBrandId": "tvs.sbd.7000",
+       "title": "CLB vs. TOR, 10.24.26",
+       "type": "EbsEvent",
+       "url": "https://tv.apple.com/us/sporting-event/columbus-crew-vs-toronto-fc/umc.cse.70f3jrgof87ebxqvlxqbcbkqv?playableId=tvs.sbd.4000%3AMLS-MAT-0009NO_SP",
+       "useSeparateQoSReportingBucket": false
+      }
+     ],
+     "requiresLocationConsent": false,
+     "secondaryActions": [
+      "AddToUpNext"
+     ],
+     "shortTitle": "Columbus vs. Toronto",
+     "showModal": true,
+     "sportId": "umc.csp.y1ye10qgphjwmbdsld07rf38",
+     "sportName": "Soccer",
+     "title": "Columbus Crew vs. Toronto FC",
+     "type": "SportingEvent",
+     "url": "https://tv.apple.com/us/sporting-event/columbus-crew-vs-toronto-fc/umc.cse.70f3jrgof87ebxqvlxqbcbkqv"
+    },
+    {
+     "airingType": "Live",
+     "eventTime": {
+      "gameKickOffStartTime": 1792881000000,
+      "liveBadgeTime": {
+       "startTime": 1792846800000,
+       "endTime": 1792868400000
+      },
+      "playerInfoDisplayTime": {
+       "endTime": 1792884600000,
+       "startTime": 1792881000000
+      },
+      "playerInfoTransportBarTime": {
+       "endTime": 1792884600000,
+       "startTime": 1792880700000
+      },
+      "tuneInTime": {
+       "endTime": 1792891800000,
+       "startTime": 1792880700000
+      }
+     },
+     "id": "umc.cse.lkxye2n033t7susymaowjm4a",
+     "intents": [
+      "PLAY"
+     ],
+     "isEligibleForMultiView": false,
+     "isGeoRestricted": false,
+     "leagueAbbreviation": "mls",
+     "leagueId": "umc.csl.3c9plmy5skze52ff5ce24mo4g",
+     "leagueName": "MLS",
+     "leagueShortName": "MLS",
+     "playables": [
+      {
+       "airingType": "Live",
+       "autoExitOnBroadcastEndInSeconds": 54,
+       "canonicalId": "umc.cse.lkxye2n033t7susymaowjm4a",
+       "channelId": "tvs.sbd.4000",
+       "contentId": "umc.cmr.mls.sp.2pdjm83j6pduhpgjfpleilbfh",
+       "contentType": "SportingEvent",
+       "duration": 3600,
+       "entitlementReason": "Free",
+       "eventTime": {
+        "gameKickOffStartTime": 1792881000000,
+        "liveBadgeTime": {
+         "endTime": 1792891800000,
+         "startTime": 1792881000000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792884600000,
+         "startTime": 1792881000000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792884600000,
+         "startTime": 1792880700000
+        },
+        "tuneInTime": {
+         "endTime": 1792891800000,
+         "startTime": 1792880700000
+        }
+       },
+       "externalId": "mls2026_pre_en_31_EN",
+       "externalServiceId": "com.apple.atvp.mls.svod.ebs.US",
+       "id": "tvs.sbd.4000:mls2026_pre_en_31_EN:d6390b78",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": true,
+       "isEntitledToPlayOnDevice": true,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isSignInNotRequired": false,
+       "isUpgradeEligible": false,
+       "liveSportsPostPlayShelfFetchPolicy": {
+        "enabled": true,
+        "fetchPolicyOnInvalidPrefetchTime": {
+         "enabled": true,
+         "timestampOffsetForGameInProgressInSeconds": 104,
+         "timestampOffsetOnGameEndInSeconds": 7
+        },
+        "prefetch": true,
+        "prefetchTimestamp": 1792882787994
+       },
+       "locales": [
+        {
+         "displayName": "English",
+         "locale": "en"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": true,
+       "primaryLocale": {
+        "displayName": "English",
+        "locale": "en"
+       },
+       "releaseDate": 1792881000000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.5105",
+       "serviceName": "MLS Live US",
+       "sharedWatchEnabled": true,
+       "sharedWatchId": "mls:umc.cmr.mls.sp.2pdjm83j6pduhpgjfpleilbfh:live",
+       "subBrandId": "tvs.sbd.7000",
+       "title": "MLS Countdown",
+       "type": "EbsEvent",
+       "upsellExitPolicy": {
+        "displayPolicy": {
+         "playbackInSeconds": 60
+        },
+        "rateLimitPolicies": [
+         {
+          "key": "brandId:tvs.sbd.4000::subBrandId:tvs.sbd.7000",
+          "policy": {
+           "intervalTimeInSeconds": 86400,
+           "max": 3
+          }
+         },
+         {
+          "key": "contentId:umc.cse.lkxye2n033t7susymaowjm4a::playableType:ebsevent",
+          "policy": {
+           "intervalTimeInSeconds": 86400,
+           "max": 1
+          }
+         }
+        ],
+        "showExitUpsell": true,
+        "upsellOfferId": {
+         "channelId": "tvs.sbd.4000",
+         "editorialDataId": "WebBanner"
+        }
+       },
+       "url": "https://tv.apple.com/us/sporting-event/mls-countdown/umc.cse.lkxye2n033t7susymaowjm4a?playableId=tvs.sbd.4000%3Amls2026_pre_en_31_EN",
+       "useSeparateQoSReportingBucket": false
+      }
+     ],
+     "requiresLocationConsent": false,
+     "secondaryActions": [
+      "AddToUpNext"
+     ],
+     "shortTitle": "MLS Countdown",
+     "showModal": true,
+     "sportId": "umc.csp.y1ye10qgphjwmbdsld07rf38",
+     "sportName": "Soccer",
+     "title": "MLS Countdown",
+     "treatAsShow": true,
+     "type": "SportingEvent",
+     "url": "https://tv.apple.com/us/sporting-event/mls-countdown/umc.cse.lkxye2n033t7susymaowjm4a"
+    },
+    {
+     "airingType": "Live",
+     "competitors": [
+      {
+       "abbreviation": "PHI",
+       "backgroundColor": "#041C2C",
+       "id": "umc.cst.5oylb7dlqpcv05hxfvizp20w7",
+       "isFavorite": false,
+       "isHome": true,
+       "leagueId": "umc.csl.3c9plmy5skze52ff5ce24mo4g",
+       "name": "Philadelphia Union",
+       "nickname": "Philadelphia",
+       "shortName": "Philadelphia",
+       "type": "Team"
+      },
+      {
+       "abbreviation": "NE",
+       "backgroundColor": "#0A2240",
+       "id": "umc.cst.1up7mpk36mzeez7slhwr1khw1",
+       "isFavorite": false,
+       "isHome": false,
+       "leagueId": "umc.csl.3c9plmy5skze52ff5ce24mo4g",
+       "name": "New England Revolution",
+       "nickname": "New England",
+       "shortName": "New England",
+       "type": "Team"
+      }
+     ],
+     "eventTime": {
+      "gameKickOffStartTime": 1792884600000,
+      "liveBadgeTime": {
+       "endTime": 1792906200000,
+       "startTime": 1792884600000
+      },
+      "playerInfoDisplayTime": {
+       "endTime": 1792895400000,
+       "startTime": 1792884600000
+      },
+      "playerInfoTransportBarTime": {
+       "endTime": 1792895400000,
+       "startTime": 1792884300000
+      },
+      "tuneInTime": {
+       "endTime": 1792906200000,
+       "startTime": 1792884300000
+      }
+     },
+     "id": "umc.cse.56a00mlp4gualp1o2p6t24ahv",
+     "intents": [
+      "NAVIGATE"
+     ],
+     "isEligibleForMultiView": false,
+     "isGeoRestricted": false,
+     "leagueAbbreviation": "mls",
+     "leagueId": "umc.csl.3c9plmy5skze52ff5ce24mo4g",
+     "leagueName": "MLS",
+     "leagueShortName": "MLS",
+     "playables": [
+      {
+       "airingType": "Live",
+       "canonicalId": "umc.cse.56a00mlp4gualp1o2p6t24ahv",
+       "channelId": "tvs.sbd.4000",
+       "contentId": "umc.cmr.mls.sp.16vh5pn8zyhprdna9u9clz1ii",
+       "contentType": "SportingEvent",
+       "duration": 5400,
+       "entitlementReason": "Unknown",
+       "eventTime": {
+        "gameKickOffStartTime": 1792884600000,
+        "liveBadgeTime": {
+         "endTime": 1792906200000,
+         "startTime": 1792884600000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792895400000,
+         "startTime": 1792884600000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792895400000,
+         "startTime": 1792884300000
+        },
+        "tuneInTime": {
+         "endTime": 1792906200000,
+         "startTime": 1792884300000
+        }
+       },
+       "externalId": "MLS-MAT-0009NW_EN",
+       "externalServiceId": "com.apple.atvp.mls.svod.ebs.US",
+       "id": "tvs.sbd.4000:MLS-MAT-0009NW_EN:6e27964a",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": false,
+       "isEntitledToPlayOnDevice": false,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isSignInNotRequired": false,
+       "isUpgradeEligible": false,
+       "locales": [
+        {
+         "displayName": "English",
+         "locale": "en"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": true,
+       "primaryLocale": {
+        "displayName": "English",
+        "locale": "en"
+       },
+       "recapType": "Full",
+       "releaseDate": 1792884600000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.5105",
+       "serviceName": "MLS Live US",
+       "sharedWatchEnabled": true,
+       "sharedWatchId": "mls:umc.cmr.mls.sp.16vh5pn8zyhprdna9u9clz1ii:live",
+       "subBrandId": "tvs.sbd.7000",
+       "title": "PHI vs. NE, 10.24.26",
+       "type": "EbsEvent",
+       "url": "https://tv.apple.com/us/sporting-event/philadelphia-union-vs-new-england-revolution/umc.cse.56a00mlp4gualp1o2p6t24ahv?playableId=tvs.sbd.4000%3AMLS-MAT-0009NW_EN",
+       "useSeparateQoSReportingBucket": false
+      },
+      {
+       "airingType": "Live",
+       "canonicalId": "umc.cse.56a00mlp4gualp1o2p6t24ahv",
+       "channelId": "tvs.sbd.4000",
+       "contentId": "umc.cmr.mls.sp.4f7j2bs582log7ubn4h0iuoiq",
+       "contentType": "SportingEvent",
+       "duration": 5400,
+       "entitlementReason": "Unknown",
+       "eventTime": {
+        "gameKickOffStartTime": 1792884600000,
+        "liveBadgeTime": {
+         "endTime": 1792906200000,
+         "startTime": 1792884600000
+        },
+        "playerInfoDisplayTime": {
+         "endTime": 1792895400000,
+         "startTime": 1792884600000
+        },
+        "playerInfoTransportBarTime": {
+         "endTime": 1792895400000,
+         "startTime": 1792884300000
+        },
+        "tuneInTime": {
+         "endTime": 1792906200000,
+         "startTime": 1792884300000
+        }
+       },
+       "externalId": "MLS-MAT-0009NW_SP",
+       "externalServiceId": "com.apple.atvp.mls.svod.ebs.US",
+       "id": "tvs.sbd.4000:MLS-MAT-0009NW_SP:6e27964a",
+       "isConsented": false,
+       "isDownloadable": false,
+       "isEligibleForMultiView": false,
+       "isEligibleForPlayerTabs": true,
+       "isEmbargoed": false,
+       "isEntitledToPlay": false,
+       "isEntitledToPlayOnDevice": false,
+       "isGeoRestricted": false,
+       "isItunes": false,
+       "isKeyPlayAvailable": false,
+       "isSignInNotRequired": false,
+       "isUpgradeEligible": false,
+       "locales": [
+        {
+         "displayName": "Spanish",
+         "locale": "es"
+        }
+       ],
+       "makeAdditionalPlayerTabsRequest": true,
+       "primaryLocale": {
+        "displayName": "Spanish",
+        "locale": "es"
+       },
+       "recapType": "Full",
+       "releaseDate": 1792884600000,
+       "requiresLocationConsent": false,
+       "serviceId": "tvs.vds.5105",
+       "serviceName": "MLS Live US",
+       "sharedWatchEnabled": true,
+       "sharedWatchId": "mls:umc.cmr.mls.sp.4f7j2bs582log7ubn4h0iuoiq:live",
+       "subBrandId": "tvs.sbd.7000",
+       "title": "PHI vs. NE, 10.24.26",
+       "type": "EbsEvent",
+       "url": "https://tv.apple.com/us/sporting-event/philadelphia-union-vs-new-england-revolution/umc.cse.56a00mlp4gualp1o2p6t24ahv?playableId=tvs.sbd.4000%3AMLS-MAT-0009NW_SP",
+       "useSeparateQoSReportingBucket": false
+      }
+     ],
+     "requiresLocationConsent": false,
+     "secondaryActions": [
+      "AddToUpNext"
+     ],
+     "shortTitle": "Philadelphia vs. New England",
+     "showModal": true,
+     "sportId": "umc.csp.y1ye10qgphjwmbdsld07rf38",
+     "sportName": "Soccer",
+     "title": "Philadelphia Union vs. New England Revolution",
+     "type": "SportingEvent",
+     "url": "https://tv.apple.com/us/sporting-event/philadelphia-union-vs-new-england-revolution/umc.cse.56a00mlp4gualp1o2p6t24ahv",
+     "clockScore": {
+      "clockTime": "90+4:00.000",
+      "hasEventEnded": true,
+      "periodType": "Half",
+      "periodValue": 2,
+      "lastUpdatedTime": 1792849990000
+     }
+    }
+   ]
+  }
+ }
+}

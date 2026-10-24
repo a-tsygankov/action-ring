@@ -34,50 +34,355 @@
     "fast_interval": 0.08,
     "nav_delay": 0.05
   },
-  "keys": {
-    "1": {
-      "label": "Night", "color": "#3b3f9e",
-      "state_entity": "switch.tv_room_tv_room_night_sound",
-      "on": { "label": "Night\\nON", "color": "#3b5bdb" },
-      "off": { "label": "Night\\nOFF", "color": "#262626" },
-      "unavailable": { "label": "Night\\n?", "color": "#5c3b00" }
-    },
-    "2": {
-      "label": "Speech", "color": "#188452",
-      "state_entity": "switch.tv_room_tv_room_speech_enhancement",
-      "on": { "label": "Speech\\nON", "color": "#2b8a3e" },
-      "off": { "label": "Speech\\nOFF", "color": "#262626" },
-      "unavailable": { "label": "Speech\\n?", "color": "#5c3b00" }
-    },
-    "3": {
-      "label": "TV", "color": "#a3302c",
-      "state_entity": "media_player.lg_tv_2",
-      "on": { "label": "TV\\nON", "color": "#a3302c" },
-      "off": { "label": "TV\\nOFF", "color": "#262626" },
-      "unavailable": { "label": "TV\\nOFF", "color": "#262626" },
-      "modes": [
-        {
-          "when": [
-            { "entity": "media_player.tv_room_tv_room", "attr": "is_volume_muted", "in": [true] }
-          ],
-          "label": "TV\\nMUTED", "color": "#c77c02"
-        }
-      ]
-    },
-    "4": {
-      "label": "ATV", "color": "#4a4a4a",
-      "action": "ha-call media_player.select_source '{\"entity_id\":\"media_player.lg_tv_2\",\"source\":\"Apple OTT\"}'",
-      "modes": [
-        {
-          "when": "youtube",
-          "label": "Chapter", "icon": "/config/icons/next_chapter.png",
-          "action": { "youtube": "next_chapter" }
-        }
-      ]
-    },
-    "5": { "label": "Home", "color": "#262626", "icon": "/config/icons/home.png" },
-    "6": { "label": "Back", "color": "#262626", "icon": "/config/icons/back.png" }
+  "soccer": {
+    "atv": "media_player.vugitv_4k_vugitv_4k",
+    "atv_remote": "remote.vugitv_4k_vugitv_4k",
+    "lg": "media_player.lg_tv_2",
+    "atv_source": "Apple OTT",
+    "power_on_wait": 25,
+    "token_page": "https://tv.apple.com/us/channel/mls/tvs.sbd.7000",
+    "cache_s": 60,
+    "poll_s": 180,
+    "idle_poll_s": 1800,
+    "select_after_s": 8
   },
+  "tabs": {
+    "timeouts": { "open": 10, "after_press": 5, "context_debounce": 1 },
+    "round": { "7": ["apps", "apps_more"], "8": ["sonos"] },
+    "context": {
+      "lg": "media_player.lg_tv_2",
+      "atv": "media_player.vugitv_4k_vugitv_4k",
+      "atv_source": "Apple OTT",
+      "youtube_apps": { "atv": ["com.google.ios.youtube"], "lg": ["youtube.leanback.v4"] },
+      "lg_media_apps": ["com.webos.app.mediadiscovery"],
+      "lg_idle_app_prefixes": ["com.webos.app.hdmi", "com.webos.app.livetv", "com.webos.app.home"]
+    },
+    "launch": {
+      "lg": "media_player.lg_tv_2",
+      "atv": "media_player.vugitv_4k_vugitv_4k",
+      "atv_remote": "remote.vugitv_4k_vugitv_4k",
+      "atv_source": "Apple OTT",
+      "power_on_wait": 25
+    },
+    "pages": {
+      "apps": {
+        "close_on_press": true,
+        "keys": {
+          "1": { "icon": "netflix", "action": { "launch": { "device": "atv", "app": "com.netflix.Netflix" } } },
+          "2": { "icon": "youtube", "action": { "launch": { "device": "atv", "app": "com.google.ios.youtube" } } },
+          "3": { "icon": "prime_video", "action": { "launch": { "device": "atv", "app": "com.amazon.aiv.AIVApp" } } },
+          "4": { "icon": "apple_tv_app", "action": { "launch": { "device": "atv", "app": "com.apple.TVWatchList" } } },
+          "5": { "icon": "lg_media_player", "action": { "launch": { "device": "lg", "app": "com.webos.app.mediadiscovery" } } },
+          "6": { "icon": "max", "action": { "launch": { "device": "atv", "app": "com.wbd.stream" } } }
+        }
+      },
+      "apps_more": {
+        "close_on_press": true,
+        "keys": {
+          "1": { "icon": "hulu", "action": { "launch": { "device": "atv", "app": "com.hulu.plus" } } },
+          "2": { "icon": "disney_plus", "action": { "launch": { "device": "atv", "app": "com.disney.disneyplus" } } },
+          "3": { "icon": "paramount_plus", "action": { "launch": { "device": "atv", "app": "com.cbsvideo.app" } } },
+          "4": { "icon": "pluto_tv", "action": { "launch": { "device": "atv", "app": "tv.pluto.ios" } } },
+          "5": { "icon": "tubi", "action": { "launch": { "device": "atv", "app": "com.adrise.tubitv" } } },
+          "6": {
+            "icon": "apple_tv_input",
+            "action": "ha-call media_player.select_source '{\"entity_id\":\"media_player.lg_tv_2\",\"source\":\"Apple OTT\"}'"
+          }
+        }
+      },
+      "sonos": {
+        "keys": {
+          "1": {
+            "icon": "night__off",
+            "state_entity": "switch.tv_room_tv_room_night_sound",
+            "on": { "icon": "night__on" },
+            "off": { "icon": "night__off" },
+            "unavailable": { "icon": "night__unknown" },
+            "action": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_night_sound\"}'"
+          },
+          "2": {
+            "icon": "speech__off",
+            "state_entity": "switch.tv_room_tv_room_speech_enhancement",
+            "on": { "icon": "speech__on" },
+            "off": { "icon": "speech__off" },
+            "unavailable": { "icon": "speech__unknown" },
+            "action": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_speech_enhancement\"}'"
+          },
+          "3": {
+            "icon": "next_track__off",
+            "modes": [
+              {
+                "when": [
+                  { "entity": "media_player.living_room_living_room", "in": ["playing"] },
+                  { "entity": "media_player.kitchen_kitchen", "in": ["playing"] },
+                  { "entity": "media_player.bathroom_bathroom", "in": ["playing"] },
+                  { "entity": "media_player.boston_boston", "in": ["playing"] },
+                  { "entity": "media_player.sonos_move", "in": ["playing"] }
+                ],
+                "icon": "next_track__on"
+              }
+            ],
+            "action": {
+              "next_playing": [
+                "media_player.living_room_living_room",
+                "media_player.kitchen_kitchen",
+                "media_player.bathroom_bathroom",
+                "media_player.boston_boston",
+                "media_player.sonos_move"
+              ]
+            }
+          },
+          "4": {
+            "label": "MUTE\\nOFF", "color": "#262626",
+            "modes": [
+              {
+                "when": [
+                  { "entity": "media_player.tv_room_tv_room", "attr": "is_volume_muted", "in": [true] }
+                ],
+                "label": "MUTE\\nON", "color": "#c77c02"
+              }
+            ],
+            "action": "ha-call script.turn_on '{\"entity_id\":\"script.tv_room_mute_toggle\"}'"
+          },
+          "5": {
+            "label": "Sub", "color": "#262626",
+            "state_entity": "switch.tv_room_tv_room_subwoofer_enabled",
+            "on": { "label": "Sub\\nON", "color": "#5f3dc4" },
+            "off": { "label": "Sub\\nOFF", "color": "#262626" },
+            "unavailable": { "label": "Sub\\n?", "color": "#5c3b00" },
+            "action": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_subwoofer_enabled\"}'"
+          },
+          "6": {
+            "label": "Surround", "color": "#262626",
+            "state_entity": "switch.tv_room_tv_room_surround_enabled",
+            "on": { "label": "Surround\\nON", "color": "#1971c2" },
+            "off": { "label": "Surround\\nOFF", "color": "#262626" },
+            "unavailable": { "label": "Surround\\n?", "color": "#5c3b00" },
+            "action": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_surround_enabled\"}'"
+          }
+        }
+      },
+      "context:idle": {
+        "keys": {
+          "1": {
+            "icon": "tv_power__off",
+            "state_entity": "media_player.lg_tv_2",
+            "on": { "icon": "tv_power__on" },
+            "off": { "icon": "tv_power__off" },
+            "unavailable": { "icon": "tv_power__off" },
+            "modes": [
+              {
+                "when": [
+                  { "entity": "media_player.tv_room_tv_room", "attr": "is_volume_muted", "in": [true] }
+                ],
+                "icon": "tv_power__muted"
+              }
+            ],
+            "action": "ha-call script.turn_on '{\"entity_id\":\"script.tv_room_power_toggle\"}'"
+          },
+          "2": {
+            "icon": "soccer_live__none", "label": "",
+            "modes": [ { "when": "soccer_live", "icon": "soccer_live__live" } ],
+            "action": { "soccer": "start" }
+          },
+          "3": {
+            "icon": "apple_tv_input",
+            "action": "ha-call media_player.select_source '{\"entity_id\":\"media_player.lg_tv_2\",\"source\":\"Apple OTT\"}'"
+          },
+          "4": {
+            "icon": "night__off",
+            "state_entity": "switch.tv_room_tv_room_night_sound",
+            "on": { "icon": "night__on" },
+            "off": { "icon": "night__off" },
+            "unavailable": { "icon": "night__unknown" },
+            "action": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_night_sound\"}'"
+          },
+          "5": {
+            "icon": "home",
+            "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"home\"}'"
+          },
+          "6": {
+            "icon": "back",
+            "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"menu\"}'"
+          }
+        }
+      },
+      "context:streaming": {
+        "keys": {
+          "1": {
+            "icon": "play_pause__paused",
+            "modes": [
+              {
+                "when": [ { "entity": "media_player.vugitv_4k_vugitv_4k", "in": ["playing"] } ],
+                "icon": "play_pause__playing"
+              }
+            ],
+            "action": "ha-call media_player.media_play_pause '{\"entity_id\":\"media_player.vugitv_4k_vugitv_4k\"}'"
+          },
+          "2": {
+            "icon": "skip_back_10",
+            "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"skip_backward\"}'"
+          },
+          "3": {
+            "icon": "skip_fwd_10",
+            "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"skip_forward\"}'"
+          },
+          "4": {
+            "icon": "night__off",
+            "state_entity": "switch.tv_room_tv_room_night_sound",
+            "on": { "icon": "night__on" },
+            "off": { "icon": "night__off" },
+            "unavailable": { "icon": "night__unknown" },
+            "action": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_night_sound\"}'"
+          },
+          "5": {
+            "icon": "home",
+            "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"home\"}'"
+          },
+          "6": {
+            "icon": "back",
+            "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"menu\"}'"
+          }
+        }
+      },
+      "context:youtube": {
+        "keys": {
+          "1": {
+            "icon": "play_pause__paused",
+            "modes": [ { "when": "youtube_playing", "icon": "play_pause__playing" } ],
+            "action": { "youtube": "play_pause" }
+          },
+          "2": { "icon": "next_chapter", "action": { "youtube": "next_chapter" } },
+          "3": { "icon": "next_video", "action": { "youtube": "next" } },
+          "4": { "icon": "prev_video", "action": { "youtube": "previous" } },
+          "5": {
+            "icon": "subtitles__off",
+            "modes": [ { "when": "youtube_subtitles", "icon": "subtitles__on" } ],
+            "action": { "youtube": "subtitles" }
+          },
+          "6": {
+            "icon": "back",
+            "modes": [
+              {
+                "when": [
+                  { "entity": "media_player.lg_tv_2", "attr": "source", "in": ["YouTube"] },
+                  { "entity": "media_player.lg_tv_2", "attr": "app_id", "in": ["youtube.leanback.v4"] }
+                ],
+                "action": "ha-call webostv.button '{\"entity_id\":\"media_player.lg_tv_2\",\"button\":\"BACK\"}'"
+              }
+            ],
+            "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"menu\"}'"
+          }
+        }
+      },
+      "context:lg_media": {
+        "keys": {
+          "1": {
+            "icon": "play_pause__paused",
+            "modes": [
+              { "when": [ { "entity": "media_player.lg_tv_2", "in": ["playing"] } ], "icon": "play_pause__playing" }
+            ],
+            "action": "ha-call media_player.media_play_pause '{\"entity_id\":\"media_player.lg_tv_2\"}'"
+          },
+          "2": {
+            "icon": "rewind__1x",
+            "action": "ha-call webostv.button '{\"entity_id\":\"media_player.lg_tv_2\",\"button\":\"REWIND\"}'"
+          },
+          "3": {
+            "icon": "fast_forward__1x",
+            "action": "ha-call webostv.button '{\"entity_id\":\"media_player.lg_tv_2\",\"button\":\"FASTFORWARD\"}'"
+          },
+          "4": {
+            "icon": "night__off",
+            "state_entity": "switch.tv_room_tv_room_night_sound",
+            "on": { "icon": "night__on" },
+            "off": { "icon": "night__off" },
+            "unavailable": { "icon": "night__unknown" },
+            "action": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_night_sound\"}'"
+          },
+          "5": {
+            "icon": "home",
+            "action": "ha-call webostv.button '{\"entity_id\":\"media_player.lg_tv_2\",\"button\":\"HOME\"}'"
+          },
+          "6": {
+            "icon": "back",
+            "action": "ha-call webostv.button '{\"entity_id\":\"media_player.lg_tv_2\",\"button\":\"BACK\"}'"
+          }
+        }
+      },
+      "context:lg_app": {
+        "keys": {
+          "1": {
+            "icon": "play_pause__paused",
+            "modes": [
+              { "when": [ { "entity": "media_player.lg_tv_2", "in": ["playing"] } ], "icon": "play_pause__playing" }
+            ],
+            "action": "ha-call media_player.media_play_pause '{\"entity_id\":\"media_player.lg_tv_2\"}'"
+          },
+          "2": {
+            "icon": "rewind__1x",
+            "action": "ha-call webostv.button '{\"entity_id\":\"media_player.lg_tv_2\",\"button\":\"REWIND\"}'"
+          },
+          "3": {
+            "icon": "fast_forward__1x",
+            "action": "ha-call webostv.button '{\"entity_id\":\"media_player.lg_tv_2\",\"button\":\"FASTFORWARD\"}'"
+          },
+          "4": {
+            "icon": "night__off",
+            "state_entity": "switch.tv_room_tv_room_night_sound",
+            "on": { "icon": "night__on" },
+            "off": { "icon": "night__off" },
+            "unavailable": { "icon": "night__unknown" },
+            "action": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_night_sound\"}'"
+          },
+          "5": {
+            "icon": "home",
+            "action": "ha-call webostv.button '{\"entity_id\":\"media_player.lg_tv_2\",\"button\":\"HOME\"}'"
+          },
+          "6": {
+            "icon": "back",
+            "action": "ha-call webostv.button '{\"entity_id\":\"media_player.lg_tv_2\",\"button\":\"BACK\"}'"
+          }
+        }
+      },
+      "context:live_game": {
+        "keys": {
+          "1": {
+            "icon": "play_pause__paused",
+            "modes": [
+              {
+                "when": [ { "entity": "media_player.vugitv_4k_vugitv_4k", "in": ["playing"] } ],
+                "icon": "play_pause__playing"
+              }
+            ],
+            "action": "ha-call media_player.media_play_pause '{\"entity_id\":\"media_player.vugitv_4k_vugitv_4k\"}'"
+          },
+          "2": { "label": "NEXT\\n{soccer_pos}", "color": "#1d6b32", "action": { "soccer": "next" } },
+          "3": {
+            "icon": "night__off",
+            "state_entity": "switch.tv_room_tv_room_night_sound",
+            "on": { "icon": "night__on" },
+            "off": { "icon": "night__off" },
+            "unavailable": { "icon": "night__unknown" },
+            "action": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_night_sound\"}'"
+          },
+          "4": {
+            "icon": "skip_back_10",
+            "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"skip_backward\"}'"
+          },
+          "5": {
+            "icon": "home",
+            "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"home\"}'"
+          },
+          "6": {
+            "icon": "back",
+            "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"menu\"}'"
+          }
+        }
+      }
+    }
+  },
+  "keys": {},
   "actions": {
     "knob.1.right": "ha-call media_player.volume_up '{\"entity_id\":\"media_player.tv_room_tv_room\"}'",
     "knob.1.left": "ha-call media_player.volume_down '{\"entity_id\":\"media_player.tv_room_tv_room\"}'",
@@ -91,15 +396,15 @@
     "knob.2.left": { "atv_knob": { "axis": "vertical", "direction": -1 } },
     "knob.2.press":"ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"select\"}'",
 
-    "button.7.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"menu\"}'",
-    "button.8.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"home\"}'",
+    "button.7.press": { "tab_round": 7 },
+    "button.8.press": { "tab_round": 8 },
     "button.9.press": "ha-call remote.turn_on '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\"}'; sleep 2; ha-call media_player.turn_on '{\"entity_id\":\"media_player.vugitv_4k_vugitv_4k\"}'",
 
-    "button.1.press": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_night_sound\"}'",
-    "button.2.press": "ha-call switch.toggle '{\"entity_id\":\"switch.tv_room_tv_room_speech_enhancement\"}'",
-    "button.3.press": "ha-call script.turn_on '{\"entity_id\":\"script.tv_room_power_toggle\"}'",
-    "button.6.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"menu\"}'",
-    "button.5.press":"ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"home\"}'",
-    "button.4.press": { "key_action": 4 }
+    "button.1.press": { "tab_key": 1 },
+    "button.2.press": { "tab_key": 2 },
+    "button.3.press": { "tab_key": 3 },
+    "button.4.press": { "tab_key": 4 },
+    "button.5.press": { "tab_key": 5 },
+    "button.6.press": { "tab_key": 6 }
   }
 }
