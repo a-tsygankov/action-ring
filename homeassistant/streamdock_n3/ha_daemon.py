@@ -47,6 +47,12 @@ Runs the upstream daemon unchanged and adds:
 6. Ad detection (ad_detect.py): "ad_detect": {"speaker", "media_player",
    "apps"} mutes the speaker during ad breaks of apps with a separate show
    clock (Pluto TV), from the app's own MRP session (AirPlay pairing).
+
+7. Media actions (media_actions.py): {"launch": {"device": "atv"|"lg",
+   "app": <id>}} powers the TV on if needed, then starts the app (config
+   "tabs.launch": lg, atv, atv_remote, atv_source, power_on_wait);
+   {"next_playing": [entities]} skips to the next track on the first playing
+   speaker that leads its group.
 """
 
 from __future__ import annotations
@@ -64,6 +70,7 @@ from typing import Any, Callable
 from context import foreground_layout
 from keyspec import Look, changed_keys, entities_of, resolve_action, resolve_look
 from knob_accel import AppleTVKnobs
+from media_actions import launch, next_playing
 from streamdock_n3 import config as configmod
 from streamdock_n3 import daemon, icons, paths
 from tabs import TabEngine
@@ -84,6 +91,8 @@ _youtube: Any = None  # yt_lounge.YouTubeScreens
 _np_log: Any = None  # np_log.NowPlayingLog
 _engine = TabEngine({}, {})  # replaced in main() before the device starts
 _ctx_cfg: dict | None = None  # config "tabs.context"; None = no context detection
+_launch_cfg: dict | None = None  # config "tabs.launch"; None = launch actions do nothing
+_core: "CoreAPI | None" = None  # shared REST client for media actions; set in main()
 _wake = threading.Event()  # set by _signal(): the renderer has work
 _drawn: dict[int, Look] = {}  # key -> look on screen; renderer thread only
 
@@ -155,6 +164,29 @@ def _run_actions(actions: Any, *, dry_run: bool) -> None:
         # Seeking waits on the network; keep the SDK reader thread free.
         threading.Thread(target=_safe, args=(_youtube.next_chapter,), daemon=True).start()
         return
+    if isinstance(actions, dict) and "launch" in actions:
+        req = actions["launch"]
+        if dry_run:
+            print(f"launch (dry run): {req}", flush=True)
+        elif _launch_cfg is None or _core is None:
+            print("launch: no tabs.launch config", flush=True)
+        else:
+            # Powering the TV on can take ~25 s; keep the SDK reader thread free.
+            threading.Thread(
+                target=_safe,
+                args=(lambda: launch(_core.call, state_of, _launch_cfg, req["device"], req["app"]),),
+                daemon=True,
+            ).start()
+        return
+    if isinstance(actions, dict) and "next_playing" in actions:
+        candidates = list(actions["next_playing"])
+        if dry_run:
+            print(f"next-track (dry run): {candidates}", flush=True)
+        elif _core is None:
+            print("next-track: no Core API; ignoring", flush=True)
+        else:
+            threading.Thread(target=_safe, args=(lambda: _next_track(candidates),), daemon=True).start()
+        return
     if isinstance(actions, dict) and "atv_knob" in actions:
         if dry_run:
             print(f"atv-knob (dry run): {actions['atv_knob']}", flush=True)
@@ -164,6 +196,11 @@ def _run_actions(actions: Any, *, dry_run: bool) -> None:
             _knobs.detent(actions["atv_knob"])
         return
     _upstream_run_actions(actions, dry_run=dry_run)
+
+
+def _next_track(candidates: list[str]) -> None:
+    entity = next_playing(_core.call, state_of, candidates)
+    print(f"next-track: {entity or 'nothing playing'}", flush=True)
 
 
 def _safe(fn) -> None:
@@ -245,6 +282,19 @@ def _make_engine(config: dict[str, Any]) -> tuple[TabEngine, dict[str, dict], di
     return engine, pages, ctx if isinstance(ctx, dict) else None
 
 
+def _action_entities(pages: dict[str, dict]) -> set[str]:
+    """Speakers named by next_playing actions: their state must be watched."""
+    out: set[str] = set()
+    for page in pages.values():
+        for spec in page["keys"].values():
+            modes = [m for m in spec.get("modes") or [] if isinstance(m, dict)]
+            for action in [spec.get("action"), *(m.get("action") for m in modes)]:
+                for act in action if isinstance(action, list) else [action]:
+                    if isinstance(act, dict) and isinstance(act.get("next_playing"), list):
+                        out |= {e for e in act["next_playing"] if isinstance(e, str)}
+    return out
+
+
 def _image_for(key: int, look: Look) -> str:
     """The icon file, or a generated text tile (cached by label and color)."""
     if look.icon and Path(look.icon).exists():
@@ -299,12 +349,15 @@ def _render() -> None:
 def _tick() -> None:
     seen = -1
     while True:
-        _engine.tick(time.monotonic())
-        version = _engine.version  # unlocked read: only a "something changed" hint
-        if version != seen:
-            seen = version
-            print(f"tabs: showing {_engine.visible}", flush=True)
-            _signal()
+        try:
+            _engine.tick(time.monotonic())
+            version = _engine.version  # unlocked read: only a "something changed" hint
+            if version != seen:
+                seen = version
+                print(f"tabs: showing {_engine.visible}", flush=True)
+                _signal()
+        except Exception as err:  # a dead ticker would leave a temporary tab stuck
+            print(f"tick: {type(err).__name__}: {err}", flush=True)
         time.sleep(TICK_SECONDS)
 
 
@@ -358,12 +411,15 @@ def _watch(entities: list[str]) -> None:
         # Show "unavailable" while disconnected, so stale state isn't trusted.
         with _states_lock:
             _states.clear()
-        _update_context()
+        try:
+            _update_context()
+        except Exception as err:  # the retry loop must survive
+            print(f"ha-state: context: {type(err).__name__}: {err}", flush=True)
         time.sleep(RETRY_SECONDS)
 
 
 def main() -> int:
-    global _knobs, _youtube, _np_log, _engine, _ctx_cfg
+    global _knobs, _youtube, _np_log, _engine, _ctx_cfg, _launch_cfg, _core
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", type=Path)
     args, _ = parser.parse_known_args()
@@ -375,6 +431,12 @@ def main() -> int:
     }
     if _ctx_cfg is not None:
         entities |= {e for e in (_ctx_cfg.get("lg"), _ctx_cfg.get("atv")) if e}
+    _core = CoreAPI()
+    tabs_cfg = config.get("tabs")
+    if isinstance(tabs_cfg, dict) and isinstance(tabs_cfg.get("launch"), dict):
+        _launch_cfg = tabs_cfg["launch"]
+        entities |= {e for e in (_launch_cfg.get("lg"),) if e}
+    entities |= _action_entities(pages)
     np_entities = (config.get("now_playing_log") or {}).get("entities") or []
     if np_entities:
         from np_log import NowPlayingLog
