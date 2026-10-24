@@ -51,6 +51,9 @@ DEFAULTS: dict[str, Any] = {
     "touch_move_px": 25,  # max finger move per touch event
     "touch_interval": 0.016,  # s between touch events (as pyatv's own swipe)
     "touch_release_after": 0.6,  # lift the finger after this long idle
+    # A resting finger repeats its position this often, as a real remote
+    # does; tvOS otherwise ends a silent touch itself. 0 disables.
+    "touch_keepalive": 0.05,
     "touch_pause_delay": 0.4,  # wait after pausing before touching
     # After a scrub (seek or touch), this long without knob activity resumes
     # playback: touch scrubs are committed with select first. 0 disables.
@@ -87,7 +90,8 @@ class AppleTVKnobs:
         # Touch-scrub finger; only the sender thread touches these.
         self._finger_down = False
         self._finger_x = 0
-        self._finger_last = 0.0
+        self._finger_last = 0.0  # last finger move (knob activity)
+        self._finger_ping = 0.0  # last touch event of any kind
         # Scrub session awaiting auto-resume; guarded by _cv.
         self._scrub_active = False
         self._scrub_kind = "seek"
@@ -145,7 +149,7 @@ class AppleTVKnobs:
     # -- output (own thread) -----------------------------------------------
     def _next_job(self) -> tuple[str, Any]:
         """Block until there is work; called with _cv held. Order: batches,
-        knob press, idle finger lift, auto-resume after a scrub."""
+        knob press, idle finger lift or keepalive, auto-resume after a scrub."""
         quiet, max_age = self.cfg["flush_quiet"], self.cfg["flush_max"]
         release_after = self.cfg["touch_release_after"]
         resume_after = self.cfg["resume_after"]
@@ -168,6 +172,11 @@ class AppleTVKnobs:
                 if now - self._finger_last >= release_after:
                     return "release", None
                 wakes.append(self._finger_last + release_after)
+                keepalive = self.cfg["touch_keepalive"]
+                if keepalive > 0:
+                    if now - self._finger_ping >= keepalive:
+                        return "keepalive", None
+                    wakes.append(self._finger_ping + keepalive)
             if idle and self._scrub_active and resume_after > 0:
                 if now - self._scrub_last >= resume_after:
                     self._scrub_active = False
@@ -193,6 +202,8 @@ class AppleTVKnobs:
                     self._press(payload)
                 elif job == "release":
                     self._finger_release()
+                elif job == "keepalive":
+                    self._finger_hold()
                 elif job == "resume":
                     self._resume(payload)
             except Exception as err:
@@ -286,6 +297,7 @@ class AppleTVKnobs:
                 time.sleep(cfg["touch_pause_delay"])
             touch.action(centre, y, "press")
             self._finger_x, self._finger_down = centre, True
+            self._finger_ping = time.monotonic()
         remaining = distance
         while abs(remaining) >= 1:
             target = round(min(hi, max(lo, self._finger_x + remaining)))
@@ -309,6 +321,15 @@ class AppleTVKnobs:
             x = round(start + (target - start) * i / count)
             self._touch.action(x, self.cfg["touch_y"], "hold")
         self._finger_x = target
+        self._finger_ping = time.monotonic()
+
+    def _finger_hold(self) -> None:
+        try:
+            self._touch.action(self._finger_x, self.cfg["touch_y"], "hold")
+        except Exception as err:  # the next drag starts a fresh gesture
+            self._finger_down = False
+            print(f"atv-knob: touch keepalive failed: {err}", flush=True)
+        self._finger_ping = time.monotonic()
 
     def _finger_release(self) -> None:
         try:

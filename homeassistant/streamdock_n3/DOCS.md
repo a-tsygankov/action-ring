@@ -62,6 +62,7 @@ shown):
   "touch_move_px": 25,
   "touch_interval": 0.016,
   "touch_release_after": 0.6,
+  "touch_keepalive": 0.05,
   "touch_pause_delay": 0.4,
   "resume_after": 3.0,
   "resume_check_delay": 1.5
@@ -102,6 +103,8 @@ previews:
 4. After `touch_release_after` seconds without a click the finger lifts. The
    preview stays on screen; press the knob (OK) to jump there, or Back to
    cancel.
+5. While the finger rests between clicks it repeats its position every
+   `touch_keepalive` seconds, as a real Siri Remote does.
 
 Touch needs the app's own Apple TV pairing over the Companion protocol
 (`atv_touch.py`, pyatv). This pairing is separate from Home Assistant's,

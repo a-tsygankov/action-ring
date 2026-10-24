@@ -79,3 +79,42 @@ def test_drop_closes_the_pyatv_handle_so_supervise_reconnects():
     touch.drop("Send event failed")
     assert touch.available() is False
     assert Handle.closed is True
+
+
+class RecordingTouch:
+    def __init__(self):
+        self.events = []
+
+    def available(self):
+        return True
+
+    def action(self, x, y, mode, timeout=2.0):
+        self.events.append((x, y, mode))
+
+
+def resting_finger(knobs, idle, since_ping):
+    import time
+
+    now = time.monotonic()
+    knobs._finger_down, knobs._finger_x = True, 236
+    knobs._finger_last, knobs._finger_ping = now - idle, now - since_ping
+
+
+def test_resting_finger_sends_keepalive_holds_at_the_same_spot():
+    touch = RecordingTouch()
+    knobs = AppleTVKnobs(CFG, Recorder(), paused_at(1000), touch)
+    resting_finger(knobs, idle=0.2, since_ping=0.2)
+    with knobs._cv:
+        job, _ = knobs._next_job()
+    assert job == "keepalive"
+    knobs._finger_hold()
+    assert touch.events == [(236, 500, "hold")]
+
+
+def test_keepalive_does_not_postpone_the_lift():
+    knobs = AppleTVKnobs(CFG, Recorder(), paused_at(1000), RecordingTouch())
+    resting_finger(knobs, idle=3.0, since_ping=0.0)
+    knobs._finger_hold()  # a keepalive just went out...
+    with knobs._cv:
+        job, _ = knobs._next_job()
+    assert job == "release"  # ...but the finger still lifts after touch_release_after idle
