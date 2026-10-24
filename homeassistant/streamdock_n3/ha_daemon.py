@@ -21,6 +21,15 @@ Runs the upstream daemon unchanged and adds:
    {"atv_knob": {"axis": "horizontal"|"vertical", "direction": 1|-1}} goes to
    the knob engine instead of a shell command; the top-level "atv" config
    names the remote/media_player entities and tuning values.
+
+3. Key modes. A key may list "modes"; the first whose "when" holds sets the
+   key's icon/label/color and its press action, else the key's own
+   "action"/look apply. Map the press with {"key_action": <key>}.
+   "when" is "youtube" (YouTube in the foreground on a configured screen) or
+   a list of {"entity", "attr" ("state" by default), "in": [...]} (any).
+
+4. YouTube (yt_lounge.py): {"youtube": "next_chapter"} jumps to the next
+   chapter of the video playing in a linked YouTube TV app.
 """
 
 from __future__ import annotations
@@ -50,6 +59,9 @@ _ready = threading.Event()
 _device = None
 _draw_lock = threading.Lock()
 _knobs: AppleTVKnobs | None = None
+_youtube: Any = None  # yt_lounge.YouTubeScreens
+_keys: dict[str, dict] = {}  # config "keys", for key modes
+_shown_mode: dict[int, int] = {}  # key -> index of the mode on screen (-1 = base)
 
 # entity_id -> {"s": state, "a": attributes}, kept current by _watch().
 _states: dict[str, dict[str, Any]] = {}
@@ -77,6 +89,20 @@ def _apply_icons(device, config):
 
 
 def _run_actions(actions: Any, *, dry_run: bool) -> None:
+    if isinstance(actions, dict) and "key_action" in actions:
+        key = str(actions["key_action"])
+        mode = _active_mode(_keys.get(key, {}))
+        chosen = mode[1].get("action") if mode else _keys.get(key, {}).get("action")
+        _run_actions(chosen, dry_run=dry_run)
+        return
+    if isinstance(actions, dict) and "youtube" in actions:
+        command = actions["youtube"]
+        if dry_run or _youtube is None or command != "next_chapter":
+            print(f"youtube: ignoring {command!r}", flush=True)
+            return
+        # Seeking waits on the network; keep the SDK reader thread free.
+        threading.Thread(target=_safe, args=(_youtube.next_chapter,), daemon=True).start()
+        return
     if isinstance(actions, dict) and "atv_knob" in actions:
         if dry_run:
             print(f"atv-knob (dry run): {actions['atv_knob']}", flush=True)
@@ -88,8 +114,70 @@ def _run_actions(actions: Any, *, dry_run: bool) -> None:
     _upstream_run_actions(actions, dry_run=dry_run)
 
 
+def _safe(fn) -> None:
+    try:
+        fn()
+    except Exception as err:
+        print(f"action failed: {type(err).__name__}: {err}", flush=True)
+
+
 daemon.apply_icons = _apply_icons
 daemon.run_actions = _run_actions
+
+
+# -- key modes -------------------------------------------------------------------
+
+
+def _when(cond: Any) -> bool:
+    if cond == "youtube":
+        return _youtube is not None and _youtube.any_active()
+    if isinstance(cond, list):
+        from yt_lounge import matches
+
+        return any(matches(state_of, c) for c in cond)
+    return False
+
+
+def _active_mode(item: dict) -> tuple[int, dict] | None:
+    for i, mode in enumerate(item.get("modes") or []):
+        if isinstance(mode, dict) and _when(mode.get("when")):
+            return i, mode
+    return None
+
+
+def _mode_entities() -> set[str]:
+    out: set[str] = set()
+    for item in _keys.values():
+        for mode in item.get("modes") or []:
+            if isinstance(mode.get("when"), list):
+                out |= {c["entity"] for c in mode["when"]}
+    return out
+
+
+def _refresh_modes() -> None:
+    for key_str, item in _keys.items():
+        if not item.get("modes") or not key_str.isdigit():
+            continue
+        key = int(key_str)
+        mode = _active_mode(item)
+        index = mode[0] if mode else -1
+        if _shown_mode.get(key) == index:
+            continue
+        _shown_mode[key] = index
+        look = mode[1] if mode else item
+        print(f"key {key}: mode {look.get('label', index)!r}", flush=True)
+        _draw_look(key, look, item)
+
+
+def _draw_look(key: int, look: dict, base: dict) -> None:
+    icon = look.get("icon")
+    if icon and Path(icon).exists():
+        with _draw_lock:
+            _device.set_key_image(key, icon)
+            _device.refresh()
+        return
+    _draw(key, {"label": look.get("label", base.get("label", key)),
+                "color": look.get("color", base.get("color"))}, "on")
 
 
 # -- Core REST calls -------------------------------------------------------------
@@ -203,6 +291,7 @@ def _watch(bindings: dict[str, list[tuple[int, dict]]], extra: set[str]) -> None
                             _states.pop(entity_id, None)
                     for entity_id in entities:
                         show(entity_id)
+                    _refresh_modes()
         except Exception as err:  # keep the keys alive across HA restarts
             print(f"ha-state: {err!r}; retrying in {RETRY_SECONDS}s", flush=True)
         # Show "unavailable" while disconnected, so stale state isn't trusted.
@@ -210,6 +299,7 @@ def _watch(bindings: dict[str, list[tuple[int, dict]]], extra: set[str]) -> None
             _states.clear()
         for entity_id in entities:
             show(entity_id)
+        _refresh_modes()
         time.sleep(RETRY_SECONDS)
 
 
@@ -223,17 +313,34 @@ def _bindings(config: dict[str, Any]) -> dict[str, list[tuple[int, dict]]]:
 
 
 def main() -> int:
-    global _knobs
+    global _knobs, _youtube, _keys
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", type=Path)
     args, _ = parser.parse_known_args()
     config = configmod.normalize(configmod.load(args.config or configmod.ensure_config()))
+    _keys = config["keys"]
 
     bindings = _bindings(config)
-    extra: set[str] = set()
+    extra: set[str] = _mode_entities()
+    yt = config.get("youtube")
+    if isinstance(yt, dict) and yt.get("screens"):
+        try:
+            from yt_lounge import YouTubeScreens
+
+            _youtube = YouTubeScreens(yt, state_of)
+            extra |= _youtube.entities()
+        except Exception as err:
+            print(f"youtube: disabled ({err!r})", flush=True)
     atv = config.get("atv")
     if isinstance(atv, dict) and atv.get("remote") and atv.get("media_player"):
-        _knobs = AppleTVKnobs(atv, CoreAPI().call, state_of)
+        touch = None
+        try:  # direct Companion connection for preview scrubbing (pairing via files)
+            from atv_touch import AppleTVTouch
+
+            touch = AppleTVTouch()
+        except Exception as err:
+            print(f"atv-touch: disabled ({err!r}); scrubbing uses seek", flush=True)
+        _knobs = AppleTVKnobs(atv, CoreAPI().call, state_of, touch)
         extra.add(atv["media_player"])
     if bindings or extra:
         threading.Thread(target=_watch, args=(bindings, extra), daemon=True).start()

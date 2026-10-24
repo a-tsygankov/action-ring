@@ -18,7 +18,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Home Assistant OS / Supervisor / Core | 18.3 / 2026.10.3 / 2026.10.2 |
 | SSH | Terminal & SSH app 10.5.0; from the PC: `ssh homeassistant` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
-| Dock software | Local app `local_streamdock_n3` v0.4.0-8, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
+| Dock software | Local app `local_streamdock_n3` v0.4.0-11, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
 | HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
 
@@ -26,11 +26,12 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 
 | Path | Purpose |
 |---|---|
-| `homeassistant/streamdock_n3/` | The HA app (Dockerfile, `config.yaml`, `run.sh` watchdog, `ha_daemon.py` live key state + HA calls, `knob_accel.py` Apple TV knob engine, `ha-call`, `patch_ids.py`, `DOCS.md`) |
+| `homeassistant/streamdock_n3/` | The HA app (Dockerfile, `config.yaml`, `run.sh` watchdog, `ha_daemon.py` live key state + HA calls, `knob_accel.py` Apple TV knob engine, `atv_touch.py` Companion touch connection, `yt_lounge.py` + `yt_chapters.py` YouTube link and chapters, `ha-call`, `patch_ids.py`, `DOCS.md`) |
 | `homeassistant/streamdock_n3/config.tv_room.json` | Live dock mappings (source of truth) |
 | `homeassistant/streamdock_n3/icons/` | Key images, deployed to `/app_configs/local_streamdock_n3/icons/` (`/config/icons/` in the app) |
 | `homeassistant/ha-config/scripts/*.yaml` | HA scripts, one top-level key per file |
 | `homeassistant/restore.sh` | Restore everything above onto a HAOS device |
+| `homeassistant/pair.sh` | Pair the Apple TV (touch) and link YouTube apps; `status` |
 
 ### Control mappings (TV Room)
 
@@ -43,7 +44,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Key 1 "Night" | `button.1.press` | Toggle `switch.tv_room_tv_room_night_sound`; LCD shows live state (blue ON / grey OFF / amber ?) |
 | Key 2 "Speech" | `button.2.press` | Toggle `switch.tv_room_tv_room_speech_enhancement`; LCD shows live state (green ON / grey OFF / amber ?) |
 | Key 3 "TV" | `button.3.press` | Power toggle (`script.tv_room_power_toggle`): on → LG off + Apple TV sleep; off → wake Apple TV (LG follows via CEC). LCD shows LG state (red ON / grey OFF) |
-| Key 4 "ATV" | `button.4.press` | LG input → `Apple OTT` (the Apple TV HDMI input) |
+| Key 4 "ATV" / "Next chapter" | `button.4.press` → `{"key_action": 4}` | Normally LG input → `Apple OTT` (the Apple TV HDMI input). While YouTube is in the foreground on the LG or the Apple TV: red skip icon, jumps to the video's next chapter |
 | Key 5 (house icon) | `button.5.press` | Apple TV Home (same as Round 2) |
 | Key 6 (back-arrow icon) | `button.6.press` | Apple TV Back (`menu`, same as Round 1) |
 
@@ -247,6 +248,73 @@ script cannot.
   Apple TV integration doesn't expose. It would need pyatv in this app with
   its own Apple TV pairing (see Open items).
 
+### 2026-10-23 — Preview scrubbing (pyatv touch)
+
+- tvOS thumbnail-preview scrubbing comes from touch-surface drags while
+  paused. pyatv 0.18 sends these over the Companion protocol
+  (`touch.action` press/hold/release, 0–1000 coordinates); HA's Apple TV
+  integration doesn't expose them.
+- `atv_touch.py`: the app runs its own pyatv (0.18.0, same as HA) on an
+  asyncio thread with a **Companion-only** connection and its **own
+  pairing**, so it never shares an identity with HA's session. It finds the
+  box by unicast scan to its address, and reconnects after a drop.
+- Pairing uses files in the app's config share: `atv_pair_request.json`
+  (address) → TV shows PIN → `atv_pair_pin` → `atv_companion.json` (secret,
+  mode 600, not in the repo). `restore.sh` reads the address from HA's
+  Apple TV config entry and prompts for the PIN when run in a terminal.
+- `knob_accel.py` touch mode (`"scrub": "touch"`): pause if playing → press
+  at centre → drag in 25-unit moves at 16 ms intervals (as pyatv's own
+  swipe) → re-grip in the centre at x = 150 / 850 → lift after 0.6 s idle;
+  the knob press (OK) commits. Speed tiers and batching are shared with
+  seek mode (`touch_steps` 12 / 60 per 2 / 150 per 3 units per click).
+  Falls back to seek whenever touch isn't connected.
+- Confirmed on the TV: tvOS thumbnail previews follow the knob, and the knob
+  press jumps to the previewed position.
+
+- Paired with the Apple TV (PIN on screen) and connected over Companion;
+  the connection comes back by itself after an app restart.
+- `homeassistant/pair.sh`: `atv` (asks the Apple TV for a PIN, prompts,
+  waits for the touch connection), `youtube <screen> [code]` (links a TV's
+  YouTube app) and `status`. It judges success from the files on the Pi:
+  a pairing request always gets consumed, and success leaves newer
+  credentials. `restore.sh` calls it.
+
+### 2026-10-23 — Key modes and YouTube next chapter
+
+- **Key modes** (`ha_daemon.py`): a key lists `modes` with a `when`
+  condition; the first match sets its icon/label/color and press action.
+  Otherwise the key's base look and `action` apply. The press maps to
+  `{"key_action": <key>}`, and keys redraw on every HA state change.
+- **Detecting YouTube:** LG `media_player.lg_tv_2` has `source` = `YouTube`
+  or `app_id` = `youtube.leanback.v4`; the Apple TV has `app_id` =
+  `com.google.ios.youtube`.
+- **Next chapter** needs the playing video and its position, which no
+  remote or HA control exposes. YouTube's TV-link ("Lounge") protocol does
+  (`yt_lounge.py`, pyytlounge 3.5.0, the library iSponsorBlockTV uses):
+  link each TV's YouTube app once with its 12-digit "Link with TV code"
+  (file `yt_pair_<screen>`, tokens in `yt_lounge.json`, secret). A session
+  is held only while that TV has YouTube in the foreground.
+- **Chapters** (`yt_chapters.py`) come from the public watch page with no
+  API key: YouTube's `chapterRenderer` markers (creator + auto chapters),
+  else description timestamps under YouTube's chapter rules. Verified on 6
+  live videos (4–87 chapters each). Cached per video, prefetched when it
+  starts.
+- **Ads:** the same session reports ad start/end and skippability; logged
+  as `youtube: <screen>: ad started (…)`. A Skip-ad key is possible
+  (`skip_ad`).
+- Icon `icons/next_chapter.png`: YouTube-red key, white ⏭ glyph with three
+  chapter ticks (chosen over a timeline-jump design that was too busy at
+  112 px).
+- Docker: `pyytlounge` installs in its own layer, so the slow
+  pyatv/miniaudio compile stays cached. miniaudio has no aarch64 wheel; its
+  build needs `g++` (removed after) and `libatomic1` (kept).
+- Confirmed on the Apple TV: linked "YouTube on TV" (`pair.sh youtube atv`),
+  a 12-chapter video, and key 4 jumped 162 → 181 → 240 → 293 s across
+  chapter starts.
+- Gotcha: `ha apps logs` returns only about the last 100 lines by default.
+  The scripts pass `--lines 1000`; without it, busy logs (knob turns) hid
+  startup and pairing results.
+
 ### 2026-10-23 — Repository
 
 - Published to [a-tsygankov/action-ring](https://github.com/a-tsygankov/action-ring)
@@ -258,8 +326,11 @@ script cannot.
 
 - [ ] Tune knob acceleration on the TV (`atv` section: step sizes, speed
       thresholds) and note which apps support seek vs. fall back to skips.
-- [ ] Preview scrubbing: drive tvOS touch gestures directly with pyatv
-      (Companion pairing with a PIN on the TV), e.g. press → drag per click →
-      release, while paused in the native player.
+- [ ] Preview scrubbing: tune `touch_steps` / `touch_release_after` with use;
+      note which apps' players respond to touch scrubbing.
+- [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
+      chapter there (Apple TV done).
+- [ ] Ad detection outside YouTube (Tubi etc. on Apple TV): log Apple TV
+      now-playing changes during an ad break, then derive a per-app rule.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.

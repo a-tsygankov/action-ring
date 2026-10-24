@@ -6,9 +6,14 @@ coalesced into one Home Assistant call, sent after a short quiet gap or a
 maximum batch age. While a call is in flight, new detents collect into the
 next batch, so a fast spin never builds a growing queue.
 
-- horizontal axis, Apple TV playing/paused: absolute seek
-  (media_player.media_seek), falling back to skip_* for apps that report no
-  seekable position.
+- horizontal axis, Apple TV playing/paused:
+  - "scrub": "touch" (and a Companion connection): tvOS preview scrubbing.
+    Pause, put a virtual finger on the touch surface, drag it with the knob,
+    lift it after a short idle; the knob press (select) then jumps to the
+    previewed position, as on a real Siri Remote. The finger re-grips in the
+    centre when it reaches an edge.
+  - "scrub": "seek": absolute seek (media_player.media_seek), falling back to
+    skip_* for apps that report no seekable position.
 - otherwise: focus moves (remote.send_command with num_repeats).
 """
 
@@ -37,6 +42,16 @@ DEFAULTS: dict[str, Any] = {
     "nav_max": 20,  # cap on focus moves per call
     "skip_max": 6,  # cap on skip_* per call (apps without seek support)
     "seek_hold": 3.0,  # keep scrubbing from our own target for this long
+    "scrub": "seek",  # "touch" for tvOS preview scrubbing (needs pairing)
+    # Touch scrubbing, in touchpad units (0..1000 across the surface).
+    "touch_steps": [12, [60, 2], [150, 3]],  # finger travel per detent by tier
+    "touch_y": 500,  # finger height on the surface
+    "touch_min_x": 150,  # re-grip in the centre when the finger passes these
+    "touch_max_x": 850,
+    "touch_move_px": 25,  # max finger move per touch event
+    "touch_interval": 0.016,  # s between touch events (as pyatv's own swipe)
+    "touch_release_after": 0.6,  # lift the finger after this long idle
+    "touch_pause_delay": 0.4,  # wait after pausing before touching
 }
 
 def per_detent(step: Any) -> float:
@@ -51,17 +66,24 @@ StateLookup = Callable[[str], "dict[str, Any] | None"]
 
 
 class AppleTVKnobs:
-    def __init__(self, cfg: dict[str, Any], call: Call, state: StateLookup) -> None:
+    def __init__(
+        self, cfg: dict[str, Any], call: Call, state: StateLookup, touch: Any = None
+    ) -> None:
         self.cfg = {**DEFAULTS, **{k: v for k, v in cfg.items() if k in DEFAULTS}}
         self.remote: str = cfg["remote"]
         self.player: str = cfg["media_player"]
         self._call = call
         self._state = state
+        self._touch = touch  # AppleTVTouch-like: available(), action(x, y, mode)
         self._cv = threading.Condition()
         self._pending: dict[str, dict[str, Any]] = {}
         self._last_detent: dict[str, float] = {}
         self._seek_target: float | None = None
         self._seek_time = 0.0
+        # Touch-scrub finger; only the sender thread touches these.
+        self._finger_down = False
+        self._finger_x = 0
+        self._finger_last = 0.0
         threading.Thread(target=self._run, daemon=True, name="atv-knobs").start()
 
     # -- input (SDK reader thread) ---------------------------------------
@@ -80,18 +102,34 @@ class AppleTVKnobs:
             tier = self.tier(None if prev is None else now - prev)
             batch = self._pending.get(axis)
             if batch is None:
-                mode = "seek" if axis == "horizontal" and self._in_playback() else "nav"
-                batch = {"units": 0, "first": now, "last": now, "mode": mode}
+                batch = {"units": 0, "first": now, "last": now, "mode": self._mode(axis)}
                 self._pending[axis] = batch
-            steps = self.cfg["seek_steps"] if batch["mode"] == "seek" else self.cfg["nav_repeats"]
+            steps = {
+                "seek": self.cfg["seek_steps"],
+                "touch": self.cfg["touch_steps"],
+                "nav": self.cfg["nav_repeats"],
+            }[batch["mode"]]
             batch["units"] += direction * per_detent(steps[tier])
             batch["last"] = now
             self._cv.notify()
 
+    def _mode(self, axis: str) -> str:
+        if axis != "horizontal":
+            return "nav"
+        if self._finger_down:  # mid-scrub: keep dragging
+            return "touch"
+        if not self._in_playback():
+            return "nav"
+        if self.cfg["scrub"] == "touch" and self._touch is not None and self._touch.available():
+            return "touch"
+        return "seek"
+
     # -- output (own thread) -----------------------------------------------
     def _run(self) -> None:
         quiet, max_age = self.cfg["flush_quiet"], self.cfg["flush_max"]
+        release_after = self.cfg["touch_release_after"]
         while True:
+            release = False
             with self._cv:
                 while True:
                     now = time.monotonic()
@@ -102,15 +140,24 @@ class AppleTVKnobs:
                     ]
                     if due:
                         break
-                    if not self._pending:
-                        self._cv.wait()
-                        continue
-                    wake = min(
+                    idle_finger = self._finger_down and not self._pending
+                    if idle_finger and now - self._finger_last >= release_after:
+                        release = True
+                        break
+                    wakes = [
                         min(b["last"] + quiet, b["first"] + max_age)
                         for b in self._pending.values()
-                    )
-                    self._cv.wait(max(wake - now, 0.005))
-                batches = [(axis, self._pending.pop(axis)) for axis in due]
+                    ]
+                    if idle_finger:
+                        wakes.append(self._finger_last + release_after)
+                    if not wakes:
+                        self._cv.wait()
+                        continue
+                    self._cv.wait(max(min(wakes) - now, 0.005))
+                batches = [] if release else [(axis, self._pending.pop(axis)) for axis in due]
+            if release:
+                self._finger_release()
+                continue
             for axis, batch in batches:
                 try:
                     self._send(axis, batch)
@@ -120,6 +167,13 @@ class AppleTVKnobs:
     def _send(self, axis: str, batch: dict[str, Any]) -> None:
         units = batch["units"]
         if abs(units) < 0.5:  # e.g. left and right detents cancelled out
+            return
+        if batch["mode"] == "touch":
+            try:
+                self._finger_drag(units)
+            except Exception:
+                self._finger_down = False  # start a fresh gesture next time
+                raise
             return
         if batch["mode"] == "seek":
             target = self._seek_target_for(units)
@@ -152,6 +206,50 @@ class AppleTVKnobs:
                 "delay_secs": self.cfg["nav_delay"],
             },
         )
+
+    # -- touch scrubbing (sender thread) ----------------------------------------
+    def _finger_drag(self, distance: float) -> None:
+        cfg, touch = self.cfg, self._touch
+        y, lo, hi = cfg["touch_y"], cfg["touch_min_x"], cfg["touch_max_x"]
+        centre = (lo + hi) // 2
+        if not self._finger_down:
+            if (self._state(self.player) or {}).get("s") == "playing":
+                # Preview scrubbing only engages while paused.
+                self._call("media_player", "media_pause", {"entity_id": self.player})
+                time.sleep(cfg["touch_pause_delay"])
+            touch.action(centre, y, "press")
+            self._finger_x, self._finger_down = centre, True
+        remaining = distance
+        while abs(remaining) >= 1:
+            target = round(min(hi, max(lo, self._finger_x + remaining)))
+            remaining -= target - self._finger_x
+            self._finger_move(target)
+            if abs(remaining) >= 1:
+                # Edge reached: lift and re-grip in the centre, like a
+                # repeated swipe on a real remote.
+                touch.action(self._finger_x, y, "release")
+                time.sleep(cfg["touch_interval"])
+                touch.action(centre, y, "press")
+                self._finger_x = centre
+        self._finger_last = time.monotonic()
+        print(f"atv-knob: touch drag {distance:+.0f} -> x={self._finger_x}", flush=True)
+
+    def _finger_move(self, target: int) -> None:
+        start, step = self._finger_x, self.cfg["touch_move_px"]
+        count = max(1, -(-abs(target - start) // step))  # ceil
+        for i in range(1, count + 1):
+            time.sleep(self.cfg["touch_interval"])
+            x = round(start + (target - start) * i / count)
+            self._touch.action(x, self.cfg["touch_y"], "hold")
+        self._finger_x = target
+
+    def _finger_release(self) -> None:
+        try:
+            self._touch.action(self._finger_x, self.cfg["touch_y"], "release")
+        except Exception as err:
+            print(f"atv-knob: touch release failed: {err}", flush=True)
+        self._finger_down = False
+        print("atv-knob: touch released", flush=True)
 
     # -- state helpers -------------------------------------------------------
     def _in_playback(self) -> bool:
