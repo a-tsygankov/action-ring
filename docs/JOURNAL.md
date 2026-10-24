@@ -460,6 +460,8 @@ script cannot.
   needed a clock jump and caught the second break 30 s late, which led to
   the "publication itself is the signal" rule. Its 45 s heartbeat timeout
   also split a break at a skipped beat, now 90 s.
+- Confirmed live: `00:18:32 ad started` → muted, `00:21:03 ad ended` (AVKit
+  commands republish) → unmuted, matching the user's report.
 - `docs/AD_DETECTION_GUIDE.md` lets other agents extend this to more apps.
 - Found on the way: `scripts.yaml` had been re-saved from HA's UI
   (reformatted) and holds a script not from this repo,
@@ -495,8 +497,7 @@ script cannot.
       note which apps' players respond to touch scrubbing.
 - [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
       chapter there (Apple TV done).
-- [ ] Pluto ad mute: confirm the new start rule live (mute within seconds of
-      the ad start); later turn off `mrp_raw_log` if it isn't needed.
+- [ ] Turn off `mrp_raw_log` once no more apps are being researched.
 - [ ] Decide whether to track the HA-created script `netflix_on_apple_tv`
       in the repo.
 - [ ] Govee not integrated in HA; lighting controls pending.
