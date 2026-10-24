@@ -2,9 +2,19 @@
 
 Runs the upstream daemon unchanged and adds:
 
-1. Live state on LCD keys. One thread subscribes to Home Assistant
-   (Supervisor WebSocket proxy, app token) and redraws every key whose config
-   has a "state_entity". Per-state overrides of label/color:
+1. Tabs with live key looks. The six LCD keys show one page at a time: a
+   context page ("context:<layout>", picked from the LG TV / Apple TV
+   foreground app, context.py) or a temporary page opened by a round button
+   that closes on its own (tabs.py). A "tabs" config section holds "pages",
+   "round" ({"7": ["apps", "apps_more"]}), "timeouts" and "context"; without
+   one, the config's "keys" are the only page. Map presses with
+   {"tab_key": <key>} ({"key_action": <key>} is an alias) and
+   {"tab_round": <button>}. One renderer thread redraws only the keys whose
+   look changed, on HA state events, presses and tab timers. One thread
+   subscribes to Home Assistant (Supervisor WebSocket proxy, app token).
+
+   A key may follow an entity's state with per-state overrides of
+   icon/label/color:
 
        "1": {"label": "Night", "color": "#3b3f9e",
              "state_entity": "switch.tv_room_tv_room_night_sound",
@@ -15,7 +25,7 @@ Runs the upstream daemon unchanged and adds:
    "off"/"standby" use "off"; unavailable/unknown (or HA unreachable) use
    "unavailable"; any other state ("on", "playing", "idle", ...) uses "on",
    so media players work as well as switches. Missing overrides fall back to
-   the key's base label/color.
+   the key's base look (keyspec.py).
 
 2. Accelerated Apple TV knobs (knob_accel.py). An action of the form
    {"atv_knob": {"axis": "horizontal"|"vertical", "direction": 1|-1}} goes to
@@ -24,9 +34,9 @@ Runs the upstream daemon unchanged and adds:
 
 3. Key modes. A key may list "modes"; the first whose "when" holds sets the
    key's icon/label/color and its press action, else the key's own
-   "action"/look apply. Map the press with {"key_action": <key>}.
-   "when" is "youtube" (YouTube in the foreground on a configured screen) or
-   a list of {"entity", "attr" ("state" by default), "in": [...]} (any).
+   "action"/look apply. "when" is a named condition ("youtube": YouTube in
+   the foreground on a configured screen) or a list of
+   {"entity", "attr" ("state" by default), "in": [...]} (any).
 
 4. YouTube (yt_lounge.py): {"youtube": "next_chapter"} jumps to the next
    chapter of the video playing in a linked YouTube TV app.
@@ -42,25 +52,29 @@ Runs the upstream daemon unchanged and adds:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import http.client
 import json
 import os
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
+from context import foreground_layout
+from keyspec import Look, changed_keys, entities_of, resolve_action, resolve_look
 from knob_accel import AppleTVKnobs
 from streamdock_n3 import config as configmod
 from streamdock_n3 import daemon, icons, paths
+from tabs import TabEngine
 from websockets.sync.client import connect
 
 WS_URL = "ws://supervisor/core/websocket"
 RETRY_SECONDS = 5
 TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
-
-OFF_STATES = {"off", "standby"}
-UNKNOWN_STATES = {None, "unavailable", "unknown"}
+TICK_SECONDS = 0.2
+SLOW_PASS_SECONDS = 0.5
+EMPTY_LOOK = Look(None, "", "#000000")  # a key the visible page leaves undefined
 
 _ready = threading.Event()
 _device = None
@@ -68,8 +82,10 @@ _draw_lock = threading.Lock()
 _knobs: AppleTVKnobs | None = None
 _youtube: Any = None  # yt_lounge.YouTubeScreens
 _np_log: Any = None  # np_log.NowPlayingLog
-_keys: dict[str, dict] = {}  # config "keys", for key modes
-_shown_mode: dict[int, int] = {}  # key -> index of the mode on screen (-1 = base)
+_engine = TabEngine({}, {})  # replaced in main() before the device starts
+_ctx_cfg: dict | None = None  # config "tabs.context"; None = no context detection
+_wake = threading.Event()  # set by _signal(): the renderer has work
+_drawn: dict[int, Look] = {}  # key -> look on screen; renderer thread only
 
 # entity_id -> {"s": state, "a": attributes}, kept current by _watch().
 _states: dict[str, dict[str, Any]] = {}
@@ -80,6 +96,25 @@ def state_of(entity_id: str) -> dict[str, Any] | None:
     with _states_lock:
         st = _states.get(entity_id)
         return {"s": st.get("s"), "a": dict(st.get("a") or {})} if st else None
+
+
+# Named "when" conditions for key modes.
+_conds: dict[str, Callable[[], bool]] = {
+    "youtube": lambda: _youtube is not None and _youtube.any_active(),
+}
+
+# Whether the Apple TV is showing a live soccer game (context "live_game").
+_watching_game: Callable[[], bool] = lambda: False  # noqa: E731
+
+
+def _vars() -> dict[str, str]:
+    """Values for {name} placeholders in key labels."""
+    return {}
+
+
+def _signal() -> None:
+    """Wake the renderer; signals during a pass coalesce into one more pass."""
+    _wake.set()
 
 
 # -- upstream hooks ------------------------------------------------------------
@@ -97,11 +132,20 @@ def _apply_icons(device, config):
 
 
 def _run_actions(actions: Any, *, dry_run: bool) -> None:
-    if isinstance(actions, dict) and "key_action" in actions:
-        key = str(actions["key_action"])
-        mode = _active_mode(_keys.get(key, {}))
-        chosen = mode[1].get("action") if mode else _keys.get(key, {}).get("action")
-        _run_actions(chosen, dry_run=dry_run)
+    # Runs on the SDK reader thread: tab presses only update the engine and
+    # wake the renderer, they never draw here.
+    if isinstance(actions, dict) and ("tab_key" in actions or "key_action" in actions):
+        key = int(actions.get("tab_key", actions.get("key_action")))
+        try:
+            spec = _engine.key_press(key, time.monotonic())
+            if spec:
+                _run_actions(resolve_action(spec, state_of, _conds), dry_run=dry_run)
+        finally:
+            _signal()
+        return
+    if isinstance(actions, dict) and "tab_round" in actions:
+        _engine.round_press(int(actions["tab_round"]), time.monotonic())
+        _signal()
         return
     if isinstance(actions, dict) and "youtube" in actions:
         command = actions["youtube"]
@@ -131,65 +175,6 @@ def _safe(fn) -> None:
 
 daemon.apply_icons = _apply_icons
 daemon.run_actions = _run_actions
-
-
-# -- key modes -------------------------------------------------------------------
-
-
-def _when(cond: Any) -> bool:
-    if cond == "youtube":
-        return _youtube is not None and _youtube.any_active()
-    if isinstance(cond, list):
-        from yt_lounge import matches
-
-        return any(matches(state_of, c) for c in cond)
-    return False
-
-
-def _active_mode(item: dict) -> tuple[int, dict] | None:
-    for i, mode in enumerate(item.get("modes") or []):
-        if isinstance(mode, dict) and _when(mode.get("when")):
-            return i, mode
-    return None
-
-
-def _mode_entities() -> set[str]:
-    out: set[str] = set()
-    for item in _keys.values():
-        for mode in item.get("modes") or []:
-            if isinstance(mode.get("when"), list):
-                out |= {c["entity"] for c in mode["when"]}
-    return out
-
-
-def _refresh_modes() -> None:
-    for key_str, item in _keys.items():
-        if not item.get("modes") or not key_str.isdigit():
-            continue
-        key = int(key_str)
-        mode = _active_mode(item)
-        index = mode[0] if mode else -1
-        if _shown_mode.get(key) == index:
-            continue
-        _shown_mode[key] = index
-        look = mode[1] if mode else item
-        print(f"key {key}: mode {look.get('label', index)!r}", flush=True)
-        if mode is None and item.get("state_entity"):
-            # Back to the key's live state look (on/off/unavailable).
-            _draw(key, item, (_states.get(item["state_entity"]) or {}).get("s"))
-        else:
-            _draw_look(key, look, item)
-
-
-def _draw_look(key: int, look: dict, base: dict) -> None:
-    icon = look.get("icon")
-    if icon and Path(icon).exists():
-        with _draw_lock:
-            _device.set_key_image(key, icon)
-            _device.refresh()
-        return
-    _draw(key, {"label": look.get("label", base.get("label", key)),
-                "color": look.get("color", base.get("color"))}, "on")
 
 
 # -- Core REST calls -------------------------------------------------------------
@@ -228,51 +213,112 @@ class CoreAPI:
                 return
 
 
-# -- key state rendering ---------------------------------------------------------
+# -- tabs: engine setup, renderer, ticker --------------------------------------
 
 
-def _variant(state: str | None) -> str:
-    if state in UNKNOWN_STATES:
-        return "unavailable"
-    return "off" if state in OFF_STATES else "on"
+def _key_specs(keys: Any) -> dict[str, dict]:
+    return {str(k): v for k, v in keys.items() if isinstance(v, dict)} if isinstance(keys, dict) else {}
 
 
-def _draw(key: int, item: dict, state: str | None) -> None:
-    variant = item.get(_variant(state))
-    variant = variant if isinstance(variant, dict) else {}
-    label = str(variant.get("label", item.get("label", key)))
-    color = icons.parse_color(
-        variant.get("color", item.get("color")), icons.FALLBACK_COLORS[key - 1]
+def _make_engine(config: dict[str, Any]) -> tuple[TabEngine, dict[str, dict], dict | None]:
+    """The tab engine, its pages, and the context config (None: no detection)."""
+    tabs = config.get("tabs")
+    if not isinstance(tabs, dict):
+        # No tabs: the config's own keys are the one page, shown for good.
+        pages = {"context:idle": {"keys": config["keys"]}}
+        return TabEngine(pages, {}), pages, None
+    pages = {
+        name: {**page, "keys": _key_specs(page.get("keys"))}
+        for name, page in (tabs.get("pages") or {}).items()
+        if isinstance(page, dict)
+    }
+    rounds = {int(k): list(v) for k, v in (tabs.get("round") or {}).items()}
+    t = tabs.get("timeouts") or {}
+    engine = TabEngine(
+        pages,
+        rounds,
+        open_s=float(t.get("open", 10)),
+        after_press_s=float(t.get("after_press", 5)),
+        debounce_s=float(t.get("context_debounce", 1)),
     )
-    out = paths.generated_key_dir() / f"key-{key}-{_variant(state)}.jpg"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    icons.make_icon(label, color, out)
+    ctx = tabs.get("context")
+    return engine, pages, ctx if isinstance(ctx, dict) else None
+
+
+def _image_for(key: int, look: Look) -> str:
+    """The icon file, or a generated text tile (cached by label and color)."""
+    if look.icon and Path(look.icon).exists():
+        return look.icon
+    # A missing icon file still names the key, e.g. "netflix".
+    label = look.label or (Path(look.icon).stem if look.icon else "")
+    color = icons.parse_color(look.color, icons.FALLBACK_COLORS[key - 1])
+    digest = hashlib.sha1(f"{label}\0{color}".encode()).hexdigest()[:10]
+    out = paths.generated_key_dir() / f"key-{key}-{digest}.jpg"
+    if not out.exists():
+        out.parent.mkdir(parents=True, exist_ok=True)
+        tmp = out.with_name(out.name + ".tmp")
+        icons.make_icon(label, color, tmp)
+        os.replace(tmp, out)  # never leave a half-written tile to be reused
+    return str(out)
+
+
+def _render_pass() -> None:
+    keys = _engine.keys()  # one snapshot per pass
+    label_vars = _vars()
+    looks = {
+        k: resolve_look(keys[str(k)], state_of, _conds, label_vars) if str(k) in keys else EMPTY_LOOK
+        for k in range(1, 7)
+    }
+    todo = changed_keys(_drawn, looks)
+    if not todo:
+        return
+    started = time.monotonic()
+    images = {k: _image_for(k, looks[k]) for k in todo}
     with _draw_lock:
-        _device.set_key_image(key, str(out))
+        for k in todo:
+            _device.set_key_image(k, images[k])
         _device.refresh()
+    _drawn.update((k, looks[k]) for k in todo)
+    elapsed = time.monotonic() - started
+    slow = " (slow)" if elapsed > SLOW_PASS_SECONDS else ""
+    print(f"render: {len(todo)} keys in {elapsed:.2f}s{slow}", flush=True)
+
+
+def _render() -> None:
+    _ready.wait()  # after the upstream initial paint; _drawn is empty, so all 6 draw
+    _signal()
+    while True:
+        _wake.wait()
+        _wake.clear()  # a signal from here on schedules exactly one more pass
+        try:
+            _render_pass()
+        except Exception as err:  # keys not drawn stay out of _drawn and retry
+            print(f"render: {type(err).__name__}: {err}", flush=True)
+
+
+def _tick() -> None:
+    seen = -1
+    while True:
+        _engine.tick(time.monotonic())
+        version = _engine.version  # unlocked read: only a "something changed" hint
+        if version != seen:
+            seen = version
+            print(f"tabs: showing {_engine.visible}", flush=True)
+            _signal()
+        time.sleep(TICK_SECONDS)
+
+
+def _update_context() -> None:
+    if _ctx_cfg is not None:
+        layout = foreground_layout(state_of, _ctx_cfg, _watching_game())
+        _engine.set_context(layout, time.monotonic())
+    _signal()
 
 
 # -- HA subscription -------------------------------------------------------------
 
 
-def _watch(bindings: dict[str, list[tuple[int, dict]]], extra: set[str]) -> None:
-    _ready.wait()
-    entities = sorted(set(bindings) | extra)
-    shown: dict[str, str | None] = {}
-
-    def show(entity_id: str) -> None:
-        if entity_id not in bindings:
-            return
-        state = (_states.get(entity_id) or {}).get("s")
-        if shown.get(entity_id, "\0") == state:
-            return
-        shown[entity_id] = state
-        print(f"ha-state: {entity_id} = {state}", flush=True)
-        for key, item in bindings[entity_id]:
-            if _shown_mode.get(key, -1) >= 0:
-                continue  # an active mode owns the key's look
-            _draw(key, item, state)
-
+def _watch(entities: list[str]) -> None:
     while True:
         try:
             with connect(WS_URL, open_timeout=10, ping_interval=20) as ws:
@@ -303,9 +349,7 @@ def _watch(bindings: dict[str, list[tuple[int, dict]]], extra: set[str]) -> None
                                 cur["a"].pop(name, None)
                         for entity_id in event.get("r", []):
                             _states.pop(entity_id, None)
-                    for entity_id in entities:
-                        show(entity_id)
-                    _refresh_modes()
+                    _update_context()
                     if _np_log is not None:
                         for entity_id in {*event.get("a", {}), *event.get("c", {})}:
                             _np_log.update(entity_id, state_of(entity_id))
@@ -314,44 +358,36 @@ def _watch(bindings: dict[str, list[tuple[int, dict]]], extra: set[str]) -> None
         # Show "unavailable" while disconnected, so stale state isn't trusted.
         with _states_lock:
             _states.clear()
-        for entity_id in entities:
-            show(entity_id)
-        _refresh_modes()
+        _update_context()
         time.sleep(RETRY_SECONDS)
 
 
-def _bindings(config: dict[str, Any]) -> dict[str, list[tuple[int, dict]]]:
-    out: dict[str, list[tuple[int, dict]]] = {}
-    for key, item in config["keys"].items():
-        entity_id = item.get("state_entity")
-        if isinstance(entity_id, str) and key.isdigit() and 1 <= int(key) <= 6:
-            out.setdefault(entity_id, []).append((int(key), item))
-    return out
-
-
 def main() -> int:
-    global _knobs, _youtube, _keys, _np_log
+    global _knobs, _youtube, _np_log, _engine, _ctx_cfg
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", type=Path)
     args, _ = parser.parse_known_args()
     config = configmod.normalize(configmod.load(args.config or configmod.ensure_config()))
-    _keys = config["keys"]
 
-    bindings = _bindings(config)
-    extra: set[str] = _mode_entities()
+    _engine, pages, _ctx_cfg = _make_engine(config)
+    entities: set[str] = {
+        e for page in pages.values() for spec in page["keys"].values() for e in entities_of(spec)
+    }
+    if _ctx_cfg is not None:
+        entities |= {e for e in (_ctx_cfg.get("lg"), _ctx_cfg.get("atv")) if e}
     np_entities = (config.get("now_playing_log") or {}).get("entities") or []
     if np_entities:
         from np_log import NowPlayingLog
 
         _np_log = NowPlayingLog(np_entities)
-        extra |= set(np_entities)
+        entities |= set(np_entities)
     yt = config.get("youtube")
     if isinstance(yt, dict) and yt.get("screens"):
         try:
             from yt_lounge import YouTubeScreens
 
             _youtube = YouTubeScreens(yt, state_of)
-            extra |= _youtube.entities()
+            entities |= _youtube.entities()
         except Exception as err:
             print(f"youtube: disabled ({err!r})", flush=True)
     ad_cfg = config.get("ad_detect")
@@ -361,7 +397,7 @@ def main() -> int:
             import ad_detect
 
             ad_detect.install(ad_detect.AdDetector(ad_cfg, CoreAPI().call, state_of))
-            extra |= {e for e in (ad_cfg.get("speaker"), ad_cfg.get("media_player")) if e}
+            entities |= {e for e in (ad_cfg.get("speaker"), ad_cfg.get("media_player")) if e}
         except Exception as err:
             print(f"ad-detect: disabled ({err!r})", flush=True)
     atv = config.get("atv")
@@ -381,9 +417,11 @@ def main() -> int:
         except Exception as err:
             print(f"atv-touch: disabled ({err!r}); scrubbing uses seek", flush=True)
         _knobs = AppleTVKnobs(atv, CoreAPI().call, state_of, touch)
-        extra.add(atv["media_player"])
-    if bindings or extra:
-        threading.Thread(target=_watch, args=(bindings, extra), daemon=True).start()
+        entities.add(atv["media_player"])
+    if entities:
+        threading.Thread(target=_watch, args=(sorted(entities),), daemon=True).start()
+    threading.Thread(target=_render, daemon=True).start()
+    threading.Thread(target=_tick, daemon=True).start()
     return daemon.main()
 
 

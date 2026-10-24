@@ -119,3 +119,8 @@ def entities_of(spec: dict) -> set[str]:
         if isinstance(when, list):
             out |= {c["entity"] for c in when}
     return out
+
+
+def changed_keys(drawn: Mapping[int, Look], looks: Mapping[int, Look]) -> list[int]:
+    """Keys 1-6 in `looks` that were never drawn or whose look differs, in key order."""
+    return [k for k in range(1, 7) if k in looks and drawn.get(k) != looks[k]]
