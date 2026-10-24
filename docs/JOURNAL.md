@@ -391,6 +391,7 @@ script cannot.
     muted. Key modes now coexist with `state_entity`: an active mode owns
     the look, and the key returns to its on/off look when the mode ends.
     Seen live: key 3 switched to MUTED and back with pause/resume.
+- Confirmed on the TV in Tubi, Pluto and Netflix (idle-as-pause).
 - `restore.sh` updates existing HA entries on request: each entry (script
   key / automation `- id:` item) is compared with the repo fragment. A
   missing one is added; a matching one is left alone; a differing one is
@@ -412,7 +413,5 @@ script cannot.
       note which apps' players respond to touch scrubbing.
 - [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
       chapter there (Apple TV done).
-- [ ] Streaming pause mute: confirm Netflix (idle-as-pause); Tubi and Pluto
-      confirmed.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.
