@@ -52,6 +52,10 @@ DEFAULTS: dict[str, Any] = {
     "touch_interval": 0.016,  # s between touch events (as pyatv's own swipe)
     "touch_release_after": 0.6,  # lift the finger after this long idle
     "touch_pause_delay": 0.4,  # wait after pausing before touching
+    # After a scrub (seek or touch), this long without knob activity resumes
+    # playback: touch scrubs are committed with select first. 0 disables.
+    "resume_after": 3.0,
+    "resume_check_delay": 1.5,  # after the commit, wait before checking state
 }
 
 def per_detent(step: Any) -> float:
@@ -84,6 +88,11 @@ class AppleTVKnobs:
         self._finger_down = False
         self._finger_x = 0
         self._finger_last = 0.0
+        # Scrub session awaiting auto-resume; guarded by _cv.
+        self._scrub_active = False
+        self._scrub_kind = "seek"
+        self._scrub_last = 0.0
+        self._press_requested = False
         threading.Thread(target=self._run, daemon=True, name="atv-knobs").start()
 
     # -- input (SDK reader thread) ---------------------------------------
@@ -93,6 +102,13 @@ class AppleTVKnobs:
         return 2 if interval < self.cfg["fast_interval"] else 1
 
     def detent(self, spec: dict[str, Any]) -> None:
+        """A knob event: {"axis", "direction"} for a turn, {"press": true} for
+        the knob's press (select; commits a scrub and cancels auto-resume)."""
+        if spec.get("press"):
+            with self._cv:
+                self._press_requested = True
+                self._cv.notify()
+            return
         axis = "vertical" if spec.get("axis") == "vertical" else "horizontal"
         direction = 1 if spec.get("direction", 1) > 0 else -1
         now = time.monotonic()
@@ -111,6 +127,8 @@ class AppleTVKnobs:
             }[batch["mode"]]
             batch["units"] += direction * per_detent(steps[tier])
             batch["last"] = now
+            if batch["mode"] in ("seek", "touch"):
+                self._scrub_active, self._scrub_kind, self._scrub_last = True, batch["mode"], now
             self._cv.notify()
 
     def _mode(self, axis: str) -> str:
@@ -125,44 +143,82 @@ class AppleTVKnobs:
         return "seek"
 
     # -- output (own thread) -----------------------------------------------
-    def _run(self) -> None:
+    def _next_job(self) -> tuple[str, Any]:
+        """Block until there is work; called with _cv held. Order: batches,
+        knob press, idle finger lift, auto-resume after a scrub."""
         quiet, max_age = self.cfg["flush_quiet"], self.cfg["flush_max"]
         release_after = self.cfg["touch_release_after"]
+        resume_after = self.cfg["resume_after"]
         while True:
-            release = False
+            now = time.monotonic()
+            due = [
+                axis
+                for axis, b in self._pending.items()
+                if now - b["last"] >= quiet or now - b["first"] >= max_age
+            ]
+            if due:
+                return "batches", [(axis, self._pending.pop(axis)) for axis in due]
+            if self._press_requested:
+                self._press_requested = False
+                was_scrubbing, self._scrub_active = self._scrub_active, False
+                return "press", was_scrubbing
+            idle = not self._pending
+            wakes = [min(b["last"] + quiet, b["first"] + max_age) for b in self._pending.values()]
+            if idle and self._finger_down:
+                if now - self._finger_last >= release_after:
+                    return "release", None
+                wakes.append(self._finger_last + release_after)
+            if idle and self._scrub_active and resume_after > 0:
+                if now - self._scrub_last >= resume_after:
+                    self._scrub_active = False
+                    return "resume", self._scrub_kind
+                wakes.append(self._scrub_last + resume_after)
+            if wakes:
+                self._cv.wait(max(min(wakes) - now, 0.005))
+            else:
+                self._cv.wait()
+
+    def _run(self) -> None:
+        while True:
             with self._cv:
-                while True:
-                    now = time.monotonic()
-                    due = [
-                        axis
-                        for axis, b in self._pending.items()
-                        if now - b["last"] >= quiet or now - b["first"] >= max_age
-                    ]
-                    if due:
-                        break
-                    idle_finger = self._finger_down and not self._pending
-                    if idle_finger and now - self._finger_last >= release_after:
-                        release = True
-                        break
-                    wakes = [
-                        min(b["last"] + quiet, b["first"] + max_age)
-                        for b in self._pending.values()
-                    ]
-                    if idle_finger:
-                        wakes.append(self._finger_last + release_after)
-                    if not wakes:
-                        self._cv.wait()
-                        continue
-                    self._cv.wait(max(min(wakes) - now, 0.005))
-                batches = [] if release else [(axis, self._pending.pop(axis)) for axis in due]
-            if release:
-                self._finger_release()
-                continue
-            for axis, batch in batches:
-                try:
-                    self._send(axis, batch)
-                except Exception as err:  # keep the knob alive on HA errors
-                    print(f"atv-knob: {axis} {batch['mode']} failed: {err}", flush=True)
+                job, payload = self._next_job()
+            try:
+                if job == "batches":
+                    for axis, batch in payload:
+                        try:
+                            self._send(axis, batch)
+                        except Exception as err:  # keep the knob alive on HA errors
+                            print(f"atv-knob: {axis} {batch['mode']} failed: {err}", flush=True)
+                elif job == "press":
+                    self._press(payload)
+                elif job == "release":
+                    self._finger_release()
+                elif job == "resume":
+                    self._resume(payload)
+            except Exception as err:
+                print(f"atv-knob: {job} failed: {err}", flush=True)
+
+    def _select(self) -> None:
+        self._call("remote", "send_command", {"entity_id": self.remote, "command": "select"})
+
+    def _press(self, was_scrubbing: bool) -> None:
+        if self._finger_down:
+            self._finger_release()
+        self._select()
+        print("atv-knob: select" + (" (scrub committed)" if was_scrubbing else ""), flush=True)
+
+    def _resume(self, kind: str) -> None:
+        """No knob activity for resume_after seconds after a scrub: commit a
+        touch preview with select, then make sure playback runs."""
+        if self._finger_down:
+            self._finger_release()
+        if kind == "touch":
+            self._select()
+            print("atv-knob: auto-commit scrub", flush=True)
+            time.sleep(self.cfg["resume_check_delay"])
+        if (self._state(self.player) or {}).get("s") == "paused":
+            self._call("media_player", "media_play", {"entity_id": self.player})
+            print("atv-knob: auto-resume", flush=True)
 
     def _send(self, axis: str, batch: dict[str, Any]) -> None:
         units = batch["units"]

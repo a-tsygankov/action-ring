@@ -62,9 +62,19 @@ shown):
   "touch_move_px": 25,
   "touch_interval": 0.016,
   "touch_release_after": 0.6,
-  "touch_pause_delay": 0.4
+  "touch_pause_delay": 0.4,
+  "resume_after": 3.0,
+  "resume_check_delay": 1.5
 }
 ```
+
+**Auto-resume:** after a scrub, `resume_after` seconds without knob activity
+resume playback. A touch scrub is first committed with OK (select); then, if
+the Apple TV still reports paused `resume_check_delay` seconds later, `play`
+is sent. A seek scrub only sends `play` if paused. Map the knob's press to the
+engine so it can cancel this: `"knob.3.press": {"atv_knob": {"press": true}}`.
+Pressing commits the scrub with one OK and skips the auto-resume; outside a
+scrub it's a plain OK. `0` disables auto-resume.
 
 The TV Room config sets `"scrub": "touch"` (see Preview scrubbing below).
 

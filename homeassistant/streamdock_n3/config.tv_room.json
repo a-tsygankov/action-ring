@@ -79,7 +79,7 @@
 
     "knob.3.right": { "atv_knob": { "axis": "horizontal", "direction": 1 } },
     "knob.3.left": { "atv_knob": { "axis": "horizontal", "direction": -1 } },
-    "knob.3.press": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"select\"}'",
+    "knob.3.press": { "atv_knob": { "press": true } },
 
     "knob.2.right": { "atv_knob": { "axis": "vertical", "direction": 1 } },
     "knob.2.left": { "atv_knob": { "axis": "vertical", "direction": -1 } },
