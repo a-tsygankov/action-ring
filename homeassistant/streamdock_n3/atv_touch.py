@@ -79,6 +79,15 @@ class AppleTVTouch:
             future.cancel()  # don't leave it running on the loop
             raise
 
+    def drop(self, reason: str) -> None:
+        """Close a connection whose events fail (seen after the Apple TV
+        slept: no connection_lost arrives), so _supervise reconnects."""
+        atv, self._atv = self._atv, None
+        if atv is None:
+            return
+        log(f"dropping connection: {reason}; reconnecting")
+        self._loop.call_soon_threadsafe(atv.close)
+
     # -- connection management (pyatv loop) ----------------------------------
     def _submit(self, coro) -> Future:
         return asyncio.run_coroutine_threadsafe(coro, self._loop)

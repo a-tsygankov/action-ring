@@ -29,6 +29,7 @@
     "mrp_raw_log": false,
     "seek_steps": [10, [30, 2], [90, 3]],
     "touch_steps": [12, [60, 2], [150, 3]],
+    "touch_release_after": 2.5,
     "nav_repeats": [1, 2, 3],
     "medium_interval": 0.25,
     "fast_interval": 0.08,
