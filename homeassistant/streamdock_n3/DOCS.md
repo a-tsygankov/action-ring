@@ -191,36 +191,55 @@ state), `soccer_live` (a live soccer game is listed).
 
 ### Key modes
 
-A key can change its look and action with live state. The first entry in
-`modes` whose `when` holds wins; otherwise the key's own look and `action`
-apply. Map the press with `{"key_action": <key>}`:
+A key on any page can change its look and action with live state. The first
+entry in `modes` whose `when` holds wins; otherwise the key's own look and
+`action` apply. The press needs no extra mapping: `button.N.press` →
+`{"tab_key": N}` runs whatever the visible page's key N resolves to. On the
+`context:youtube` page, Back goes to the LG's own YouTube app when that is in
+the foreground, else to the Apple TV:
 
 ```json
-"4": {
-  "label": "ATV", "color": "#4a4a4a",
-  "action": "ha-call media_player.select_source '{…\"source\":\"Apple OTT\"}'",
-  "modes": [
-    { "when": "youtube", "label": "Chapter", "icon": "/config/icons/next_chapter.png",
-      "action": { "youtube": "next_chapter" } }
-  ]
-},
-"button.4.press": { "key_action": 4 }
+"6": {
+  "icon": "back",
+  "modes": [{
+    "when": [ { "entity": "media_player.lg_tv_2", "attr": "source", "in": ["YouTube"] },
+              { "entity": "media_player.lg_tv_2", "attr": "app_id", "in": ["youtube.leanback.v4"] } ],
+    "action": "ha-call webostv.button '{…\"button\":\"BACK\"}'"
+  }],
+  "action": "ha-call remote.send_command '{…\"command\":\"menu\"}'"
+}
 ```
 
-`when` is `"youtube"` (YouTube in the foreground on any configured screen) or
-a list of conditions, any of which may match:
+`when` is a named condition (`"youtube"`, `"youtube_playing"`,
+`"youtube_subtitles"`, `"soccer_live"`, see above) or a list of conditions,
+any of which may match:
 `{"entity": …, "attr": "source" | "app_id" | … | "state", "in": [values]}`.
+The LIVE key on `context:idle` lights up while a game is listed:
+
+```json
+"2": {
+  "icon": "soccer_live__none", "label": "",
+  "modes": [ { "when": "soccer_live", "icon": "soccer_live__live" } ],
+  "action": { "soccer": "start" }
+}
+```
 
 Modes also work on a key with `state_entity`: while a mode is active its look
 wins, and when it ends the key returns to its live on/off look. A mode
-without `action` leaves the key's press unchanged. Key 3 uses this to show
-the Arc's mute:
+without `action` leaves the key's press unchanged. The power key on
+`context:idle` uses this to show the Arc's mute over the TV's on/off icon:
 
 ```json
-"modes": [{
-  "when": [{ "entity": "media_player.tv_room_tv_room", "attr": "is_volume_muted", "in": [true] }],
-  "label": "TV\\nMUTED", "color": "#c77c02"
-}]
+"1": {
+  "icon": "tv_power__off",
+  "state_entity": "media_player.lg_tv_2",
+  "on": { "icon": "tv_power__on" }, "off": { "icon": "tv_power__off" },
+  "modes": [{
+    "when": [{ "entity": "media_player.tv_room_tv_room", "attr": "is_volume_muted", "in": [true] }],
+    "icon": "tv_power__muted"
+  }],
+  "action": "ha-call script.turn_on '{\"entity_id\":\"script.tv_room_power_toggle\"}'"
+}
 ```
 
 ### YouTube: next chapter and ads
@@ -372,7 +391,8 @@ a generated label (112×112 works best). Put the files in
 
 A key with `state_entity` is redrawn whenever that entity changes in Home
 Assistant (`ha_daemon.py`). `on`, `off` and `unavailable` override the key's
-`label`/`color`: `off` covers off/standby, `unavailable` covers
+`icon`, `label` and `color` (a field a variant leaves out keeps the key's
+own): `off` covers off/standby, `unavailable` covers
 unavailable/unknown and HA being unreachable, and `on` covers every other
 state (so `playing`/`idle` media players count as on). Use `\\n` in a JSON
 label for a line break.
