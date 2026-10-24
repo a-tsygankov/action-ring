@@ -18,9 +18,10 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Home Assistant OS / Supervisor / Core | 18.3 / 2026.10.3 / 2026.10.2 |
 | SSH | Terminal & SSH app 10.5.0; from the PC: `ssh homeassistant` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
-| Dock software | Local app `local_streamdock_n3` v0.4.0-15, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
+| Dock software | Local app `local_streamdock_n3` v0.4.0-16, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
 | HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle`, `automation.streaming_pause_mute` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
+| MCP for Claude | HA **Model Context Protocol Server** integration (all LLM APIs, admin only) at `http://homeassistant.local/api/mcp` (HA is on port 80); registered in Claude Code at user scope as `home-assistant` |
 
 ### Repo layout
 
@@ -38,7 +39,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 
 | Control | Event | Action |
 |---|---|---|
-| Large knob | `knob.3.left/right/press` | Apple TV, speed-adaptive: while playing/paused, seek back/forward 10 s per click (slow), 30 s per 2 clicks (medium), 90 s per 3 clicks (fast), rated per click so the rate follows speed changes mid-turn; otherwise focus left/right 1 / 2 / 3 steps per click · press = OK (`select`, also pauses/resumes playback) |
+| Large knob | `knob.3.left/right/press` | Apple TV, speed-adaptive. While playing/paused: tvOS preview scrubbing (touch drag, finger travel 12 / 60 per 2 / 150 per 3 units per click); seek fallback 10 s per click / 30 s per 2 / 90 s per 3 when touch is unavailable. 3 s without knob activity after a scrub commits it and resumes playback. Otherwise focus left/right 1 / 2 / 3 steps per click · press = OK (`select`; commits a scrub and cancels the auto-resume) |
 | Small knob 1 | `knob.1.left/right/press` | Sonos Arc volume down/up · mute toggle (script) |
 | Small knob 2 | `knob.2.left/right/press` | Apple TV focus up/down, 1 / 2 / 3 steps per click · press = OK (`select`) |
 | Round 1 / 2 / 3 | `button.7/8/9.press` | Apple TV Menu (back) / Home / Power on (wakes LG via CEC) |
@@ -74,6 +75,15 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
        IdentitiesOnly yes
    ```
 5. Plug the dock into the Pi.
+6. Optional, for Claude: add the **Model Context Protocol Server** integration
+   in **Settings → Devices & services** (all LLM APIs, require admin). Create a
+   long-lived access token at `http://homeassistant.local/profile/security`,
+   then on the PC run:
+   ```bash
+   claude mcp add --scope user --transport http home-assistant http://homeassistant.local/api/mcp --header "Authorization: Bearer <token>"
+   ```
+   `claude mcp get home-assistant` should report Connected. The token lives
+   only in `~/.claude.json` on the PC, never in this repo.
 
 ### Automated
 
@@ -398,12 +408,43 @@ script cannot.
   reported and kept unless `--replace-ha-config` is given (backup first).
   Edits made in HA's UI are never overwritten silently.
 
+### 2026-10-24 — Auto-resume after scrubbing
+
+- After a scrub, 3 s without knob activity (`resume_after`) resumes playback.
+  A touch scrub is first committed with select. If the Apple TV still
+  reports `paused` 1.5 s later (`resume_check_delay`), `media_play` follows.
+  A seek scrub only plays if paused.
+- The large knob's press now goes through the knob engine
+  (`{"atv_knob": {"press": true}}`), because a second select on a playing
+  video toggles pause. A press within the 3 s commits the scrub with exactly
+  one select and cancels the auto-resume; outside a scrub it is a plain
+  select.
+- The engine's sender thread works through one ordered job queue: scrub
+  batches, then knob press, then idle finger lift, then auto-resume.
+- Simulated: idle after a touch scrub (lift → select → play only if still
+  paused), press during the wait (one select, no auto), seek scrub
+  paused/playing, press in menus.
+
 ### 2026-10-23 — Repository
 
 - Published to [a-tsygankov/action-ring](https://github.com/a-tsygankov/action-ring)
   (public): `main` started with the original handoff `.docx`, and everything
   else landed through a pull request. The repo holds no secrets: Home
   Assistant calls use the app's Supervisor token at runtime.
+
+### 2026-10-23 — Home Assistant MCP for Claude
+
+- HA's built-in **Model Context Protocol Server** integration was already
+  installed (entry "All LLM APIs", `require_admin: true`). Its endpoint is
+  `http://homeassistant.local/api/mcp`: HA Core listens on port 80 here, not
+  8123. Without a token it answers 401.
+- Claude Code connects over streamable HTTP with a long-lived access token
+  sent as a Bearer header, registered at user scope (`home-assistant`), and
+  `claude mcp get` reports Connected. No proxy (`mcp-proxy`) is needed.
+  Its tools load in new Claude sessions.
+- Not in `restore.sh`: the integration and the token are manual steps
+  (Restore → Prerequisites, step 6), because the token belongs to a user and
+  must not be in the repo.
 
 ## Open items
 
