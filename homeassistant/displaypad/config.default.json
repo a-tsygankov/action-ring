@@ -1,0 +1,20 @@
+{
+  "launch": {
+    "lg": "media_player.lg_tv_2",
+    "atv": "media_player.vugitv_4k_vugitv_4k",
+    "atv_remote": "remote.vugitv_4k_vugitv_4k",
+    "atv_source": "Apple OTT",
+    "power_on_wait": 25
+  },
+  "rotate": 0,
+  "keys": {
+    "2": { "icon": "netflix", "app": "com.netflix.Netflix" },
+    "3": { "icon": "hulu", "app": "com.hulu.plus" },
+    "4": { "icon": "disney_plus", "app": "com.disney.disneyplus" },
+    "5": { "icon": "prime_video", "app": "com.amazon.aiv.AIVApp" },
+    "8": { "icon": "youtube", "app": "com.google.ios.youtube" },
+    "9": { "icon": "tubi", "app": "com.adrise.tubitv" },
+    "10": { "icon": "pluto_tv", "app": "tv.pluto.ios" },
+    "11": { "icon": "max", "app": "com.wbd.stream" }
+  }
+}
