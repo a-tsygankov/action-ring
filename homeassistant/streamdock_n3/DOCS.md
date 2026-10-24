@@ -207,6 +207,22 @@ app's config folder (2 MB cap, previous file kept as `.log.1`):
 ssh homeassistant tail -f /app_configs/local_streamdock_n3/now_playing.log
 ```
 
+### Ad detection (raw media protocol)
+
+Some apps show nothing in HA during ads (Pluto TV). With the app also paired
+for the Apple TV's AirPlay service (`bash homeassistant/pair.sh atv airplay`,
+PIN on the TV), it has its own media-remote (MRP) session:
+
+- `"ad_detect": {"speaker": "media_player.tv_room_tv_room", "media_player":
+  "media_player.vugitv_4k_vugitv_4k", "apps": ["tv.pluto.ios"]}` mutes the
+  speaker during detected ad breaks (`ad_detect.py`) and unmutes after,
+  undoing only its own mute. Log lines: `ad-detect: HH:MM:SS ad started (…)`.
+- `"mrp_raw_log": true` in the `atv` section writes every raw now-playing
+  message to `mrp_raw.log` (research; 5 MB cap).
+
+How the Pluto rule was found, the per-app findings, and how to add another
+app are in `docs/AD_DETECTION_GUIDE.md` in the repo.
+
 ### Key images
 
 Set `"icon": "/config/icons/<file>.png"` on a key to show an image instead of

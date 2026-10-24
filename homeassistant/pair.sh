@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Pair / link the StreamDock N3 app with the TV-room devices, from the PC.
 #
-#   homeassistant/pair.sh atv                    Apple TV touch control (preview
+#   homeassistant/pair.sh atv [airplay]          Apple TV touch control (preview
 #                                                scrubbing); asks for the PIN the
-#                                                TV shows
+#                                                TV shows. "airplay" adds the
+#                                                AirPlay pairing (media-protocol
+#                                                diagnostics, mrp_raw.log)
 #   homeassistant/pair.sh youtube <screen> [code]
 #                                                Link a TV's YouTube app (screen
 #                                                as in config "youtube.screens",
@@ -37,13 +39,14 @@ ssh_ha 'ha apps info '"$SLUG"' | grep -q "^state: started"' \
     || die "app $SLUG is not running on $HOST (run homeassistant/restore.sh first)"
 
 pair_atv() {
-    local addr before pin
+    local protocol=${1:-companion} addr before pin
+    case "$protocol" in companion|airplay) ;; *) die "protocol: companion or airplay" ;; esac
     addr=$(ssh_ha 'jq -r "[.data.entries[] | select(.domain==\"apple_tv\")][0].data.address // empty" /homeassistant/.storage/core.config_entries')
     [ -n "$addr" ] || die "no Apple TV integration in Home Assistant; add it first"
     before=$(mtime "$DIR/atv_companion.json")
 
     echo "Turn the TV on. Asking the Apple TV for a PIN..."
-    ssh_ha "rm -f $DIR/atv_pair_pin; echo '{\"address\": \"$addr\"}' > $DIR/atv_pair_request.json"
+    ssh_ha "rm -f $DIR/atv_pair_pin; echo '{\"address\": \"$addr\", \"protocol\": \"$protocol\"}' > $DIR/atv_pair_request.json"
     wait_for "test ! -f $DIR/atv_pair_request.json || ha apps logs $SLUG --lines 1000 2>&1 | tail -5 | grep -q 'waiting for PIN'" 30 \
         || die "the app did not start pairing; check: ssh $HOST ha apps logs $SLUG"
     ssh_ha "test -f $DIR/atv_pair_request.json" \
@@ -90,6 +93,11 @@ status() {
     else
         echo "  not paired (pair.sh atv)"
     fi
+    if ssh_ha "jq -e '.airplay_credentials' $DIR/atv_companion.json >/dev/null 2>&1"; then
+        echo "  AirPlay (media-protocol diagnostics): paired"
+    else
+        echo "  AirPlay (media-protocol diagnostics): not paired (pair.sh atv airplay)"
+    fi
     echo "YouTube:"
     local linked screens
     linked=$(ssh_ha "jq -r 'keys[]' $DIR/yt_lounge.json 2>/dev/null" || true)
@@ -105,7 +113,7 @@ status() {
 }
 
 case "${1:-}" in
-    atv) pair_atv ;;
+    atv) shift; pair_atv "$@" ;;
     youtube) shift; pair_youtube "$@" ;;
     status) status ;;
     *) sed -n '2,15p' "$0"; exit 2 ;;

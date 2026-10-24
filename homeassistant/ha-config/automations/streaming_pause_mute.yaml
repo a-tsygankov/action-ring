@@ -8,12 +8,16 @@
     touched. Unmutes on play, app change, Arc source change or after 5 minutes,
     and only undoes its own mute: skipped if already muted, backs off if unmuted
     by hand. Some apps report a pause as "idle" (Netflix); those are listed in
-    idle_pause_apps.
+    idle_pause_apps. Apps in excluded_apps are skipped: Pluto TV reports a false
+    "paused" when an ad ends, and its ads are handled by the StreamDock app's
+    ad detection instead.
   mode: single
   max_exceeded: silent
   variables:
     idle_pause_apps:
       - com.netflix.Netflix
+    excluded_apps:
+      - tv.pluto.ios
   triggers:
     - trigger: state
       entity_id: media_player.vugitv_4k_vugitv_4k
@@ -22,7 +26,7 @@
     - condition: template
       value_template: >-
         {% set app = state_attr('media_player.vugitv_4k_vugitv_4k', 'app_id') %}
-        {{ app not in [none, '']
+        {{ app not in [none, ''] and app not in excluded_apps
            and (is_state('media_player.vugitv_4k_vugitv_4k', 'paused')
                 or app in idle_pause_apps) }}
     - condition: state

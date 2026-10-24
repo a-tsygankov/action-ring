@@ -18,7 +18,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Home Assistant OS / Supervisor / Core | 18.3 / 2026.10.3 / 2026.10.2 |
 | SSH | Terminal & SSH app 10.5.0; from the PC: `ssh homeassistant` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
-| Dock software | Local app `local_streamdock_n3` v0.4.0-16, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
+| Dock software | Local app `local_streamdock_n3` v0.4.0-21, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
 | HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle`, `automation.streaming_pause_mute` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
 | MCP for Claude | HA **Model Context Protocol Server** integration (all LLM APIs, admin only) at `http://homeassistant.local/api/mcp` (HA is on port 80); registered in Claude Code at user scope as `home-assistant` |
@@ -33,7 +33,9 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | `homeassistant/ha-config/scripts/*.yaml` | HA scripts, one top-level key per file |
 | `homeassistant/ha-config/automations/*.yaml` | HA automations, one `- id:` entry per file |
 | `homeassistant/restore.sh` | Restore everything above onto a HAOS device |
-| `homeassistant/pair.sh` | Pair the Apple TV (touch) and link YouTube apps; `status` |
+| `homeassistant/pair.sh` | Pair the Apple TV (`atv` touch, `atv airplay` media protocol) and link YouTube apps; `status` |
+| `homeassistant/tools/` | Ad research: `mrp_summary.py`, `replay_ad_detect.py`, `sanitize_mrp.py`, sanitized `fixtures/` |
+| `docs/AD_DETECTION_GUIDE.md` | Guide for AI agents: analyze a new app and add its ad rule |
 
 ### Control mappings (TV Room)
 
@@ -427,6 +429,45 @@ script cannot.
 - Confirmed on the TV: idle after a scrub jumps and plays; pressing the knob
   commits once with no extra pause.
 
+### 2026-10-24 — Pluto TV ad detection (raw MRP)
+
+- Pluto shows nothing in HA when an ad starts and a false `paused` when it
+  ends (which the pause-mute turned into a wrong mute of the show). MRP
+  metadata has no ad flag (104 fields in pyatv's `ContentItemMetadata`).
+- **Diagnostics:** the app can also pair the Apple TV's **AirPlay** service
+  (`pair.sh atv airplay`, PIN on the TV). pyatv then opens its own MRP
+  tunnel, and `mrp_raw.py` logs every now-playing message (all players,
+  content metadata, decoded `nowPlayingInfoData` plists) to `mrp_raw.log`.
+  Parsed with protobuf `MessageToDict`; the C-backed repeated containers on
+  the Pi don't look like sequences to hand-written walkers.
+- **Finding (3 breaks):** Pluto plays the stream in AVKit players
+  (`avkit-…`, duration with ads, e.g. 7306.7 s) and publishes a **show
+  clock** on `MediaRemote-DefaultPlayer` (ads excluded, e.g. 7005 s). It
+  publishes the show clock only during ads (pinned at the cue point,
+  republished every 30 s, 15 s near the end, one beat seen skipped) and
+  around user pause/play/scrub (always with an AVKit state change). Each
+  break ended with the AVKit player republishing `supportedCommands`.
+  Seek/skip commands stay enabled during ads.
+- **`ad_detect.py`** (config `ad_detect`): ad starts on a show-clock update
+  while the stream plays and no stream state change happened in the last
+  5 s; ends on the AVKit commands republish, a show clock advancing again,
+  heartbeat silence over 90 s, or the app changing. It mutes and unmutes the
+  Arc with the automation's rules. Pluto is in the automation's
+  `excluded_apps`.
+- Replay (`tools/replay_ad_detect.py`, sanitized fixture
+  `tools/fixtures/pluto_ads_20261023.jsonl`) detects both reported breaks
+  exactly: 23:57:19–23:59:51 and 00:09:21–00:11:52. The first live version
+  needed a clock jump and caught the second break 30 s late, which led to
+  the "publication itself is the signal" rule. Its 45 s heartbeat timeout
+  also split a break at a skipped beat, now 90 s.
+- Confirmed live: `00:18:32 ad started` → muted, `00:21:03 ad ended` (AVKit
+  commands republish) → unmuted, matching the user's report.
+- `docs/AD_DETECTION_GUIDE.md` lets other agents extend this to more apps.
+- Found on the way: `scripts.yaml` had been re-saved from HA's UI
+  (reformatted) and holds a script not from this repo,
+  `netflix_on_apple_tv`; `--replace-ha-config` restored the repo formatting
+  of the managed scripts and left it alone.
+
 ### 2026-10-23 — Repository
 
 - Published to [a-tsygankov/action-ring](https://github.com/a-tsygankov/action-ring)
@@ -456,5 +497,8 @@ script cannot.
       note which apps' players respond to touch scrubbing.
 - [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
       chapter there (Apple TV done).
+- [ ] Turn off `mrp_raw_log` once no more apps are being researched.
+- [ ] Decide whether to track the HA-created script `netflix_on_apple_tv`
+      in the repo.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.

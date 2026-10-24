@@ -1,0 +1,62 @@
+{"t": "23:51:44", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer"}
+{"t": "23:51:59", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer"}
+{"t": "23:52:29", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer"}
+{"t": "23:52:58", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-1"}
+{"t": "23:52:59", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer"}
+{"t": "23:53:00", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-1", "supportedCommands": true}
+{"t": "23:55:02", "msg": "now_playing_client", "bundle": null, "player": "other"}
+{"t": "23:55:02", "msg": "set_state", "bundle": "com.apple.TVAirPlay", "player": "MediaRemote-DefaultPlayer", "playbackState": "Paused", "supportedCommands": true}
+{"t": "23:55:02", "msg": "set_state", "bundle": "com.apple.TVWatchList", "player": "MediaRemote-DefaultPlayer", "playbackState": "Paused"}
+{"t": "23:55:02", "msg": "set_state", "bundle": "com.apple.TVWatchList", "player": "avkit-2", "playbackState": "Paused"}
+{"t": "23:55:02", "msg": "set_state", "bundle": "com.apple.TVWatchList", "player": "avkit-3", "playbackState": "Paused"}
+{"t": "23:55:02", "msg": "set_state", "bundle": "com.apple.TVWatchList", "player": "avkit-4", "playbackState": "Paused"}
+{"t": "23:55:02", "msg": "set_state", "bundle": "com.apple.TVWatchList", "player": "avkit-5", "playbackState": "Paused"}
+{"t": "23:55:02", "msg": "set_state", "bundle": "com.apple.TVWatchList", "player": "avkit-6", "playbackState": "Paused"}
+{"t": "23:55:02", "msg": "set_state", "bundle": "com.netflix.Netflix", "player": "MediaRemote-DefaultPlayer", "playbackState": "Paused"}
+{"t": "23:55:02", "msg": "now_playing_player", "bundle": "tv.pluto.ios", "player": "avkit-1"}
+{"t": "23:55:02", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "playbackState": "Paused", "supportedCommands": true, "clocks": [{"elapsedTime": 1617.0, "elapsedTimeTimestamp": 814506779.138436, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "23:55:02", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-7", "playbackState": "Paused"}
+{"t": "23:55:02", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-8", "playbackState": "Paused"}
+{"t": "23:55:02", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-1", "playbackState": "Playing", "supportedCommands": true, "clocks": [{"elapsedTime": 1634.193906414, "elapsedTimeTimestamp": 814506494.909871, "duration": 7156.691000000001, "playbackRate": 1.0}]}
+{"t": "23:56:36", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-1", "playbackState": "Paused"}
+{"t": "23:56:36", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "avkit-1", "clocks": [{"elapsedTime": 2135.37805162, "elapsedTimeTimestamp": 814506996.775825, "duration": 7306.691000000001, "playbackRate": 0.0}]}
+{"t": "23:56:36", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 1833.0, "elapsedTimeTimestamp": 814506996.742478, "duration": 7005.0, "playbackRate": 0.0}]}
+{"t": "23:56:48", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 1833.0, "elapsedTimeTimestamp": 814507007.879504, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "23:56:49", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-1", "playbackState": "Playing"}
+{"t": "23:56:49", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "avkit-1", "clocks": [{"elapsedTime": 2440.138232167, "elapsedTimeTimestamp": 814507009.429675, "duration": 7306.691000000001, "playbackRate": 1.0}]}
+{"t": "23:56:52", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-1", "playbackState": "Paused"}
+{"t": "23:56:52", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "avkit-1", "clocks": [{"elapsedTime": 2442.519408333, "elapsedTimeTimestamp": 814507012.423892, "duration": 7306.691000000001, "playbackRate": 0.0}]}
+{"t": "23:56:52", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 2141.0, "elapsedTimeTimestamp": 814507012.380459, "duration": 7005.0, "playbackRate": 0.0}]}
+{"t": "23:56:54", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 2141.0, "elapsedTimeTimestamp": 814507013.791108, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "23:56:55", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-1", "playbackState": "Playing"}
+{"t": "23:56:55", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "avkit-1", "clocks": [{"elapsedTime": 2512.8697015, "elapsedTimeTimestamp": 814507015.122158, "duration": 7306.691000000001, "playbackRate": 1.0}]}
+{"t": "23:57:19", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 2235.0, "elapsedTimeTimestamp": 814507039.632473, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "23:57:50", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 2235.0, "elapsedTimeTimestamp": 814507069.851183, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "23:58:20", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 2235.0, "elapsedTimeTimestamp": 814507099.898069, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "23:58:50", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 2235.0, "elapsedTimeTimestamp": 814507130.123824, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "23:59:20", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 2235.0, "elapsedTimeTimestamp": 814507160.157885, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "23:59:35", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 2235.0, "elapsedTimeTimestamp": 814507175.164746, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "23:59:49", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-1"}
+{"t": "23:59:51", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 2235.0, "elapsedTimeTimestamp": 814507190.312946, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "23:59:51", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-1", "supportedCommands": true}
+{"t": "00:08:58", "msg": "now_playing_client", "bundle": null, "player": "other"}
+{"t": "00:08:58", "msg": "set_state", "bundle": "com.apple.TVAirPlay", "player": "MediaRemote-DefaultPlayer", "playbackState": "Paused", "supportedCommands": true}
+{"t": "00:08:58", "msg": "set_state", "bundle": "com.apple.TVWatchList", "player": "MediaRemote-DefaultPlayer", "playbackState": "Paused"}
+{"t": "00:08:58", "msg": "set_state", "bundle": "com.apple.TVWatchList", "player": "avkit-2", "playbackState": "Paused"}
+{"t": "00:08:58", "msg": "set_state", "bundle": "com.apple.TVWatchList", "player": "avkit-3", "playbackState": "Paused"}
+{"t": "00:08:58", "msg": "set_state", "bundle": "com.apple.TVWatchList", "player": "avkit-4", "playbackState": "Paused"}
+{"t": "00:08:58", "msg": "set_state", "bundle": "com.apple.TVWatchList", "player": "avkit-5", "playbackState": "Paused"}
+{"t": "00:08:58", "msg": "set_state", "bundle": "com.apple.TVWatchList", "player": "avkit-6", "playbackState": "Paused"}
+{"t": "00:08:58", "msg": "set_state", "bundle": "com.netflix.Netflix", "player": "MediaRemote-DefaultPlayer", "playbackState": "Paused"}
+{"t": "00:08:58", "msg": "now_playing_player", "bundle": "tv.pluto.ios", "player": "avkit-1"}
+{"t": "00:08:58", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "playbackState": "Paused", "supportedCommands": true, "clocks": [{"elapsedTime": 2235.0, "elapsedTimeTimestamp": 814507190.312946, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "00:08:58", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-7", "playbackState": "Paused"}
+{"t": "00:08:58", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-8", "playbackState": "Paused"}
+{"t": "00:08:58", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-1", "playbackState": "Playing", "supportedCommands": true, "clocks": [{"elapsedTime": 2512.8697015, "elapsedTimeTimestamp": 814507015.122158, "duration": 7306.691000000001, "playbackRate": 1.0}]}
+{"t": "00:09:21", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 2806.0, "elapsedTimeTimestamp": 814507761.088208, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "00:09:51", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 2806.0, "elapsedTimeTimestamp": 814507791.122243, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "00:10:21", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 2806.0, "elapsedTimeTimestamp": 814507821.169145, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "00:10:51", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 2806.0, "elapsedTimeTimestamp": 814507851.182264, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "00:11:50", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-1"}
+{"t": "00:11:52", "msg": "update_content_item", "bundle": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 2806.0, "elapsedTimeTimestamp": 814507911.313217, "duration": 7005.0, "playbackRate": 1.0}]}
+{"t": "00:11:52", "msg": "set_state", "bundle": "tv.pluto.ios", "player": "avkit-1", "supportedCommands": true}

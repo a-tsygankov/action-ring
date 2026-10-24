@@ -33,6 +33,10 @@ Runs the upstream daemon unchanged and adds:
 
 5. Now-playing log (np_log.py): "now_playing_log": {"entities": [...]} logs
    what changes in those media players, to find ad markers per app.
+
+6. Ad detection (ad_detect.py): "ad_detect": {"speaker", "media_player",
+   "apps"} mutes the speaker during ad breaks of apps with a separate show
+   clock (Pluto TV), from the app's own MRP session (AirPlay pairing).
 """
 
 from __future__ import annotations
@@ -350,9 +354,26 @@ def main() -> int:
             extra |= _youtube.entities()
         except Exception as err:
             print(f"youtube: disabled ({err!r})", flush=True)
+    ad_cfg = config.get("ad_detect")
+    if isinstance(ad_cfg, dict) and ad_cfg.get("speaker"):
+        # Must hook MRP before the Apple TV connection below is made.
+        try:
+            import ad_detect
+
+            ad_detect.install(ad_detect.AdDetector(ad_cfg, CoreAPI().call, state_of))
+            extra |= {e for e in (ad_cfg.get("speaker"), ad_cfg.get("media_player")) if e}
+        except Exception as err:
+            print(f"ad-detect: disabled ({err!r})", flush=True)
     atv = config.get("atv")
     if isinstance(atv, dict) and atv.get("remote") and atv.get("media_player"):
         touch = None
+        if atv.get("mrp_raw_log"):  # diagnostics: dump raw MRP now-playing messages
+            try:
+                import mrp_raw
+
+                mrp_raw.install()
+            except Exception as err:
+                print(f"mrp-raw: disabled ({err!r})", flush=True)
         try:  # direct Companion connection for preview scrubbing (pairing via files)
             from atv_touch import AppleTVTouch
 
