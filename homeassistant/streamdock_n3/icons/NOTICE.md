@@ -1,10 +1,10 @@
-# Key icons: sources, licences, trademarks (draft)
+# Key icons: sources, licences, trademarks
 
 `build_icons.py` downloads the SVGs below from the Iconify API
 (`https://api.iconify.design/<set>/<name>.svg`) and composes the StreamDock N3
-key images from them. The per-icon source ids, colours and notes are in
-`manifest.json`. The rendered PNGs and the SVG cache (`out/`) are not
-committed.
+key images from them. The rendered PNGs are committed in this folder; the
+per-icon source ids, colours and notes are in `manifest.json` next to them. The
+SVG cache (`homeassistant/tools/icons/out/`) is not committed.
 
 ## Icon sets used
 

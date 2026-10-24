@@ -2,8 +2,8 @@
 """Build the StreamDock N3 (ActionRing N3) key icon set.
 
 Downloads source SVGs from the Iconify API into ``out/cache/`` (once), composes
-every key at 112x112 PNG into ``out/``, writes ``manifest.json`` next to this
-script, and renders two contact sheets:
+every key at 112x112 PNG into ``--out`` (default ``out/``), writes
+``manifest.json`` there too, and renders two contact sheets into ``out/``:
 
 * ``out/contact_112.png``    - every icon at 112 px with its file name,
 * ``out/contact_device.png`` - every icon as the device shows it: the SDK's
@@ -23,6 +23,8 @@ Usage::
     python build_icons.py                 # build everything
     python build_icons.py --only netflix  # ids starting with "netflix"
     python build_icons.py --offline       # cache only, no network
+    # the committed set (PNGs + manifest.json; NOTICE.md lives there by hand):
+    python build_icons.py --offline --out ../../streamdock_n3/icons
 """
 from __future__ import annotations
 
@@ -687,7 +689,8 @@ def contact_sheet(items: list[tuple[str, Image.Image]], tile: int, path: Path, c
 def main(argv=None) -> int:
     global _FONT_PATH
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--out", type=Path, default=HERE / "out")
+    ap.add_argument("--out", type=Path, default=HERE / "out",
+                    help="where PNGs and manifest.json go (contact sheets and the SVG cache stay in out/)")
     ap.add_argument("--only", help="build only ids starting with this prefix")
     ap.add_argument("--offline", action="store_true", help="use cached SVGs only")
     ap.add_argument("--font", help="bold sans TTF for labels")
@@ -701,10 +704,11 @@ def main(argv=None) -> int:
 
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=True)
-    ico = Iconify(out / "cache", args.offline)
+    work = HERE / "out"                  # scratch: SVG cache and contact sheets
+    ico = Iconify(work / "cache", args.offline)
     manifest: dict[str, dict] = {}
     big, small = [], []
-    tmp = out / "cache" / "_device_tmp.jpg"
+    tmp = work / "cache" / "_device_tmp.jpg"
     tmp.parent.mkdir(parents=True, exist_ok=True)
 
     for id_, state, build, notes in ICONS:
@@ -714,7 +718,9 @@ def main(argv=None) -> int:
         k = build(ico)
         img = k.result()
         path = out / f"{name}.png"
-        img.save(path, optimize=True)
+        if not (path.exists() and any(path.samefile(REPO_ICONS / s.split("/")[-1])
+                                      for s in k.sources if s.startswith("repo:"))):
+            img.save(path, optimize=True)    # repo PNGs rendered in place stay untouched
         big.append((name, img))
         small.append((name, device_view(path, tmp).resize((128, 128), Image.NEAREST)))
         srcs = []
@@ -731,9 +737,9 @@ def main(argv=None) -> int:
     tmp.unlink(missing_ok=True)
 
     if not args.only:
-        contact_sheet(big, SIZE, out / "contact_112.png",
+        contact_sheet(big, SIZE, work / "contact_112.png",
                       title="ActionRing N3 icons - 112x112 PNG as stored")
-        contact_sheet(small, 128, out / "contact_device.png", cols=8,
+        contact_sheet(small, 128, work / "contact_device.png", cols=8,
                       title="Device simulation: rotate -90, resize 64x64, JPEG q75 4:2:0, shown x2 nearest")
         if not args.no_manifest:
             doc = {
@@ -744,7 +750,7 @@ def main(argv=None) -> int:
                 "_font": "Arial Bold (Windows) / Liberation Sans Bold (Linux) for labels",
                 "icons": manifest,
             }
-            (HERE / "manifest.json").write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+            (out / "manifest.json").write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
     print(f"{len(big)} icons -> {out}")
     return 0
 
