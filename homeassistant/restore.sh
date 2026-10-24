@@ -147,26 +147,13 @@ else
     if [ -z "$addr" ]; then
         warn "no Apple TV integration in HA yet; pair later (see DOCS.md > Preview scrubbing)"
     elif [ ! -t 0 ]; then
-        warn "not interactive; pair later by re-running this script in a terminal (see DOCS.md)"
+        warn "not interactive; pair later with: bash homeassistant/pair.sh atv"
     else
-        ssh_ha "echo '{\"address\": \"$addr\"}' > $CONF_DIR/atv_pair_request.json"
-        echo "waiting for the TV to show a PIN..."
-        for _ in $(seq 1 20); do
-            sleep 2
-            since_start | grep -q 'pairing: waiting for PIN' && break
-        done
-        read -r -p "PIN shown on the TV: " pin
-        case "$pin" in
-            ''|*[!0-9]*) warn "not a number; pairing abandoned"; exit 1 ;;
-        esac
-        ssh_ha "echo $pin > $CONF_DIR/atv_pair_pin"
-        for _ in $(seq 1 15); do
-            sleep 2
-            if ssh_ha "test -f $CONF_DIR/atv_companion.json"; then echo "paired"; break; fi
-        done
-        ssh_ha "test -f $CONF_DIR/atv_companion.json" \
-            || warn "pairing did not complete; check: ssh $HOST ha apps logs $SLUG"
+        HA_HOST="$HOST" bash "$HERE/pair.sh" atv || warn "pairing failed; retry: bash homeassistant/pair.sh atv"
     fi
 fi
+
+step "Pairing status"
+HA_HOST="$HOST" bash "$HERE/pair.sh" status || true
 
 step "Done: $started"

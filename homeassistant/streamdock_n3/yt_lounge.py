@@ -150,14 +150,19 @@ class YouTubeScreens:
         os.chmod(AUTH_FILE, 0o600)
 
     async def _pair(self, screen: Screen, code_file: Path) -> None:
+        # The code file is consumed at once; success rewrites yt_lounge.json,
+        # so a caller can tell the outcome from the file alone.
         code = "".join(ch for ch in code_file.read_text() if ch.isdigit())
         code_file.unlink(missing_ok=True)
-        async with YtLoungeApi(DEVICE_NAME) as api:
-            if not await api.pair(code):
-                raise RuntimeError("pairing rejected (wrong or expired code?)")
-            self._auth[screen.name] = api.store_auth_state()
-            self._save_auth()
-            log(f"{screen.name}: linked to '{api.screen_name}'")
+        try:
+            async with YtLoungeApi(DEVICE_NAME) as api:
+                if not await api.pair(code) or not api.linked():
+                    raise RuntimeError("code rejected (wrong or expired?)")
+                self._auth[screen.name] = api.store_auth_state()
+                self._save_auth()
+                log(f"{screen.name}: linked to '{api.screen_name}'")
+        except Exception as err:
+            log(f"{screen.name}: linking failed: {type(err).__name__}: {err}")
 
     async def _run_screen(self, screen: Screen) -> None:
         code_file = CONFIG_DIR / f"yt_pair_{screen.name}"

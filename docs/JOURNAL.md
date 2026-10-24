@@ -18,7 +18,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Home Assistant OS / Supervisor / Core | 18.3 / 2026.10.3 / 2026.10.2 |
 | SSH | Terminal & SSH app 10.5.0; from the PC: `ssh homeassistant` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
-| Dock software | Local app `local_streamdock_n3` v0.4.0-10, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
+| Dock software | Local app `local_streamdock_n3` v0.4.0-11, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
 | HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
 
@@ -31,6 +31,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | `homeassistant/streamdock_n3/icons/` | Key images, deployed to `/app_configs/local_streamdock_n3/icons/` (`/config/icons/` in the app) |
 | `homeassistant/ha-config/scripts/*.yaml` | HA scripts, one top-level key per file |
 | `homeassistant/restore.sh` | Restore everything above onto a HAOS device |
+| `homeassistant/pair.sh` | Pair the Apple TV (touch) and link YouTube apps; `status` |
 
 ### Control mappings (TV Room)
 
@@ -267,6 +268,14 @@ script cannot.
   the knob press (OK) commits. Speed tiers and batching are shared with
   seek mode (`touch_steps` 12 / 60 per 2 / 150 per 3 units per click).
   Falls back to seek whenever touch isn't connected.
+
+- Paired with the Apple TV (PIN on screen) and connected over Companion;
+  the connection comes back by itself after an app restart.
+- `homeassistant/pair.sh`: `atv` (asks the Apple TV for a PIN, prompts,
+  waits for the touch connection), `youtube <screen> [code]` (links a TV's
+  YouTube app) and `status`. It judges success from the files on the Pi:
+  a pairing request always gets consumed, and success leaves newer
+  credentials. `restore.sh` calls it.
 
 ### 2026-10-23 — Key modes and YouTube next chapter
 

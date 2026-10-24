@@ -92,8 +92,21 @@ class AppleTVTouch:
         return conf
 
     async def _pair(self, request: dict[str, Any]) -> None:
-        address = request["address"]
+        # Every outcome consumes the request, so a caller can tell the attempt
+        # is over: success leaves a newer atv_companion.json, failure doesn't.
         PAIR_PIN.unlink(missing_ok=True)
+        try:
+            await self._pair_with(request["address"])
+        except Exception as err:
+            log(f"pairing failed: {type(err).__name__}: {err}")
+        finally:
+            PAIR_PIN.unlink(missing_ok=True)
+            PAIR_REQUEST.unlink(missing_ok=True)
+        if self._atv is not None:  # reconnect with the new credentials
+            self._atv.close()
+            self._atv = None
+
+    async def _pair_with(self, address: str) -> None:
         conf = await self._companion_config(address)
         pairing = await pyatv.pair(conf, Protocol.Companion, self._loop, name="ActionRing")
         try:
@@ -119,11 +132,6 @@ class AppleTVTouch:
             log(f"paired with {conf.name}; credentials saved")
         finally:
             await pairing.close()
-            PAIR_PIN.unlink(missing_ok=True)
-            PAIR_REQUEST.unlink(missing_ok=True)
-        if self._atv is not None:
-            self._atv.close()
-            self._atv = None
 
     async def _connect(self, data: dict[str, Any]) -> None:
         conf = await self._companion_config(data["address"])

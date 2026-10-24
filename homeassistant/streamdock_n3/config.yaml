@@ -1,5 +1,5 @@
 name: StreamDock N3
-version: "0.4.0-10"
+version: "0.4.0-11"
 slug: streamdock_n3
 description: >-
   Runs the community streamdock-n3 daemon (asad-albadi/streamdock-n3) so the

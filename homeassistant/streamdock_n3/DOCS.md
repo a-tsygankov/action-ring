@@ -99,8 +99,10 @@ because HA's integration doesn't expose touch gestures. Until the app is
 paired, or whenever the connection is down, scrubbing falls back to
 `"seek"`.
 
-Pairing: run `bash homeassistant/restore.sh` in a terminal; it prompts for
-the PIN. To pair by hand from the SSH app:
+Pairing: from the repo root on the PC run `bash homeassistant/pair.sh atv`.
+It asks the Apple TV for a PIN, prompts for it and waits until the touch
+connection is up. `restore.sh` runs this step itself when the app isn't paired
+yet. To pair by hand from the SSH app:
 
 ```bash
 echo '{"address": "<Apple TV IP>"}' > /app_configs/local_streamdock_n3/atv_pair_request.json
@@ -157,7 +159,10 @@ timestamps) and seeks to the next one. Ad starts and ends are logged
 (`youtube: lg: ad started (15s, skippable)`).
 
 Link each TV once: in its YouTube app open **Settings → Link with TV code**,
-then write the code into `yt_pair_<screen>` in the app's config folder:
+then on the PC run `bash homeassistant/pair.sh youtube <screen>` (`lg`,
+`atv`) and type the code. Pass the code as a third argument to skip the
+prompt. `bash homeassistant/pair.sh status` shows what is paired and linked.
+By hand, write the code into `yt_pair_<screen>` in the app's config folder:
 
 ```bash
 echo '123 456 789 012' > /app_configs/local_streamdock_n3/yt_pair_lg
