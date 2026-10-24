@@ -224,14 +224,25 @@ class AppleTVKnobs:
         units = batch["units"]
         if abs(units) < 0.5:  # e.g. left and right detents cancelled out
             return
-        if batch["mode"] == "touch":
+        mode = batch["mode"]
+        if mode == "touch":
             try:
                 self._finger_drag(units)
-            except Exception:
+                return
+            except Exception as err:
+                # After the Apple TV sleeps, the Companion session can still
+                # look connected while every event fails. Drop it so it
+                # reconnects, and seek this batch instead.
                 self._finger_down = False  # start a fresh gesture next time
-                raise
-            return
-        if batch["mode"] == "seek":
+                print(f"atv-knob: touch failed ({err}); seeking instead", flush=True)
+                drop = getattr(self._touch, "drop", None)
+                if drop is not None:
+                    drop(str(err))
+                units *= per_detent(self.cfg["seek_steps"][0]) / per_detent(self.cfg["touch_steps"][0])
+                mode = "seek"
+                with self._cv:
+                    self._scrub_kind = "seek"  # no select needed to commit a seek
+        if mode == "seek":
             target = self._seek_target_for(units)
             if target is not None:
                 print(f"atv-knob: seek {units:+.0f}s -> {target}s", flush=True)
