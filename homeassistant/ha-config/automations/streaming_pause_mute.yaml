@@ -1,11 +1,13 @@
-- id: tubi_ad_mute
-  alias: Tubi ad break mute
+- id: streaming_pause_mute
+  alias: Streaming pause mute
   description: >-
-    Tubi ads can't be skipped, and Tubi reports "paused" for a whole ad break
-    (title and duration unchanged). Mute the TV Room Arc while the Apple TV is
-    paused in Tubi; unmute when it plays again, leaves Tubi, or after 5 minutes
-    (Tubi sometimes never reports the end of a break). Only undoes its own mute:
-    skipped if already muted, and backs off if unmuted by hand.
+    Mute the TV Room Arc while the Apple TV is paused in any app, and unmute
+    when it plays again. Mainly for ad breaks that can't be skipped: Tubi
+    reports "paused" for a whole break and sometimes never reports its end.
+    Only mutes TV audio (Arc source "TV"), so music on the Arc is never
+    touched. Unmutes on play, app change, Arc source change or after 5 minutes,
+    and only undoes its own mute: skipped if already muted, backs off if unmuted
+    by hand.
   mode: single
   max_exceeded: silent
   triggers:
@@ -13,10 +15,12 @@
       entity_id: media_player.vugitv_4k_vugitv_4k
       to: paused
   conditions:
+    - condition: template
+      value_template: "{{ state_attr('media_player.vugitv_4k_vugitv_4k', 'app_id') not in [none, ''] }}"
     - condition: state
-      entity_id: media_player.vugitv_4k_vugitv_4k
-      attribute: app_id
-      state: com.adrise.tubitv
+      entity_id: media_player.tv_room_tv_room
+      attribute: source
+      state: TV
     - condition: state
       entity_id: media_player.tv_room_tv_room
       attribute: is_volume_muted
@@ -38,6 +42,9 @@
           entity_id: media_player.tv_room_tv_room
           attribute: is_volume_muted
           to: false
+        - trigger: state
+          entity_id: media_player.tv_room_tv_room
+          attribute: source
       timeout: "00:05:00"
     - if:
         - condition: state

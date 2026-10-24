@@ -19,7 +19,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | SSH | Terminal & SSH app 10.5.0; from the PC: `ssh homeassistant` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
 | Dock software | Local app `local_streamdock_n3` v0.4.0-14, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
-| HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle`, `automation.tubi_ad_break_mute` |
+| HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle`, `automation.streaming_pause_mute` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
 
 ### Repo layout
@@ -348,14 +348,22 @@ script cannot.
 - Conclusion: Tubi ads can't be skipped (server-side stitched, playback
   locked). "Paused in Tubi" is the only live signal, and its end may never
   arrive.
-- **Solution: `automation.tubi_ad_break_mute`** (HA automation, so it is
+- **Solution: `automation.streaming_pause_mute`** (HA automation, so it is
   visible in the HA UI and works without the app;
-  `ha-config/automations/tubi_ad_mute.yaml`). When the Apple TV goes
-  `paused` in Tubi (`com.adrise.tubitv`), it mutes the TV Room Arc. It
-  unmutes when the state leaves `paused`, the app changes, or after 5
-  minutes (the cap covers a missing end report). It skips if the Arc was
-  already muted and backs off if unmuted by hand, so it only undoes its own
-  mute. A deliberate pause also mutes, which is harmless while paused.
+  `ha-config/automations/streaming_pause_mute.yaml`). Confirmed on Tubi,
+  then generalized to every app. When the Apple TV goes `paused` in any app
+  (app_id set) while the Arc plays TV audio (`source` = `TV`) and isn't
+  muted, it mutes the Arc. It unmutes when the state leaves `paused`, the
+  app changes, the Arc's source changes (music started on the Arc), or after
+  5 minutes (the cap covers a missing end report). It only undoes its own
+  mute: it skips if the Arc was already muted and backs off if unmuted by
+  hand. A deliberate pause also mutes, which is harmless while paused.
+- Arc `source` is `TV` while it plays the TV/Apple TV and empty for music
+  (read from HA's recorder DB; Sonos states aren't in `core.restore_state`).
+- The first, Tubi-only version (`tubi_ad_mute`) was removed from
+  `automations.yaml`; its orphaned registry entry
+  `automation.tubi_ad_break_mute` can be deleted in HA → Settings →
+  Entities.
 - `restore.sh` now adds missing automations by `id` (as it does scripts by
   key) and checks their entities. Fixed on the way: under `set -e`, a final
   `[ … ] && …` inside a function aborted the script when nothing was added.
@@ -375,7 +383,7 @@ script cannot.
       note which apps' players respond to touch scrubbing.
 - [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
       chapter there (Apple TV done).
-- [ ] Tubi ad mute: confirm on the next ad break (mutes at the break,
-      unmutes when the movie resumes or at the 5-minute cap).
+- [ ] Streaming pause mute: confirm in a second app (e.g. pause in the TV
+      app: mutes, resumes with sound); Tubi confirmed.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.
