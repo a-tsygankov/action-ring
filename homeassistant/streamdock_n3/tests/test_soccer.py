@@ -189,7 +189,7 @@ def test_start_gives_up_when_tv_stays_off(capsys):
 
 
 def test_power_on_deadline_uses_the_monotonic_clock():
-    wall = iter(NOW + 3600 * n for n in range(1000))  # a wall clock that keeps jumping (NTP)
+    wall = iter(NOW + 60 * n for n in range(1000))  # a wall clock that jumps 60 s per read (NTP)
     t = FakeTime()
     st = {"media_player.lg": {"s": "off", "a": {}}}
     live = LiveSoccer(Recorder(), st.get, CFG, fetch=FakeFetch(), clock=lambda: next(wall),
@@ -281,6 +281,36 @@ def test_watching_forgets_a_game_that_never_opened():
     assert not live.watching(st.get)
 
 
+def test_watching_survives_cleared_states():
+    # An HA reconnect clears every state; the game holds until another app shows.
+    live, rec, st, t = _live()
+    live.refresh()
+    st[ATV] = {"s": "playing", "a": {"app_id": P_PLUS}}
+    live.play(0)
+    assert live.watching(st.get)
+    assert live.watching({}.get)  # no state: no information
+    t.now += 120  # longer than OPEN_TIMEOUT
+    live.watching({}.get)
+    assert live.watching(st.get)  # the same app is back
+
+
+def test_watching_survives_an_empty_app_id():
+    live, rec, st, t = _live()
+    live.refresh()
+    st[ATV] = {"s": "playing", "a": {"app_id": P_PLUS}}
+    live.play(0)
+    assert live.watching(st.get)
+    for blip in ({"s": "idle", "a": {"app_id": ""}}, {"s": "idle", "a": {}}, {"s": "playing"}):
+        st[ATV] = blip
+        assert live.watching(st.get)
+    st[ATV] = {"s": "playing", "a": {"app_id": P_PLUS}}
+    assert live.watching(st.get)
+    st[ATV] = {"s": "playing", "a": {"app_id": "com.netflix.Netflix"}}  # a different app
+    assert not live.watching(st.get)
+    st[ATV] = {"s": "playing", "a": {"app_id": P_PLUS}}
+    assert not live.watching(st.get)
+
+
 def test_fetch_error_keeps_last_list(capsys):
     fetch = FakeFetch()
     live, rec, st, t = _live(fetch=fetch)
@@ -292,6 +322,107 @@ def test_fetch_error_keeps_last_list(capsys):
     live.refresh()  # must not raise
     assert live.games() == first
     assert "soccer: refresh failed: OSError: network down" in capsys.readouterr().out
+
+
+def test_stale_list_ages_out(capsys):
+    # After failed fetches the list counts as empty once it is older than
+    # max(2 x poll_s, 30 min): no lit LIVE key, no press opening an ended game.
+    fetch = FakeFetch()
+    live, rec, st, t = _live(fetch=fetch)
+    live.refresh()
+    fetch.fail = OSError("network down")
+    t.now += 1799
+    live.refresh()
+    assert len(live.games()) == 3
+    t.now += 2
+    assert live.games() == []
+    assert live.vars() == {"soccer_count": "0", "soccer_pos": "0/0"}
+    live.start()
+    live.next()
+    assert rec.calls == []
+    assert capsys.readouterr().out.count("soccer: no live games") == 2
+
+
+def test_stale_after_scales_with_poll_s():
+    fetch = FakeFetch()
+    t = FakeTime()
+    cfg = {**CFG, "poll_s": 1200}  # 2 x poll_s = 40 min > 30 min
+    live = LiveSoccer(Recorder(), {}.get, cfg, fetch=fetch, clock=t.clock, sleep=t.sleep, monotonic=t.clock)
+    live.refresh()
+    t.now += 2399
+    assert len(live.games()) == 3
+    t.now += 2
+    assert live.games() == []
+
+
+def test_refresh_failure_signals_when_the_list_goes_stale():
+    seen = []
+    fetch, t = FakeFetch(), FakeTime()
+    live = LiveSoccer(Recorder(), {}.get, CFG, fetch=fetch, clock=t.clock, sleep=t.sleep,
+                      on_change=lambda: seen.append(1))
+    live.refresh()
+    fetch.fail = OSError("network down")
+    t.now += 600
+    live.refresh()
+    assert seen == [1]  # still fresh: nothing changed
+    t.now += 1800
+    live.refresh()
+    assert seen == [1, 1]  # the LIVE key must redraw dim
+    t.now += 600
+    live.refresh()
+    assert seen == [1, 1]  # once
+
+
+def test_retry_interval():
+    assert [soccer.retry_interval(n, 180, 1800) for n in range(1, 8)] == [180, 360, 720, 1440, 1800, 1800, 1800]
+    assert soccer.retry_interval(10_000, 180, 1800) == 1800
+
+
+def _poll(live, t, sleeps):
+    """Run poll_forever until it has slept `sleeps` times."""
+    real = t.sleep
+
+    def sleep(seconds):
+        real(seconds)
+        if len(t.sleeps) == sleeps:
+            raise SystemExit
+
+    live._sleep = sleep
+    with pytest.raises(SystemExit):
+        live.poll_forever()
+
+
+def test_failed_first_fetch_retries_after_poll_s():
+    fetch = FakeFetch()
+    fetch.fail = OSError("offline at boot")
+    live, rec, st, t = _live(fetch=fetch)
+    _poll(live, t, 1)
+    assert t.sleeps == [180]  # not idle_poll_s
+
+
+def test_poll_backs_off_on_consecutive_errors():
+    fetch = FakeFetch()
+    fetch.fail = OSError("API broken")
+    live, rec, st, t = _live(fetch=fetch)
+    _poll(live, t, 6)
+    assert t.sleeps == [180, 360, 720, 1440, 1800, 1800]
+
+
+def test_poll_backoff_resets_after_a_good_fetch():
+    fetch = FakeFetch()
+    outcomes = iter([OSError("a"), OSError("b"), None, OSError("c")])
+    real = fetch.__call__
+
+    def flaky(url):
+        if "searchTerm=Paramount" in url:
+            fetch.fail = next(outcomes)  # one outcome per refresh
+        return real(url)
+
+    t = FakeTime()
+    live = LiveSoccer(Recorder(), {}.get, CFG, fetch=flaky, clock=t.clock, sleep=t.sleep, monotonic=t.clock)
+    _poll(live, t, 4)
+    # fail, fail, ok (games live: poll_s), fail again: back to the first step
+    assert t.sleeps == [180, 360, 180, 180]
 
 
 def test_refresh_respects_max_age():
@@ -374,7 +505,7 @@ def test_poll_forever_survives_errors(monkeypatch):
     with pytest.raises(SystemExit):
         live.poll_forever()
     assert len(calls) == 3
-    assert t.sleeps == [1800, 1800]  # nothing live or about to start: idle interval
+    assert t.sleeps == [180, 180]  # nothing fetched yet: retry after poll_s
 
 
 def test_constants():

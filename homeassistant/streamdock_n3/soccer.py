@@ -43,6 +43,7 @@ TOKEN_MAX_AGE = 86400  # seconds
 CLOCK_GRACE = 30 * 60  # seconds a running clock still counts after the live window ends
 SOON = 15 * 60  # seconds before a listed start when polling speeds up to poll_s
 OPEN_TIMEOUT = 60  # seconds for a started game's app to come up before it is forgotten
+STALE_MIN = 30 * 60  # a list not refreshed for max(2 x poll_s, this) seconds counts as empty
 HTTP_TIMEOUT = 15
 USER_AGENT = "Mozilla/5.0"
 
@@ -160,6 +161,14 @@ def poll_interval(live: bool, start: float | None, now: float, poll_s: float, id
     return max(poll_s, min(idle_poll_s, until_soon))
 
 
+def retry_interval(errors: int, poll_s: float, idle_poll_s: float) -> float:
+    """Seconds to the next fetch after `errors` consecutive failures (>= 1).
+
+    poll_s after the first, doubling each time up to idle_poll_s.
+    """
+    return min(idle_poll_s, poll_s * 2 ** min(errors - 1, 16))
+
+
 def order(games: list[Game]) -> list[Game]:
     """By kickoff, then league, then id; the first of each id."""
     seen: set[str] = set()
@@ -206,11 +215,14 @@ class LiveSoccer:
         self._on_change = on_change or (lambda: None)
         self._lock = threading.Lock()  # one refresh at a time
         self._games: list[Game] = []
-        self._fetched_at: float | None = None
+        self._fetched_at: float | None = None  # last successful fetch (wall clock)
+        self._errors = 0  # consecutive failed fetches
         self._next_start: float | None = None  # next listed game's live window opens (epoch s)
         self._tokens: tuple[str, str] | None = None
         self._tokens_at = 0.0
         self._cursor = 0
+        # play() (a worker thread) and watching() (HA/render threads) share these three.
+        self._play_lock = threading.Lock()
         self._started: Game | None = None  # the game play() last opened
         self._started_at = 0.0
         self._seen = False  # its app has been in the foreground since
@@ -218,11 +230,18 @@ class LiveSoccer:
     # -- list ----------------------------------------------------------------
 
     def games(self) -> list[Game]:
-        """The cached live list (no I/O: safe on the render thread)."""
+        """The cached live list (no I/O: safe on the render thread); empty once stale."""
+        if self._stale(self._clock()):
+            return []
         return list(self._games)
 
+    def _stale(self, now: float) -> bool:
+        """No successful fetch yet, or none for max(2 x poll_s, STALE_MIN) s."""
+        max_age = max(2 * float(self._cfg.get("poll_s", 180)), STALE_MIN)
+        return self._fetched_at is None or now - self._fetched_at > max_age
+
     def refresh(self, max_age: float = 0.0) -> None:
-        """Refetch unless the list is younger than `max_age` s; on error keep the last list."""
+        """Refetch unless the list is younger than `max_age` s; on error keep the last list until stale."""
         with self._lock:
             now = self._clock()
             if self._fetched_at is not None and now - self._fetched_at < max_age:
@@ -232,31 +251,38 @@ class LiveSoccer:
                 games = order([g for p in payloads for g in parse_games(p, now)])
                 starts = [t for t in (next_start(p, now) for p in payloads) if t is not None]
             except Exception as err:  # never let a key press or the poller die on this
+                self._errors += 1
                 log(f"refresh failed: {type(err).__name__}: {err}")
-                return
-            if [g.id for g in games] != [g.id for g in self._games]:
-                log(f"{len(games)} live: " + "; ".join(f"{g.title} ({g.provider})" for g in games))
-            self._games, self._fetched_at = games, now
-            self._next_start = min(starts, default=None)
+                if not (self._games and self._stale(now)):
+                    return
+                self._games = []  # games() already hides it; this signals the change once
+                log("live list expired")
+            else:
+                self._errors = 0
+                if [g.id for g in games] != [g.id for g in self._games]:
+                    log(f"{len(games)} live: " + "; ".join(f"{g.title} ({g.provider})" for g in games))
+                self._games, self._fetched_at = games, now
+                self._next_start = min(starts, default=None)
         self._on_change()
 
     def poll_forever(self) -> None:
         """Background refresh for the key's live look; never raises.
 
         Every poll_s while a game is live or about to start, else every
-        idle_poll_s (the listing is undocumented: use it lightly).
+        idle_poll_s (the listing is undocumented: use it lightly). After
+        failed fetches: poll_s, doubling up to idle_poll_s; until the first
+        successful fetch, poll_s (the network may still be coming up).
         """
         while True:
-            wait = float(self._cfg.get("idle_poll_s", 1800))
+            poll_s = float(self._cfg.get("poll_s", 180))
+            idle_poll_s = float(self._cfg.get("idle_poll_s", 1800))
+            wait = poll_s
             try:
                 self.refresh(max_age=float(self._cfg.get("cache_s", 60)))
-                wait = poll_interval(
-                    bool(self._games),
-                    self._next_start,
-                    self._clock(),
-                    float(self._cfg.get("poll_s", 180)),
-                    wait,
-                )
+                if self._errors:
+                    wait = retry_interval(self._errors, poll_s, idle_poll_s)
+                elif self._fetched_at is not None:
+                    wait = poll_interval(bool(self.games()), self._next_start, self._clock(), poll_s, idle_poll_s)
             except Exception as err:
                 log(f"poll: {type(err).__name__}: {err}")
             self._sleep(wait)
@@ -291,7 +317,7 @@ class LiveSoccer:
     def start(self) -> None:
         """Power on if needed and play the first live game."""
         self.refresh(max_age=float(self._cfg.get("cache_s", 60)))
-        if not self._games:
+        if not self.games():
             log("no live games")
             return
         if not ensure_on(self._call, self._state_of, self._cfg, sleep=self._sleep, clock=self._monotonic):
@@ -302,21 +328,23 @@ class LiveSoccer:
 
     def next(self) -> None:
         """The next live game, wrapping at the end."""
-        if not self._games:
+        games = self.games()
+        if not games:
             log("no live games")
             return
-        self.play((self._cursor + 1) % len(self._games))
+        self.play((self._cursor + 1) % len(games))
 
     def play(self, i: int) -> None:
         """Open game i; one `select` if its app is up but not playing (profile picker, modal)."""
-        games = self._games
+        games = self.games()
         if not games:
             log("no live games")
             return
         i %= len(games)
         game = games[i]
         self._cursor = i
-        self._started, self._started_at, self._seen = game, self._monotonic(), False
+        with self._play_lock:
+            self._started, self._started_at, self._seen = game, self._monotonic(), False
         self._on_change()  # {soccer_pos} changed
         log(f"playing {i + 1}/{len(games)}: {game.title} ({game.provider})")
         atv = self._cfg["atv"]
@@ -334,20 +362,28 @@ class LiveSoccer:
     # -- state -----------------------------------------------------------------
 
     def watching(self, state_of: StateLookup) -> bool:
-        """A started game's app is (still) in the foreground; cleared once another app takes over."""
-        game = self._started
-        if game is None:
-            return False
+        """A started game's app is (still) in the foreground; cleared once another app takes over.
+
+        No Apple TV state (an HA reconnect) or an empty app_id says nothing
+        about the app: a game already seen holds through it (spec 5.1: until
+        the app changes). A game whose app never came up within OPEN_TIMEOUT
+        is forgotten.
+        """
         app = ((state_of(self._cfg["atv"]) or {}).get("a") or {}).get("app_id")
-        if app == game.app:
-            self._seen = True
-            return True
-        if self._seen or self._monotonic() - self._started_at > OPEN_TIMEOUT:
-            self._started = None  # another app took over, or the game never opened
-        return False
+        with self._play_lock:
+            if self._started is None:
+                return False
+            if app == self._started.app:
+                self._seen = True
+                return True
+            if self._seen and app:
+                self._started = None  # another app took over
+            elif not self._seen and self._monotonic() - self._started_at > OPEN_TIMEOUT:
+                self._started = None  # the game never opened
+            return self._seen and self._started is not None
 
     def vars(self) -> dict[str, str]:
         """Label placeholders: {soccer_count}, {soccer_pos}."""
-        n = len(self._games)
+        n = len(self.games())
         pos = min(self._cursor, n - 1) + 1 if n else 0
         return {"soccer_count": str(n), "soccer_pos": f"{pos}/{n}"}
