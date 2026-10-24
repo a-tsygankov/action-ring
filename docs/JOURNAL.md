@@ -18,7 +18,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Home Assistant OS / Supervisor / Core | 18.3 / 2026.10.3 / 2026.10.2 |
 | SSH | Terminal & SSH app 10.5.0; from the PC: `ssh homeassistant` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
-| Dock software | Local app `local_streamdock_n3` v0.4.0-12, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
+| Dock software | Local app `local_streamdock_n3` v0.4.0-14, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
 | HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
 
@@ -327,6 +327,19 @@ script cannot.
   (title blanked, 30 s duration, position jumped to 0) and one on the way back.
 - Live: logs the Apple TV app as `com.apple.TVWatchList` with title,
   content id, duration and position.
+- **Tubi (`com.adrise.tubitv`), first capture** (ad break triggered by
+  scrubbing past an ad marker; pod of 60 + 45 + 4 × 15 s = 165 s):
+  - During the break HA reported nothing new. The state stayed `paused` for
+    the whole 165 s while ads played, and title, duration and content id
+    were unchanged.
+  - At the end the state became `playing` with a forward jump of exactly the
+    pod length (1719 → 1884 s), then about 2 s later a jump back to movie
+    time (1885 → 1752 s). Tubi stitches ads into the timeline, then maps
+    back.
+  - So the end of a break is unambiguous; its start ("paused") looks like a
+    user pause. The log now also records `supported_features` (Tubi normal:
+    450487) and the position timestamp, to look for a live start signal in
+    the next capture.
 
 ### 2026-10-23 — Repository
 
@@ -343,8 +356,9 @@ script cannot.
       note which apps' players respond to touch scrubbing.
 - [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
       chapter there (Apple TV done).
-- [ ] Ad detection outside YouTube (Tubi etc. on Apple TV): logging is live
-      (`now_playing.log`); capture a Tubi ad break, then derive a per-app
-      rule.
+- [ ] Ad detection outside YouTube: capture a natural (unscrubbed) Tubi ad
+      break with `supported_features` logged; derive a live start signal
+      (end signature already known: playing + forward jump of the pod length,
+      then a jump back).
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.

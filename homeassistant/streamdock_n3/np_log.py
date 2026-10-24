@@ -27,6 +27,9 @@ FIELDS = (
     "media_content_type",
     "media_content_id",
     "media_duration",
+    # Apps may disable seek/pause during ads (Tubi reports "paused" for a
+    # whole ad break), which shows up as a supported_features change.
+    "supported_features",
 )
 LOG_FILE = Path("/config/now_playing.log")
 MAX_BYTES = 2_000_000
@@ -79,6 +82,8 @@ class NowPlayingLog:
             parts.append(f"pos_jump={jump}")
         if pos is not None:
             parts.append(f"pos={float(pos):.0f}")
+        if upd is not None:
+            parts.append(f"pos_at={upd.astimezone():%H:%M:%S}")  # local, like the line time
         line = f"{entity_id.split('.', 1)[-1]} " + " ".join(parts)
         self._write(line)
         return line
