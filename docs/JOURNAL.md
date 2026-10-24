@@ -268,6 +268,8 @@ script cannot.
   the knob press (OK) commits. Speed tiers and batching are shared with
   seek mode (`touch_steps` 12 / 60 per 2 / 150 per 3 units per click).
   Falls back to seek whenever touch isn't connected.
+- Confirmed on the TV: tvOS thumbnail previews follow the knob, and the knob
+  press jumps to the previewed position.
 
 - Paired with the Apple TV (PIN on screen) and connected over Companion;
   the connection comes back by itself after an app restart.
@@ -324,9 +326,8 @@ script cannot.
 
 - [ ] Tune knob acceleration on the TV (`atv` section: step sizes, speed
       thresholds) and note which apps support seek vs. fall back to skips.
-- [ ] Preview scrubbing: confirm previews on the TV and tune `touch_steps`
-      and `touch_release_after`; note which apps' players respond to touch
-      scrubbing.
+- [ ] Preview scrubbing: tune `touch_steps` / `touch_release_after` with use;
+      note which apps' players respond to touch scrubbing.
 - [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
       chapter there (Apple TV done).
 - [ ] Ad detection outside YouTube (Tubi etc. on Apple TV): log Apple TV
