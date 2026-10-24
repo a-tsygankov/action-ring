@@ -1,0 +1,52 @@
+- id: tubi_ad_mute
+  alias: Tubi ad break mute
+  description: >-
+    Tubi ads can't be skipped, and Tubi reports "paused" for a whole ad break
+    (title and duration unchanged). Mute the TV Room Arc while the Apple TV is
+    paused in Tubi; unmute when it plays again, leaves Tubi, or after 5 minutes
+    (Tubi sometimes never reports the end of a break). Only undoes its own mute:
+    skipped if already muted, and backs off if unmuted by hand.
+  mode: single
+  max_exceeded: silent
+  triggers:
+    - trigger: state
+      entity_id: media_player.vugitv_4k_vugitv_4k
+      to: paused
+  conditions:
+    - condition: state
+      entity_id: media_player.vugitv_4k_vugitv_4k
+      attribute: app_id
+      state: com.adrise.tubitv
+    - condition: state
+      entity_id: media_player.tv_room_tv_room
+      attribute: is_volume_muted
+      state: false
+  actions:
+    - action: media_player.volume_mute
+      target:
+        entity_id: media_player.tv_room_tv_room
+      data:
+        is_volume_muted: true
+    - wait_for_trigger:
+        - trigger: state
+          entity_id: media_player.vugitv_4k_vugitv_4k
+          not_to: paused
+        - trigger: state
+          entity_id: media_player.vugitv_4k_vugitv_4k
+          attribute: app_id
+        - trigger: state
+          entity_id: media_player.tv_room_tv_room
+          attribute: is_volume_muted
+          to: false
+      timeout: "00:05:00"
+    - if:
+        - condition: state
+          entity_id: media_player.tv_room_tv_room
+          attribute: is_volume_muted
+          state: true
+      then:
+        - action: media_player.volume_mute
+          target:
+            entity_id: media_player.tv_room_tv_room
+          data:
+            is_volume_muted: false

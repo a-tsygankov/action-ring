@@ -29,7 +29,7 @@ fi
 step "Checking referenced entities exist"
 # Values of entity_id in the mappings (JSON with escaped quotes) and scripts
 # (YAML). script.* is skipped: those are created by the next step.
-entities=$(cat "$HERE/$APP/config.tv_room.json" "$HERE"/ha-config/scripts/*.yaml \
+entities=$(cat "$HERE/$APP/config.tv_room.json" "$HERE"/ha-config/scripts/*.yaml "$HERE"/ha-config/automations/*.yaml \
     | grep -oE '(entity_id|state_entity|remote|media_player)[\\":[:space:]]+[a-z_]+\.[a-z0-9_]+' \
     | grep -oE '[a-z_]+\.[a-z0-9_]+$' | grep -v '^script\.' | sort -u)
 missing=$(printf '%s\n' "$entities" | ssh_ha '
@@ -42,21 +42,36 @@ else
     echo "all $(printf '%s\n' "$entities" | wc -l | tr -d ' ') entities present"
 fi
 
-# --- HA scripts -----------------------------------------------------------
-step "Home Assistant scripts"
+# --- HA scripts and automations -------------------------------------------
+# Append each repo fragment that HA doesn't have yet (backing the file up
+# first); existing entries are left alone, so edits made in HA survive.
+#   add_fragments <ha yaml file> <repo dir> <name-of-entry regex prefix>
 core_restart=
-for frag in "$HERE"/ha-config/scripts/*.yaml; do
-    key=$(head -1 "$frag" | sed 's/:.*//')
-    result=$(ssh_ha "f=/homeassistant/scripts.yaml; touch \$f
-        if grep -q '^$key:' \$f; then echo present; exit; fi
-        cp \$f \$f.bak-$STAMP
-        # A fresh install may hold an empty mapping/list literal; drop it.
-        if grep -qxE '\\{\\}|\\[\\]' \$f; then : > \$f; fi
-        [ -s \$f ] && [ -n \"\$(tail -c1 \$f)\" ] && echo >> \$f
-        cat >> \$f; echo added" < "$frag")
-    echo "$key: $result"
-    [ "$result" = added ] && core_restart=1
-done
+add_fragments() {
+    local target=$1 dir=$2 kind=$3 frag key pattern result
+    for frag in "$dir"/*.yaml; do
+        [ -e "$frag" ] || continue
+        if [ "$kind" = script ]; then
+            key=$(head -1 "$frag" | sed 's/:.*//')          # "name:" at top level
+            pattern="^$key:"
+        else
+            key=$(head -1 "$frag" | sed "s/^- id: *//; s/['\"]//g")  # "- id: name"
+            pattern="^- id: ['\\\"]?$key['\\\"]?\$"
+        fi
+        result=$(ssh_ha "f=$target; touch \$f
+            if grep -qE \"$pattern\" \$f; then echo present; exit; fi
+            cp \$f \$f.bak-$STAMP
+            # A fresh install may hold an empty mapping/list literal; drop it.
+            if grep -qxE '\\{\\}|\\[\\]' \$f; then : > \$f; fi
+            [ -s \$f ] && [ -n \"\$(tail -c1 \$f)\" ] && echo >> \$f
+            cat >> \$f; echo added" < "$frag")
+        echo "$kind $key: $result"
+        if [ "$result" = added ]; then core_restart=1; fi
+    done
+}
+step "Home Assistant scripts and automations"
+add_fragments /homeassistant/scripts.yaml "$HERE/ha-config/scripts" script
+add_fragments /homeassistant/automations.yaml "$HERE/ha-config/automations" automation
 if [ -n "$core_restart" ]; then
     ssh_ha 'ha core check && ha core restart'
 fi
