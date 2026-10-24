@@ -4,7 +4,8 @@ Each configured screen (the YouTube app on a TV) is linked once with the
 12-digit code from the app's Settings > Link with TV code. While Home
 Assistant reports YouTube in the foreground on that TV, the app keeps a
 Lounge session, which gives the playing video, its position, play/ad state
-and a seek command. Used for "next chapter" (yt_chapters.py) and ad logging.
+and a seek command. Used for "next chapter" (yt_chapters.py), next/previous,
+play/pause and a subtitles toggle, and ad logging.
 
 Linking is driven through files in the app's config share (/config here,
 /addon_configs/local_streamdock_n3 outside): write the code to
@@ -46,16 +47,24 @@ def matches(state_of: StateLookup, cond: dict[str, Any]) -> bool:
 class Screen(EventListener):
     """Live playback state of one YouTube screen, fed by Lounge events."""
 
-    def __init__(self, name: str, match: list[dict[str, Any]], prefetch: Callable[[str], None]):
+    def __init__(
+        self,
+        name: str,
+        match: list[dict[str, Any]],
+        prefetch: Callable[[str], None],
+        on_change: Callable[[], None] | None = None,
+    ):
         self.name = name
         self.match = match
         self._prefetch = prefetch
+        self._on_change = on_change or (lambda: None)
         self.api: YtLoungeApi | None = None
         self.video_id: str | None = None
         self.state: State | None = None
         self.position = 0.0
         self.position_at = 0.0
         self.in_ad = False
+        self.subtitles: str | None = None  # current caption language; None = off
 
     def position_now(self) -> float:
         elapsed = time.monotonic() - self.position_at if self.state == State.Playing else 0
@@ -73,12 +82,20 @@ class Screen(EventListener):
     async def now_playing_changed(self, event) -> None:
         if event.video_id and event.video_id != self.video_id:
             self.video_id = event.video_id
+            self.subtitles = None  # captions are per video; the TV reports them afterwards
             log(f"{self.name}: now playing {event.video_id}")
             self._prefetch(event.video_id)
         self._set(event.current_time, event.state)
+        self._on_change()
 
     async def playback_state_changed(self, event) -> None:
         self._set(event.current_time, event.state)
+        self._on_change()
+
+    async def subtitles_track_changed(self, event) -> None:
+        self.subtitles = event.language_code or None
+        log(f"{self.name}: subtitles {self.subtitles or 'off'}")
+        self._on_change()
 
     async def ad_playing_changed(self, event) -> None:
         if not self.in_ad:
@@ -90,13 +107,22 @@ class Screen(EventListener):
         self.in_ad = event.ad_state == State.Advertisement or self.in_ad
 
 
+COMMANDS = ("next", "previous", "play_pause", "subtitles")
+
+
 class YouTubeScreens:
-    def __init__(self, cfg: dict[str, Any], state_of: StateLookup) -> None:
+    def __init__(
+        self,
+        cfg: dict[str, Any],
+        state_of: StateLookup,
+        on_change: Callable[[], None] | None = None,
+    ) -> None:
         self._state_of = state_of
+        self._on_change = on_change
         self._chapters: dict[str, list[tuple[float, str]]] = {}
         self._auth: dict[str, Any] = json.loads(AUTH_FILE.read_text()) if AUTH_FILE.exists() else {}
         self.screens = {
-            name: Screen(name, spec.get("match", []), self._prefetch)
+            name: Screen(name, spec.get("match", []), self._prefetch, self._notify)
             for name, spec in cfg.get("screens", {}).items()
         }
         self._loop = asyncio.new_event_loop()
@@ -117,6 +143,20 @@ class YouTubeScreens:
     def next_chapter(self) -> None:
         asyncio.run_coroutine_threadsafe(self._next_chapter(), self._loop).result(20)
 
+    def command(self, name: str) -> None:
+        """next | previous | play_pause | subtitles on the screen that is playing."""
+        if name not in COMMANDS:
+            raise ValueError(f"unknown YouTube command {name!r}")
+        asyncio.run_coroutine_threadsafe(self._command(name), self._loop).result(20)
+
+    def playing(self) -> bool:
+        screen = self._pick()
+        return screen is not None and screen.state == State.Playing
+
+    def subtitles_on(self) -> bool:
+        screen = self._pick()
+        return screen is not None and screen.subtitles is not None
+
     # -- internals (YouTube loop) -----------------------------------------------
     def _prefetch(self, video_id: str) -> None:
         if video_id not in self._chapters:
@@ -129,12 +169,50 @@ class YouTubeScreens:
             log(f"{video_id}: {len(chs)} chapters")
         return self._chapters[video_id]
 
-    async def _next_chapter(self) -> None:
+    def _notify(self) -> None:
+        if self._on_change:
+            self._on_change()
+
+    def _pick(self) -> Screen | None:
+        """The linked, connected screen with a video; one that is playing wins."""
         live = [s for s in self.screens.values() if s.api is not None and s.video_id]
-        if not live:
+        return next((s for s in live if s.state == State.Playing), live[0] if live else None)
+
+    async def _command(self, name: str) -> None:
+        screen = self._pick()
+        if screen is None:
+            log(f"{name}: no linked YouTube session is playing")
+            return
+        api = screen.api
+        if name == "next":
+            await api.next()
+        elif name == "previous":
+            await api.previous()
+        elif name == "play_pause":
+            await (api.pause() if screen.state == State.Playing else api.play())
+        else:
+            await self._toggle_subtitles(screen)
+        log(f"{screen.name}: {name}")
+
+    async def _toggle_subtitles(self, screen: Screen) -> None:
+        video_id = screen.video_id
+        if screen.subtitles is not None:
+            lang = None
+        else:
+            page = await self._loop.run_in_executor(None, yt_chapters.fetch_page, video_id)
+            lang = yt_chapters.pick_caption(yt_chapters.caption_languages(page))
+            if lang is None:
+                log(f"{screen.name}: {video_id}: no captions")
+                return
+        await screen.api.set_closed_captions(lang, video_id)
+        screen.subtitles = lang  # optimistic: the TV may not echo the change
+        self._notify()
+
+    async def _next_chapter(self) -> None:
+        screen = self._pick()
+        if screen is None:
             log("next chapter: no linked YouTube session is playing")
             return
-        screen = next((s for s in live if s.state == State.Playing), live[0])
         position = screen.position_now()
         target = yt_chapters.next_start(await self._load_chapters(screen.video_id), position)
         if target is None:
@@ -189,6 +267,7 @@ class YouTubeScreens:
                     raise RuntimeError("connect failed (YouTube app not open?)")
             screen.api = api
             log(f"{screen.name}: connected")
+            self._notify()
             sub = asyncio.create_task(api.subscribe())
             try:
                 while not sub.done() and self.active(screen):
@@ -201,3 +280,4 @@ class YouTubeScreens:
                     sub.cancel()
                     await api.disconnect()
                 log(f"{screen.name}: disconnected")
+                self._notify()

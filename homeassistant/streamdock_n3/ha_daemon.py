@@ -38,8 +38,10 @@ Runs the upstream daemon unchanged and adds:
    the foreground on a configured screen) or a list of
    {"entity", "attr" ("state" by default), "in": [...]} (any).
 
-4. YouTube (yt_lounge.py): {"youtube": "next_chapter"} jumps to the next
-   chapter of the video playing in a linked YouTube TV app.
+4. YouTube (yt_lounge.py): {"youtube": name} controls the video playing in a
+   linked YouTube TV app: "next_chapter" jumps to the next chapter; "next",
+   "previous", "play_pause" and "subtitles" (toggle) go through the Lounge.
+   Conditions "youtube_playing" and "youtube_subtitles" follow its live state.
 
 5. Now-playing log (np_log.py): "now_playing_log": {"entities": [...]} logs
    what changes in those media players, to find ad markers per app.
@@ -82,6 +84,7 @@ TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
 TICK_SECONDS = 0.2
 SLOW_PASS_SECONDS = 0.5
 EMPTY_LOOK = Look(None, "", "#000000")  # a key the visible page leaves undefined
+YOUTUBE_COMMANDS = ("next_chapter", "next", "previous", "play_pause", "subtitles")
 
 _ready = threading.Event()
 _device = None
@@ -110,6 +113,8 @@ def state_of(entity_id: str) -> dict[str, Any] | None:
 # Named "when" conditions for key modes.
 _conds: dict[str, Callable[[], bool]] = {
     "youtube": lambda: _youtube is not None and _youtube.any_active(),
+    "youtube_playing": lambda: _youtube is not None and _youtube.playing(),
+    "youtube_subtitles": lambda: _youtube is not None and _youtube.subtitles_on(),
 }
 
 # Whether the Apple TV is showing a live soccer game (context "live_game").
@@ -158,11 +163,12 @@ def _run_actions(actions: Any, *, dry_run: bool) -> None:
         return
     if isinstance(actions, dict) and "youtube" in actions:
         command = actions["youtube"]
-        if dry_run or _youtube is None or command != "next_chapter":
+        if dry_run or _youtube is None or command not in YOUTUBE_COMMANDS:
             print(f"youtube: ignoring {command!r}", flush=True)
             return
-        # Seeking waits on the network; keep the SDK reader thread free.
-        threading.Thread(target=_safe, args=(_youtube.next_chapter,), daemon=True).start()
+        # Lounge commands wait on the network; keep the SDK reader thread free.
+        run = _youtube.next_chapter if command == "next_chapter" else lambda: _youtube.command(command)
+        threading.Thread(target=_safe, args=(run,), daemon=True).start()
         return
     if isinstance(actions, dict) and "launch" in actions:
         req = actions["launch"]
@@ -448,7 +454,7 @@ def main() -> int:
         try:
             from yt_lounge import YouTubeScreens
 
-            _youtube = YouTubeScreens(yt, state_of)
+            _youtube = YouTubeScreens(yt, state_of, on_change=_signal)
             entities |= _youtube.entities()
         except Exception as err:
             print(f"youtube: disabled ({err!r})", flush=True)
