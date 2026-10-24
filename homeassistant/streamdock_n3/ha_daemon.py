@@ -353,6 +353,13 @@ def main() -> int:
     atv = config.get("atv")
     if isinstance(atv, dict) and atv.get("remote") and atv.get("media_player"):
         touch = None
+        if atv.get("mrp_raw_log"):  # diagnostics: dump raw MRP now-playing messages
+            try:
+                import mrp_raw
+
+                mrp_raw.install()
+            except Exception as err:
+                print(f"mrp-raw: disabled ({err!r})", flush=True)
         try:  # direct Companion connection for preview scrubbing (pairing via files)
             from atv_touch import AppleTVTouch
 

@@ -6,13 +6,18 @@ own Companion connection with its own pairing (separate from HA's, so the two
 sessions never share an identity) and offers blocking touch calls to the knob
 engine.
 
+Optionally it is also paired for AirPlay: with AirPlay credentials pyatv
+opens the media-remote (MRP) tunnel, which mrp_raw.py taps for diagnostics.
+
 Pairing is driven through files in the app's config share (/config here,
 /addon_configs/local_streamdock_n3 outside):
 
-1. write atv_pair_request.json: {"address": "<Apple TV IP>"}
+1. write atv_pair_request.json: {"address": "<Apple TV IP>",
+   "protocol": "companion" (default) | "airplay"}
 2. the TV shows a PIN; the log says "pairing: waiting for PIN"
 3. write the PIN to atv_pair_pin
-4. credentials are saved to atv_companion.json (secret; not in the repo)
+4. credentials are saved to atv_companion.json (secret; not in the repo):
+   "credentials" (Companion) and "airplay_credentials"
 """
 
 from __future__ import annotations
@@ -37,6 +42,8 @@ PIN_WAIT_SECONDS = 300
 RECONNECT_SECONDS = 10
 
 _MODES = {"press": TouchAction.Press, "hold": TouchAction.Hold, "release": TouchAction.Release}
+PROTOCOLS = {"companion": Protocol.Companion, "airplay": Protocol.AirPlay}
+CRED_KEYS = {"companion": "credentials", "airplay": "airplay_credentials"}
 
 
 def log(msg: str) -> None:
@@ -76,19 +83,19 @@ class AppleTVTouch:
                 await asyncio.sleep(RECONNECT_SECONDS)
             await asyncio.sleep(2)
 
-    async def _companion_config(self, address: str) -> AppleTV:
+    async def _config(self, address: str, protocols: list[str]) -> AppleTV:
         found = await pyatv.scan(self._loop, hosts=[address], timeout=5)
         if not found:
             raise RuntimeError(f"no Apple TV answered at {address}")
         scanned = found[0]
-        service = scanned.get_service(Protocol.Companion)
-        if service is None:
-            raise RuntimeError(f"{scanned.name} offers no Companion service")
-        # Companion only: HA owns the other protocols, and unpaired ones
-        # would fail to connect anyway.
-        # The device identifier comes from the added service.
+        # Only the protocols this app paired: unpaired ones would fail to
+        # connect. The device identifier comes from the added services.
         conf = AppleTV(scanned.address, scanned.name, device_info=scanned.device_info)
-        conf.add_service(service)
+        for name in protocols:
+            service = scanned.get_service(PROTOCOLS[name])
+            if service is None:
+                raise RuntimeError(f"{scanned.name} offers no {name} service")
+            conf.add_service(service)
         return conf
 
     async def _pair(self, request: dict[str, Any]) -> None:
@@ -96,7 +103,10 @@ class AppleTVTouch:
         # is over: success leaves a newer atv_companion.json, failure doesn't.
         PAIR_PIN.unlink(missing_ok=True)
         try:
-            await self._pair_with(request["address"])
+            protocol = request.get("protocol", "companion")
+            if protocol not in PROTOCOLS:
+                raise ValueError(f"unknown protocol {protocol!r}")
+            await self._pair_with(request["address"], protocol)
         except Exception as err:
             log(f"pairing failed: {type(err).__name__}: {err}")
         finally:
@@ -106,9 +116,9 @@ class AppleTVTouch:
             self._atv.close()
             self._atv = None
 
-    async def _pair_with(self, address: str) -> None:
-        conf = await self._companion_config(address)
-        pairing = await pyatv.pair(conf, Protocol.Companion, self._loop, name="ActionRing")
+    async def _pair_with(self, address: str, protocol: str) -> None:
+        conf = await self._config(address, [protocol])
+        pairing = await pyatv.pair(conf, PROTOCOLS[protocol], self._loop, name="ActionRing")
         try:
             await pairing.begin()
             log(f"pairing: waiting for PIN shown on {conf.name} (write it to atv_pair_pin)")
@@ -122,24 +132,25 @@ class AppleTVTouch:
             await pairing.finish()
             if not pairing.has_paired:
                 raise RuntimeError("pairing: rejected (wrong PIN?)")
-            data = {
-                "address": address,
-                "name": conf.name,
-                "credentials": pairing.service.credentials,
-            }
+            # Keep the other protocol's credentials; add/replace this one.
+            data = json.loads(CRED_FILE.read_text()) if CRED_FILE.exists() else {}
+            data.update({"address": address, "name": conf.name,
+                         CRED_KEYS[protocol]: pairing.service.credentials})
             CRED_FILE.write_text(json.dumps(data))
             os.chmod(CRED_FILE, 0o600)
-            log(f"paired with {conf.name}; credentials saved")
+            log(f"paired with {conf.name} ({protocol}); credentials saved")
         finally:
             await pairing.close()
 
     async def _connect(self, data: dict[str, Any]) -> None:
-        conf = await self._companion_config(data["address"])
-        conf.set_credentials(Protocol.Companion, data["credentials"])
+        protocols = [p for p, key in CRED_KEYS.items() if data.get(key)]
+        conf = await self._config(data["address"], protocols)
+        for name in protocols:
+            conf.set_credentials(PROTOCOLS[name], data[CRED_KEYS[name]])
         atv = await pyatv.connect(conf, self._loop)
         atv.listener = _Listener(self)
         self._atv = atv
-        log(f"connected to {conf.name} (Companion)")
+        log(f"connected to {conf.name} ({', '.join(protocols)})")
 
     def _lost(self, reason: str) -> None:
         log(f"connection lost: {reason}; reconnecting")
