@@ -1,0 +1,8 @@
+{
+  "note": "Spec §10 item 6, during a live Paramount+ or MLS match. The deep links come from the live listing (soccer.py), so this probe only records state: press the dock's Live soccer key (or Next game) first, wait until the game or a profile picker shows, then run this and say what is on screen. The soccer: lines in the app log show the link form used.",
+  "steps": [
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k", "media_player.lg_tv_2"]},
+    {"kind": "wait", "s": 10},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]}
+  ]
+}

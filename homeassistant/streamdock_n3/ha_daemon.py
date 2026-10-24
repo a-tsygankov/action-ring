@@ -64,6 +64,11 @@ Runs the upstream daemon unchanged and adds:
    the next one (wrapping). Condition "soccer_live" holds while any game is
    live; labels get {soccer_count} and {soccer_pos}; context "live_game"
    applies while a started game's app is in the foreground.
+
+9. Probe tool (probe.py): with the Apple TV connection up, a request written
+   to probe_request.json (homeassistant/tools/probe.sh) runs raw MRP,
+   Companion, HA, Lounge and webOS commands and logs each result as
+   "probe: …", for the live test session.
 """
 
 from __future__ import annotations
@@ -254,6 +259,16 @@ class CoreAPI:
         self._lock = threading.Lock()
 
     def call(self, domain: str, service: str, data: dict[str, Any]) -> None:
+        self._post(domain, service, data, "")
+
+    def call_response(self, domain: str, service: str, data: dict[str, Any]) -> Any:
+        """A service call with return_response: the parsed reply,
+        {"changed_states": [...], "service_response": {...}}. Only for
+        services that support responses (HA answers 400 otherwise)."""
+        text = self._post(domain, service, data, "?return_response")
+        return json.loads(text) if text else None
+
+    def _post(self, domain: str, service: str, data: dict[str, Any], query: str) -> bytes:
         body = json.dumps(data)
         headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
         with self._lock:
@@ -262,7 +277,7 @@ class CoreAPI:
                     self._conn = http.client.HTTPConnection("supervisor", 80, timeout=10)
                 try:
                     self._conn.request(
-                        "POST", f"/core/api/services/{domain}/{service}", body, headers
+                        "POST", f"/core/api/services/{domain}/{service}{query}", body, headers
                     )
                     resp = self._conn.getresponse()
                     text = resp.read()
@@ -276,7 +291,8 @@ class CoreAPI:
                     continue
                 if resp.status >= 300:
                     raise RuntimeError(f"{domain}.{service}: HTTP {resp.status} {text[:200]!r}")
-                return
+                return text
+        raise AssertionError("unreachable")  # the second attempt returns or raises
 
 
 # -- tabs: engine setup, renderer, ticker --------------------------------------
@@ -516,6 +532,20 @@ def main() -> int:
             print(f"atv-touch: disabled ({err!r}); scrubbing uses seek", flush=True)
         _knobs = AppleTVKnobs(atv, CoreAPI().call, state_of, touch)
         entities.add(atv["media_player"])
+        if touch is not None:  # live test probes (homeassistant/tools/probe.sh)
+            try:
+                from probe import ProbeRunner
+
+                probe_core = CoreAPI()
+
+                def probe_call(domain: str, service: str, data: dict, response: bool = False) -> Any:
+                    if response:
+                        return probe_core.call_response(domain, service, data)
+                    return probe_core.call(domain, service, data)
+
+                ProbeRunner(touch, probe_call, _youtube, state_of).start()
+            except Exception as err:
+                print(f"probe: disabled ({err!r})", flush=True)
     if entities:
         threading.Thread(target=_watch, args=(sorted(entities),), daemon=True).start()
     threading.Thread(target=_render, daemon=True).start()

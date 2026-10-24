@@ -170,3 +170,28 @@ def test_active_screen_and_playing(yt):
     yt.screens["b"].api = None
     assert not yt.playing()
 
+
+
+# -- probe hooks ----------------------------------------------------------------------
+
+
+def test_probe_calls_api_with_video_id(yt):
+    yt.screens["b"].state = State.Playing
+    assert yt.probe("set_closed_captions", ["en", "$video_id"]) is True
+    assert yt.screens["b"].api.calls == [("set_closed_captions", "en", "vid_b")]
+
+
+def test_probe_without_live_session_raises(yt):
+    for s in yt.screens.values():
+        s.api = None
+    with pytest.raises(RuntimeError, match="no linked YouTube session"):
+        yt.probe("next", [])
+
+
+def test_snapshot_lists_screens(yt):
+    yt.screens["a"].subtitles = "en"
+    yt.screens["b"].api = None
+    snap = yt.snapshot()
+    assert snap["a"] == {"connected": True, "video": "vid_a", "state": "Paused", "position": 0,
+                         "subtitles": "en", "in_ad": False}
+    assert snap["b"]["connected"] is False

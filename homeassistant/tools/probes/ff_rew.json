@@ -1,0 +1,33 @@
+{
+  "note": "Spec §10 item 2: fast-forward / rewind three ways. Play a title on the Apple TV (start with the Apple TV app or Pluto), then run this and say after each step what the TV did: scanning? at what speed? did Play return to 1x? MRP steps need the AirPlay pairing.",
+  "steps": [
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "mrp", "command": "BeginFastForward"},
+    {"kind": "wait", "s": 3},
+    {"kind": "mrp", "command": "EndFastForward"},
+    {"kind": "wait", "s": 2},
+    {"kind": "mrp", "command": "ChangePlaybackRate", "options": {"playbackRate": 24.0}},
+    {"kind": "wait", "s": 3},
+    {"kind": "mrp", "command": "Play"},
+    {"kind": "wait", "s": 2},
+    {"kind": "mrp", "command": "BeginRewind"},
+    {"kind": "wait", "s": 3},
+    {"kind": "mrp", "command": "EndRewind"},
+    {"kind": "wait", "s": 2},
+    {"kind": "companion", "mcc": "FastForwardBegin"},
+    {"kind": "wait", "s": 3},
+    {"kind": "companion", "hid": "right"},
+    {"kind": "wait", "s": 3},
+    {"kind": "companion", "mcc": "FastForwardEnd"},
+    {"kind": "wait", "s": 2},
+    {"kind": "ha", "service": "remote.send_command",
+     "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "right", "hold_secs": 1}},
+    {"kind": "wait", "s": 3},
+    {"kind": "ha", "service": "remote.send_command",
+     "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "right"}},
+    {"kind": "wait", "s": 3},
+    {"kind": "mrp", "command": "Play"},
+    {"kind": "wait", "s": 2},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]}
+  ]
+}

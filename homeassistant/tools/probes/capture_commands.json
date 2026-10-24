@@ -1,0 +1,9 @@
+{
+  "note": "Spec §10 item 1: what each app advertises. Play a title in the app under test (Netflix, Prime, Max, Hulu, Disney+, Paramount+, Apple TV app, Pluto, Tubi, YouTube), then run this. Read-only: two snapshots 5 s apart plus the LG foreground app. Keep mrp_raw_log on for the full supportedCommands in mrp_raw.log.",
+  "steps": [
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k", "media_player.lg_tv_2"]},
+    {"kind": "webos", "entity_id": "media_player.lg_tv_2", "command": "com.webos.media/getForegroundAppInfo"},
+    {"kind": "wait", "s": 5},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]}
+  ]
+}

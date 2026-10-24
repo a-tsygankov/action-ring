@@ -28,7 +28,7 @@ import os
 import threading
 from concurrent.futures import Future
 from pathlib import Path
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 import pyatv
 from pyatv.conf import AppleTV
@@ -66,6 +66,18 @@ class AppleTVTouch:
         if atv is None:
             raise RuntimeError("not connected")
         self._submit(atv.touch.action(int(x), int(y), _MODES[mode])).result(timeout)
+
+    def run(self, fn: Callable[[Any], Awaitable[Any]], timeout: float = 10) -> Any:
+        """Await fn(atv) on the pyatv loop and return its result (probe.py)."""
+        atv = self._atv
+        if atv is None:
+            raise RuntimeError("not connected")
+        future = self._submit(fn(atv))
+        try:
+            return future.result(timeout)
+        except TimeoutError:
+            future.cancel()  # don't leave it running on the loop
+            raise
 
     # -- connection management (pyatv loop) ----------------------------------
     def _submit(self, coro) -> Future:

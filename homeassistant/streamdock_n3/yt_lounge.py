@@ -149,6 +149,27 @@ class YouTubeScreens:
             raise ValueError(f"unknown YouTube command {name!r}")
         asyncio.run_coroutine_threadsafe(self._command(name), self._loop).result(20)
 
+    def probe(self, method: str, args: list[Any]) -> Any:
+        """Diagnostics (probe.py): await api.<method>(*args) on the playing screen.
+
+        "$video_id" in args stands for the playing video.
+        """
+        return asyncio.run_coroutine_threadsafe(self._probe(method, args), self._loop).result(20)
+
+    def snapshot(self) -> dict[str, Any]:
+        """Each screen's live Lounge state, for probe snapshots."""
+        return {
+            name: {
+                "connected": s.api is not None,
+                "video": s.video_id,
+                "state": s.state.name if s.state is not None else None,
+                "position": round(s.position_now()),
+                "subtitles": s.subtitles,
+                "in_ad": s.in_ad,
+            }
+            for name, s in self.screens.items()
+        }
+
     def playing(self) -> bool:
         screen = self._pick()
         return screen is not None and screen.state == State.Playing
@@ -193,6 +214,13 @@ class YouTubeScreens:
         else:
             await self._toggle_subtitles(screen)
         log(f"{screen.name}: {name}")
+
+    async def _probe(self, method: str, args: list[Any]) -> Any:
+        screen = self._pick()
+        if screen is None:
+            raise RuntimeError("no linked YouTube session is playing")
+        args = [screen.video_id if a == "$video_id" else a for a in args]
+        return await getattr(screen.api, method)(*args)
 
     async def _toggle_subtitles(self, screen: Screen) -> None:
         video_id = screen.video_id

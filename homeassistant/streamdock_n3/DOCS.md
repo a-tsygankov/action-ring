@@ -330,6 +330,31 @@ PIN on the TV), it has its own media-remote (MRP) session:
 How the Pluto rule was found, the per-app findings, and how to add another
 app are in `docs/AD_DETECTION_GUIDE.md` in the repo.
 
+### Probes (live tests)
+
+To find out which controls an app accepts, the app runs probe requests
+(`probe.py`) while its Apple TV connection is up. Each request lists steps:
+raw MRP commands (`ChangePlaybackRate`, `EnableLanguageOption`, ...; these need
+the AirPlay pairing), Companion media-control and button commands, HA
+actions, YouTube Lounge calls, webOS commands (with the TV's reply), waits,
+and snapshots. A snapshot logs the Apple TV player's advertised commands and
+language options, the playing app, the Lounge state, and the HA state of the
+listed entities (only entities the app already follows).
+
+The probe files for the test session live in `homeassistant/tools/probes/`,
+one per test group. Start the app under test on the TV, then from the repo
+root on the PC run:
+
+```bash
+bash homeassistant/tools/probe.sh homeassistant/tools/probes/ff_rew.json
+```
+
+It prints the file's note, uploads the request to `probe_request.json` in the
+app's config folder (consumed at once) and prints the results as they come:
+`probe: 3 mrp ChangePlaybackRate {"playbackRate": 24.0} -> ok`, or
+`-> error CommandError: …`. A failed step doesn't stop the others; the run
+ends with `probe: done`. Power-off commands are refused.
+
 ### Key images
 
 Set `"icon": "/config/icons/<file>.png"` on a key to show an image instead of
