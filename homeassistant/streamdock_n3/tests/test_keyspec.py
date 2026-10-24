@@ -74,3 +74,12 @@ def test_variant_overlay_keeps_base_fields():
             "off": {"color": "#222"}}
     look = resolve_look(spec, {"s": {"s": "off", "a": {}}}.get, {})
     assert (look.label, look.color) == ("L", "#222")
+
+
+def test_label_format_errors_show_the_raw_label():
+    # A bad placeholder must never raise into the render pass.
+    for label, vars in [("{soccer_pos[a]}", {"soccer_pos": "2/3"}),  # TypeError
+                        ("{d[k]}", {"d": {}}),                        # KeyError
+                        ("{0}", {}),                                  # ValueError
+                        ("{soccer_pos.x}", {"soccer_pos": "2/3"})]:   # AttributeError
+        assert resolve_look({"label": label}, {}.get, {}, vars).label == label

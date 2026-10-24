@@ -98,6 +98,7 @@ TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
 TICK_SECONDS = 0.2
 SLOW_PASS_SECONDS = 0.5
 EMPTY_LOOK = Look(None, "", "#000000")  # a key the visible page leaves undefined
+ERROR_LOOK = Look(None, "?", "#5c3b00")  # a key whose spec failed to resolve
 YOUTUBE_COMMANDS = ("next_chapter", "next", "previous", "play_pause", "subtitles")
 SOCCER_COMMANDS = ("start", "next")
 
@@ -114,6 +115,7 @@ _launch_cfg: dict | None = None  # config "tabs.launch"; None = launch actions d
 _core: "CoreAPI | None" = None  # shared REST client for media actions; set in main()
 _wake = threading.Event()  # set by _signal(): the renderer has work
 _drawn: dict[int, Look] = {}  # key -> look on screen; renderer thread only
+_render_errors: set[str] = set()  # key spec errors already logged; renderer thread only
 
 # entity_id -> {"s": state, "a": attributes}, kept current by _watch().
 _states: dict[str, dict[str, Any]] = {}
@@ -166,19 +168,26 @@ def _apply_icons(device, config):
 
 def _run_actions(actions: Any, *, dry_run: bool) -> None:
     # Runs on the SDK reader thread: tab presses only update the engine and
-    # wake the renderer, they never draw here.
+    # wake the renderer, they never draw here. A bad config (a non-numeric
+    # key, a spec that fails to resolve) is logged, never raised into the SDK.
     if isinstance(actions, dict) and ("tab_key" in actions or "key_action" in actions):
-        key = int(actions.get("tab_key", actions.get("key_action")))
         try:
+            key = int(actions.get("tab_key", actions.get("key_action")))
             spec = _engine.key_press(key, time.monotonic())
             if spec:
                 _run_actions(resolve_action(spec, state_of, _conds), dry_run=dry_run)
+        except Exception as err:
+            print(f"tabs: {type(err).__name__}: {err}", flush=True)
         finally:
             _signal()
         return
     if isinstance(actions, dict) and "tab_round" in actions:
-        _engine.round_press(int(actions["tab_round"]), time.monotonic())
-        _signal()
+        try:
+            _engine.round_press(int(actions["tab_round"]), time.monotonic())
+        except Exception as err:
+            print(f"tabs: {type(err).__name__}: {err}", flush=True)
+        finally:
+            _signal()
         return
     if isinstance(actions, dict) and "youtube" in actions:
         command = actions["youtube"]
@@ -357,13 +366,24 @@ def _image_for(key: int, look: Look) -> str:
     return str(out)
 
 
+def _look_for(key: int, keys: dict, label_vars: dict[str, str]) -> Look:
+    """The key's look; a spec that fails to resolve shows ERROR_LOOK (logged once per error)."""
+    if str(key) not in keys:
+        return EMPTY_LOOK
+    try:
+        return resolve_look(keys[str(key)], state_of, _conds, label_vars)
+    except Exception as err:  # one bad spec must not blank the other keys
+        msg = f"key {key}: {type(err).__name__}: {err}"
+        if msg not in _render_errors:
+            _render_errors.add(msg)
+            print(f"render: {msg}", flush=True)
+        return ERROR_LOOK
+
+
 def _render_pass() -> None:
     keys = _engine.keys()  # one snapshot per pass
     label_vars = _vars()
-    looks = {
-        k: resolve_look(keys[str(k)], state_of, _conds, label_vars) if str(k) in keys else EMPTY_LOOK
-        for k in range(1, 7)
-    }
+    looks = {k: _look_for(k, keys, label_vars) for k in range(1, 7)}
     todo = changed_keys(_drawn, looks)
     if not todo:
         return

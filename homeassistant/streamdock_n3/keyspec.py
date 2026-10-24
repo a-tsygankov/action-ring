@@ -73,8 +73,8 @@ class _KeepMissing(dict):
 def _format(label: str, vars: Mapping[str, str]) -> str:
     try:
         return label.format_map(_KeepMissing(vars))
-    except (ValueError, IndexError, AttributeError):
-        return label  # malformed braces or positional fields: show the raw text
+    except (ValueError, IndexError, AttributeError, TypeError, KeyError):
+        return label  # malformed braces, positional fields or bad lookups: show the raw text
 
 
 def resolve_look(
