@@ -429,6 +429,36 @@ script cannot.
 - Confirmed on the TV: idle after a scrub jumps and plays; pressing the knob
   commits once with no extra pause.
 
+### 2026-10-25 — Knob rotations lost after a USB reset (scrubbing "broken")
+
+- Symptom: the large knob did nothing while playing; no scrub, and no Sonos
+  volume from small knob 1 either. The knob engine, touch connection and
+  config were fine: the app log showed knob presses and keys arriving but
+  not one `rotated` line for 10 hours, against ~6400 before.
+- Trigger: at 12:53 EDT on 2026-10-24 the dock dropped off the USB bus by
+  itself (`dmesg`: disconnect, re-enumerated 0.35 s later), the daemon's
+  write failed with `Protocol error`, and `run.sh` restarted the daemon on
+  the new node (`hidraw1`, since the dying daemon still held `hidraw0`).
+  Presses and keys came through that node; rotations never did.
+- Not fixed by: another daemon restart, or a physical replug (back on
+  `hidraw0`, device number 5). Fixed by: recreating the app container
+  (`ha apps update` to 0.5.0-6), which did not touch the USB bus (still
+  device 5, same node) — rotations came back at once and scrubbing worked
+  end to end (touch drags, auto-commit, resume). So the stuck state lived in
+  the old container, not in the dock, the kernel node or the daemon process;
+  the mechanism is unknown (device access is per node, and presses used the
+  same node). **Remedy when it happens again: `ha apps restart
+  local_streamdock_n3`, not a dock replug.**
+- Diagnostics added: probe step `tap` and `tools/probes/knob_tap.json` read
+  the dock's raw reports alongside the daemon (hidraw gives every reader
+  every report). The Terminal & SSH app cannot open the device nodes or
+  write sysfs (`authorized`, `unbind`: read-only), so a USB reset from the
+  Pi is not possible; only a replug or the app restart.
+- Also seen: options `scrub_seconds_*` / `touch_step_*` had been saved in
+  the app's Configuration tab (21:57 on 10-24). They are not in the schema
+  (Supervisor warns every 15 min) and the daemon never reads them; scrub
+  tuning lives in `config.json`'s `atv` section only. Worth removing there.
+
 ### 2026-10-24 — Pluto TV ad detection (raw MRP)
 
 - Pluto shows nothing in HA when an ad starts and a false `paused` when it

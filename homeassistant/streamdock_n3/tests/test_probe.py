@@ -21,6 +21,7 @@ ALL_KINDS = [
     {"kind": "lounge", "method": "set_closed_captions", "args": ["en", "$video_id"]},
     {"kind": "webos", "entity_id": "media_player.lg", "command": "com.webos.media/getForegroundAppInfo"},
     {"kind": "wait", "s": 2},
+    {"kind": "tap", "path": "/dev/hidraw0", "s": 20},
 ]
 
 
@@ -175,6 +176,36 @@ def test_runner_reports_a_bad_request(capsys):
     assert lines[2].startswith("probe: done")
 
 
+@pytest.mark.parametrize("step", [
+    {"kind": "tap", "path": "/tmp/x", "s": 5},
+    {"kind": "tap", "path": "/dev/hidraw0"},
+    {"kind": "tap", "path": "/dev/hidraw0", "s": 600},
+])
+def test_parse_request_rejects_bad_taps(step):
+    with pytest.raises(ValueError, match="step 1"):
+        parse_request(json.dumps([step]))
+
+
+def test_tap_logs_each_report_as_hex(tmp_path, capsys):
+    node = tmp_path / "hidraw0"
+    node.write_bytes(bytes([0x01, 0x00, 0x05, 0x50, 0x01]))
+    runner = ProbeRunner(None, FakeCall(fail_on=""), None)
+    result = runner._tap(str(node), 0.2)
+    assert result == {"reports": 1, "bytes": 5}
+    line = [l for l in _probe_lines(capsys) if "tap " in l][0]
+    assert line.endswith("5 bytes: 01 00 05 50 01")
+
+
+def test_tap_decodes_input_events(tmp_path, capsys):
+    import struct
+    node = tmp_path / "event0"
+    node.write_bytes(struct.pack("qqHHi", 1, 2, 1, 115, 1) + struct.pack("qqHHi", 1, 2, 0, 0, 0))
+    runner = ProbeRunner(None, FakeCall(fail_on=""), None)
+    assert runner._tap(str(node), 0.2)["reports"] == 1
+    line = [l for l in _probe_lines(capsys) if "tap " in l][0]
+    assert line.endswith("type=1 code=115 value=1; type=0 code=0 value=0")
+
+
 def test_snapshot_without_devices(capsys):
     states = {"media_player.atv": {"s": "playing", "a": {"app_id": "tv.pluto.ios", "media_title": "X"}}}
     runner = ProbeRunner(None, FakeCall(fail_on=""), None, state_of=states.get)
@@ -297,11 +328,11 @@ PROBES = Path(__file__).resolve().parents[2] / "tools" / "probes"
 
 def test_probe_files_are_valid_and_fit_the_timeout():
     files = sorted(PROBES.glob("*.json"))
-    assert len(files) == 6  # spec §10 items 1-6
+    assert len(files) == 7  # spec §10 items 1-6 + knob_tap (input diagnostics)
     for path in files:
         data = json.loads(path.read_text(encoding="utf-8"))
         assert data["note"], path.name
         steps = parse_request(path.read_text(encoding="utf-8"))
-        waits = sum(s["s"] for s in steps if s["kind"] == "wait")
+        waits = sum(s["s"] for s in steps if s["kind"] in ("wait", "tap"))
         # probe.sh waits 120 s for "probe: done"; leave room for the calls
         assert waits + 2 * len(steps) <= 120, path.name
