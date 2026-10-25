@@ -83,6 +83,10 @@ The TV Room config sets `"scrub": "touch"` (see Preview scrubbing below).
 and/or `"pause": false`. YouTube (`com.google.ios.youtube`) has
 `"pause": false`: its scrubber opens on a swipe while playing, whereas after
 a pause the focus sits on the control row and swipes walk the buttons.
+Disney+ (`com.disney.disneyplus`) has `"seek"`: its player ignores touch
+swipes and draws no preview for key presses either, but lands an absolute
+seek exactly. Every other app on the dock scrubs by touch with its preview
+(Tubi shows the playhead and time only: its streams carry no thumbnails).
 
 Steps are listed for the slow / medium / fast tiers, either per click or as
 `[amount, clicks]`. `[30, 2]` means 30 s per 2 clicks, i.e. 15 s per click.
