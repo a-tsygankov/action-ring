@@ -453,6 +453,13 @@ script cannot.
 - Tubi: scrubs correctly (swipes −41/−32/+45/−13 s; keys −29/−50 s) but
   shows only the playhead and time, no thumbnail, with either method: its
   AVKit player has no trick-play images for the stream. Not fixable here.
+- The rest of the dock's apps, same two checks each, user watching: Prime,
+  Paramount+, Hulu, Peacock and Pluto scrub both ways by touch with
+  thumbnails (keys work too, 10 s per press in most). **Disney+ ignores
+  touch swipes** and shows no thumbnail for key presses (the picture itself
+  jumps); HA `media_seek` lands exactly (856 → 615 s), so it is the one app
+  on `"seek"` in `scrub_apps`. Table with every number in the research
+  notes.
 - New probe step `touch` (swipe / event list); experiments in
   `tools/probes/scrub/`.
 

@@ -53,8 +53,12 @@ pyatv's own `swipe()` for values below 256).
 | YouTube `com.google.ios.youtube` | custom, advertises everything disabled | **do not pause first**: a swipe while playing opens YouTube's scrubber (pauses, chapter strip + preview), later swipes accumulate (left, left, right, left → net −2), OK commits (75 → 43 s). After an HA pause the focus sits on the control row: swipes and presses walk the buttons, OK clicks one | keys: pause, **Up** to focus the bar, then 10 s per press with preview, OK commits (1191 → 1161 s) |
 | Netflix `com.netflix.Netflix` | custom, advertises Seek, Skip 10 s; reports no position, shows `idle` when paused | safe swipes (700→400, 800→500, 500→800, short 500→400) followed with preview, user-confirmed; no numbers possible | quick presses (3 and 5) worked, user-confirmed | measured by eye only |
 | Tubi `com.adrise.tubitv` | AVKit | correct both ways (−41 / −32 / +45 / −13 s), **playhead and time only, no thumbnail** | 3 / 5 quick presses −29 / −50 s, commit on OK, no thumbnail | the stream carries no trick-play images (ad-stitched); nothing on our side can add the picture |
-| Pluto `tv.pluto.ios` | AVKit (confirmed 10-24) | expected as the Apple TV app | expected as the Apple TV app | not re-measured |
-| Prime, Disney+, Hulu, Paramount+ | unknown | not measured | not measured | one `app_check.json` run each |
+| Pluto `tv.pluto.ios` | AVKit | correct both ways (−110 / −83 / +110 / −24 s) | 3 / 5 quick presses −30 / −50 s, commit on OK | thumbnails: see journal |
+| Prime Video `com.amazon.aiv.AIVApp` | custom (AVKit-like responses) | correct both ways (right +131 s, short left −57 s; long lefts pinned at the title start), thumbnails | 3 / 5 quick presses −30 / −50 s, commit on OK | user-confirmed thumbnails |
+| Paramount+ `com.cbsvideo.app` | AVKit-like responses | correct both ways (right +148 s, short left −44 s; long lefts pinned at the title start), thumbnails | 3 / 5 quick presses −30 / −50 s, commit on OK | user-confirmed thumbnails |
+| Hulu `com.hulu.plus` | custom | correct both ways (−116 / −82 / +122 / −27 s), thumbnails | 3 / 5 quick presses −27 / −37 s, commit on OK (not a clean 10 s per press) | user-confirmed thumbnails |
+| Disney+ `com.disney.disneyplus` | custom player advertising the AVKit set (Seek, Skip 10 s, FF/RW, rate) | **ignores swipes**: four safe swipes moved nothing (806 → 816 s was playback) | 3 / 5 quick presses −31 / −47 s, **move at once** (as Max) | the one app where touch fails. Its presses show no thumbnail either (the picture itself moves). HA `media_seek` lands exactly (856 → 615, 619 → 712 s), so `scrub_apps` `"seek"` is the right setting; in touch mode the knob does nothing there |
+| Peacock `com.peacocktv.peacock` | custom, advertises Seek, Skip 10 s, tracks | correct both ways (−247 / pinned at 0 / +100 / −63 s; a large scale per unit) | 3 / 5 quick presses −29 / pinned at 0, commit on OK | user-confirmed thumbnails |
 
 Other findings:
 
@@ -85,9 +89,9 @@ Other findings:
    presses (0.1–0.2 s each) or a hold; less smooth than touch. Worth
    keeping as a per-app fallback (`"scrub": "keys"`, with `focus_bar: "up"`
    for YouTube) for an app where touch fails.
-5. **Measure Prime, Disney+, Hulu and Paramount+** with
-   `tools/probes/scrub/app_check.json` plus safe swipes
-   (`touch_safe.json`), eyes on the TV. Netflix is done (by eye).
+5. **All ten apps on the dock are measured** (table above). Nine scrub
+   by touch with their previews once the finger stays in range (Tubi:
+   playhead and time only); Disney+ is on `"seek"`.
 
 ## Probe files used
 
