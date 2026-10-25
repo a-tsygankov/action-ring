@@ -20,6 +20,10 @@ A request is a JSON list of steps, or {"run": <id>, "steps": [...]}:
 - {"kind": "webos", "entity_id": "media_player.…", "command": "<ssap path>",
   "payload": {...}}: HA webostv.command, logging the TV's response.
 - {"kind": "wait", "s": 2}
+- {"kind": "tap", "path": "/dev/hidraw0", "s": 20}: read the dock's raw
+  reports from a device node for s seconds, alongside the daemon (hidraw and
+  evdev hand every report to every reader), logging each one as hex; input
+  event nodes are decoded as type/code/value. For input-layer diagnostics.
 - {"kind": "snapshot", "entities": [...]}: the Apple TV player's advertised
   commands and language options, the app, those entities' HA states and the
   YouTube Lounge state.
@@ -35,7 +39,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import plistlib
+import select
+import stat
+import struct
 import threading
 import time
 from pathlib import Path
@@ -47,7 +55,9 @@ MAX_WAIT_S = 60
 MAX_HOLD_S = 5
 ATV_TIMEOUT = 10
 RESULT_CHARS = 2000
-KINDS = ("mrp", "companion", "ha", "lounge", "webos", "wait", "snapshot")
+KINDS = ("mrp", "companion", "ha", "lounge", "webos", "wait", "tap", "snapshot")
+TAP_PREFIXES = ("/dev/hidraw", "/dev/input/event")
+INPUT_EVENT = struct.Struct("qqHHi")  # struct input_event on 64-bit Linux
 LOUNGE_METHODS = (
     "next", "previous", "play", "pause", "seek_to", "set_closed_captions",
     "set_playback_speed", "skip_ad", "get_now_playing",
@@ -143,6 +153,11 @@ def _check_step(n: int, step: Any) -> None:
         _check(isinstance(step.get("payload", {}), dict), n, "payload must be an object")
     elif kind == "wait":
         _check(_number(step.get("s"), 0, MAX_WAIT_S), n, f"wait needs s in 0..{MAX_WAIT_S}")
+    elif kind == "tap":
+        path = step.get("path")
+        _check(isinstance(path, str) and path.startswith(TAP_PREFIXES), n,
+               f"tap path must start with {' or '.join(TAP_PREFIXES)}")
+        _check(_number(step.get("s"), 1, MAX_WAIT_S), n, f"tap needs s in 1..{MAX_WAIT_S}")
     else:  # snapshot
         entities = step.get("entities", [])
         _check(isinstance(entities, list) and all(isinstance(e, str) for e in entities), n,
@@ -241,7 +256,17 @@ def _summary(step: dict) -> str:
         return f"{step['command']} {json.dumps(payload)}" if payload else step["command"]
     if kind == "wait":
         return f"{step['s']}s"
+    if kind == "tap":
+        return f"{step['path']} {step['s']}s"
     return ""
+
+
+def _report_text(path: str, data: bytes) -> str:
+    if os.path.basename(path).startswith("event") and len(data) % INPUT_EVENT.size == 0:
+        events = [INPUT_EVENT.unpack_from(data, i) for i in range(0, len(data), INPUT_EVENT.size)]
+        return "; ".join(f"type={t} code={c} value={v}" for _, _, t, c, v in events)
+    shown = data[:64]
+    return f"{len(data)} bytes: {shown.hex(' ')}" + ("…" if len(data) > 64 else "")
 
 
 def _result_text(result: Any) -> str:
@@ -447,7 +472,32 @@ class ProbeRunner:
         if kind == "wait":
             self._sleep(float(step["s"]))
             return None
+        if kind == "tap":
+            return self._tap(step["path"], float(step["s"]))
         return self._snapshot(step)
+
+    def _tap(self, path: str, seconds: float) -> dict[str, int]:
+        """Log every report the node delivers for `seconds`; EOF ends early."""
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+        device = stat.S_ISCHR(os.fstat(fd).st_mode)  # a plain file (tests) needs no select
+        reports = total = 0
+        start = time.monotonic()
+        try:
+            while True:
+                left = seconds - (time.monotonic() - start)
+                if left <= 0:
+                    break
+                if device and not select.select([fd], [], [], min(left, 0.5))[0]:
+                    continue
+                data = os.read(fd, 4096)
+                if not data:
+                    break
+                reports += 1
+                total += len(data)
+                log(f"tap +{time.monotonic() - start:.2f}s {path}: {_report_text(path, data)}")
+        finally:
+            os.close(fd)
+        return {"reports": reports, "bytes": total}
 
     def _snapshot(self, step: dict) -> dict[str, Any]:
         out: dict[str, Any] = {"ha": {}}

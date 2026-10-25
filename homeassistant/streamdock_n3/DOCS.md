@@ -356,7 +356,12 @@ To find out which controls an app accepts, the app runs probe requests
 raw MRP commands (`ChangePlaybackRate`, `EnableLanguageOption`, ...; these need
 the AirPlay pairing), Companion media-control and button commands, HA
 actions, YouTube Lounge calls, webOS commands (with the TV's reply), waits,
-and snapshots. A snapshot logs the Apple TV player's advertised commands and
+device taps and snapshots. A tap (`{"kind": "tap", "path": "/dev/hidraw0",
+"s": 40}`) reads the dock's raw reports from a `/dev/hidraw*` or
+`/dev/input/event*` node for `s` seconds alongside the daemon and logs each
+one as hex (input events as type/code/value): `tools/probes/knob_tap.json`
+shows whether knob turns reach the host at all (vendor reports carry the
+code in byte 9: `0x50`/`0x51` large knob, `0x01`–`0x06` LCD keys). A snapshot logs the Apple TV player's advertised commands and
 language options, the playing app, the Lounge state, and the HA state of the
 listed entities (only entities the app already follows).
 
