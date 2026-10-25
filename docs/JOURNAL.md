@@ -429,6 +429,37 @@ script cannot.
 - Confirmed on the TV: idle after a scrub jumps and plays; pressing the knob
   commits once with no extra pause.
 
+### 2026-10-25 — Backward scrubs jumped forward: Max and YouTube don't scrub by touch
+
+- Symptom: in Max, slow or fast backward turns of the large knob ended in a
+  big jump forward (e.g. 856 → 1309 s, 1505 → 1911 s). In YouTube the knob
+  hardly moved the position at all.
+- Not the cause (tested live, one variable at a time): the gap between the
+  finger lift and the select (lift+select back to back still jumped +453 s),
+  the resting finger (lifting 50 ms after the last click still jumped
+  +406 s, and single-click swipes then did nothing), the auto-resume (not
+  sent in these sessions). The raw MRP log showed the player paused at the
+  pre-scrub position throughout the gesture and jumping only when the
+  select committed.
+- Cause: Max's player moves its scrub preview **forward whichever way the
+  finger swipes**. Measured with the new `touch` probe step (one clean pyatv
+  swipe, then OK, paused at the same spot each time): left 300 units in
+  300 ms +519 s, right 300 units +112 s, left in 1500 ms +487 s, the knob
+  engine's own event shape +542 s. YouTube's player ignores swipes (219 →
+  206 s after 700 units). The one backward session that had worked in Max
+  (12:30 on 10-24) is unexplained; everything else fits. tvOS AVKit players
+  (Apple TV app) still scrub by touch as designed.
+- Fix: `atv.scrub_apps` in `knob_accel.py` overrides the scrub mode per
+  `app_id`; the TV Room config sets Max (`com.wbd.stream`) and YouTube
+  (`com.google.ios.youtube`) to `"seek"` (HA `media_seek`, which Max lands
+  exactly both ways: 3926 → 3575, 3582 → 3695; MRP `SkipBackward` did
+  nothing in Max). Confirmed on the TV in both apps. Seek mode has no
+  thumbnail preview and no pause: 10 s / 30 s per 2 / 90 s per 3 clicks.
+- `touch_release_after` had been tuned to 2.5 s on the Pi during the
+  10-24 sessions; now in the repo config too.
+- Probe tool: `touch` step (`"swipe": [x0, y0, x1, y1], "ms"` or an explicit
+  `"events"` list); experiments in `tools/probes/scrub/`.
+
 ### 2026-10-25 — Knob rotations lost after a USB reset (scrubbing "broken")
 
 - Symptom: the large knob did nothing while playing; no scrub, and no Sonos

@@ -55,6 +55,7 @@ shown):
   "skip_max": 6,
   "seek_hold": 3.0,
   "scrub": "seek",
+  "scrub_apps": {},
   "touch_steps": [12, [60, 2], [150, 3]],
   "touch_y": 500,
   "touch_min_x": 150,
@@ -76,7 +77,13 @@ engine so it can cancel this: `"knob.3.press": {"atv_knob": {"press": true}}`.
 Pressing commits the scrub with one OK and skips the auto-resume; outside a
 scrub it's a plain OK. `0` disables auto-resume.
 
-The TV Room config sets `"scrub": "touch"` (see Preview scrubbing below).
+The TV Room config sets `"scrub": "touch"` (see Preview scrubbing below),
+with `"scrub_apps"` overriding it per app (by the player's `app_id`): Max
+(`com.wbd.stream`) and YouTube (`com.google.ios.youtube`) use `"seek"`,
+because their players don't scrub by touch swipes (Max moves forward
+whichever way the finger goes; YouTube hardly moves) but land an absolute
+seek exactly. The touch path still works in AVKit players such as the
+Apple TV app.
 
 Steps are listed for the slow / medium / fast tiers, either per click or as
 `[amount, clicks]`. `[30, 2]` means 30 s per 2 clicks, i.e. 15 s per click.

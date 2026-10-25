@@ -20,6 +20,10 @@ A request is a JSON list of steps, or {"run": <id>, "steps": [...]}:
 - {"kind": "webos", "entity_id": "media_player.…", "command": "<ssap path>",
   "payload": {...}}: HA webostv.command, logging the TV's response.
 - {"kind": "wait", "s": 2}
+- {"kind": "touch", "swipe": [x0, y0, x1, y1], "ms": 300}: one pyatv swipe on
+  the touch surface (press, holds every 16 ms, release); or
+  {"kind": "touch", "events": [[x, y, "press"|"hold"|"release"], ...],
+  "gap_ms": 16}: an explicit event sequence. Coordinates are 0..1000.
 - {"kind": "tap", "path": "/dev/hidraw0", "s": 20}: read the dock's raw
   reports from a device node for s seconds, alongside the daemon (hidraw and
   evdev hand every report to every reader), logging each one as hex; input
@@ -55,7 +59,9 @@ MAX_WAIT_S = 60
 MAX_HOLD_S = 5
 ATV_TIMEOUT = 10
 RESULT_CHARS = 2000
-KINDS = ("mrp", "companion", "ha", "lounge", "webos", "wait", "tap", "snapshot")
+KINDS = ("mrp", "companion", "ha", "lounge", "webos", "wait", "touch", "tap", "snapshot")
+TOUCH_MODES = ("press", "hold", "release")
+MAX_SWIPE_MS = 10_000
 TAP_PREFIXES = ("/dev/hidraw", "/dev/input/event")
 INPUT_EVENT = struct.Struct("qqHHi")  # struct input_event on 64-bit Linux
 LOUNGE_METHODS = (
@@ -153,6 +159,19 @@ def _check_step(n: int, step: Any) -> None:
         _check(isinstance(step.get("payload", {}), dict), n, "payload must be an object")
     elif kind == "wait":
         _check(_number(step.get("s"), 0, MAX_WAIT_S), n, f"wait needs s in 0..{MAX_WAIT_S}")
+    elif kind == "touch":
+        swipe, events = step.get("swipe"), step.get("events")
+        _check((swipe is None) != (events is None), n, "touch needs exactly one of swipe / events")
+        if swipe is not None:
+            _check(isinstance(swipe, list) and len(swipe) == 4 and all(_number(v, 0, 1000) for v in swipe),
+                   n, "swipe is [x0, y0, x1, y1] in 0..1000")
+            _check(_number(step.get("ms", 300), 1, MAX_SWIPE_MS), n, f"ms must be 1..{MAX_SWIPE_MS}")
+        else:
+            _check(isinstance(events, list) and events and all(
+                isinstance(e, list) and len(e) == 3 and _number(e[0], 0, 1000) and _number(e[1], 0, 1000)
+                and e[2] in TOUCH_MODES for e in events), n,
+                "events are [x, y, \"press\"|\"hold\"|\"release\"] in 0..1000")
+            _check(_number(step.get("gap_ms", 16), 0, MAX_SWIPE_MS), n, f"gap_ms must be 0..{MAX_SWIPE_MS}")
     elif kind == "tap":
         path = step.get("path")
         _check(isinstance(path, str) and path.startswith(TAP_PREFIXES), n,
@@ -258,6 +277,11 @@ def _summary(step: dict) -> str:
         return f"{step['s']}s"
     if kind == "tap":
         return f"{step['path']} {step['s']}s"
+    if kind == "touch":
+        if "swipe" in step:
+            x0, y0, x1, y1 = step["swipe"]
+            return f"swipe {x0},{y0} -> {x1},{y1} in {step.get('ms', 300)}ms"
+        return f"{len(step['events'])} events, {step.get('gap_ms', 16)}ms apart"
     return ""
 
 
@@ -375,6 +399,21 @@ async def _companion(atv: Any, step: dict) -> Any:
     await comp.api.hid_command(False, hid)
 
 
+async def _touch(atv: Any, step: dict) -> None:
+    from pyatv.const import TouchAction
+
+    if "swipe" in step:
+        x0, y0, x1, y1 = (int(v) for v in step["swipe"])
+        await atv.touch.swipe(x0, y0, x1, y1, int(step.get("ms", 300)))
+        return
+    modes = {"press": TouchAction.Press, "hold": TouchAction.Hold, "release": TouchAction.Release}
+    gap = float(step.get("gap_ms", 16)) / 1000
+    for i, (x, y, mode) in enumerate(step["events"]):
+        if i:
+            await asyncio.sleep(gap)
+        await atv.touch.action(int(x), int(y), modes[mode])
+
+
 class ProbeRunner:
     """Watches the request file and runs each request's steps in order.
 
@@ -455,6 +494,8 @@ class ProbeRunner:
             return self._atv(lambda atv: _mrp(atv, step))
         if kind == "companion":
             return self._atv(lambda atv: _companion(atv, step))
+        if kind == "touch":
+            return self._atv(lambda atv: _touch(atv, step))
         if kind == "ha":
             domain, service = step["service"].split(".")
             reply = self._call(domain, service, step.get("data") or {}, response=bool(step.get("response")))
