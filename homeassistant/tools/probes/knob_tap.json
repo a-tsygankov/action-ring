@@ -1,0 +1,7 @@
+{
+  "note": "Input-layer diagnostics: taps the dock's vendor HID node (keys, knob presses and turns should all show up as reports with the code in byte 9) and its keyboard input node, alongside the daemon. Turn the large knob, then a small knob, then press an LCD key while it runs. Paths follow the current hidraw numbering (ls /sys/class/hidraw on the Pi).",
+  "steps": [
+    {"kind": "tap", "path": "/dev/hidraw0", "s": 40},
+    {"kind": "tap", "path": "/dev/input/event0", "s": 20}
+  ]
+}
