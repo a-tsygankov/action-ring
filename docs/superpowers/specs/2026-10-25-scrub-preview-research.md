@@ -52,7 +52,8 @@ pyatv's own `swipe()` for values below 256).
 | Max `com.wbd.stream` | custom, advertises SeekToPlaybackPosition, Skip 30 s | correct both ways (77 → 26 s left; 5 → 77 s right) | 10 s per press, **moves at once**, preview frame shown; quick presses batch | HA `media_seek` lands exactly (3926 → 3575) |
 | YouTube `com.google.ios.youtube` | custom, advertises everything disabled | **do not pause first**: a swipe while playing opens YouTube's scrubber (pauses, chapter strip + preview), later swipes accumulate (left, left, right, left → net −2), OK commits (75 → 43 s). After an HA pause the focus sits on the control row: swipes and presses walk the buttons, OK clicks one | keys: pause, **Up** to focus the bar, then 10 s per press with preview, OK commits (1191 → 1161 s) |
 | Netflix `com.netflix.Netflix` | custom, advertises Seek, Skip 10 s; reports no position, shows `idle` when paused | safe swipes (700→400, 800→500, 500→800, short 500→400) followed with preview, user-confirmed; no numbers possible | quick presses (3 and 5) worked, user-confirmed | measured by eye only |
-| Pluto `tv.pluto.ios`, Tubi `com.adrise.tubitv` | AVKit (Pluto confirmed) | expected as the Apple TV app | expected as the Apple TV app | Tubi's 10-24 sessions jumped forward like the others (wrap) |
+| Tubi `com.adrise.tubitv` | AVKit | correct both ways (−41 / −32 / +45 / −13 s), **playhead and time only, no thumbnail** | 3 / 5 quick presses −29 / −50 s, commit on OK, no thumbnail | the stream carries no trick-play images (ad-stitched); nothing on our side can add the picture |
+| Pluto `tv.pluto.ios` | AVKit (confirmed 10-24) | expected as the Apple TV app | expected as the Apple TV app | not re-measured |
 | Prime, Disney+, Hulu, Paramount+ | unknown | not measured | not measured | one `app_check.json` run each |
 
 Other findings:

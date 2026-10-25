@@ -450,6 +450,9 @@ script cannot.
   `touch_max_x` 850 with the re-grip at 575; `scrub_apps` entries may be
   `{"mode": ..., "pause": false}` and YouTube has `"pause": false`; the
   seek override for Max and YouTube is gone.
+- Tubi: scrubs correctly (swipes −41/−32/+45/−13 s; keys −29/−50 s) but
+  shows only the playhead and time, no thumbnail, with either method: its
+  AVKit player has no trick-play images for the stream. Not fixable here.
 - New probe step `touch` (swipe / event list); experiments in
   `tools/probes/scrub/`.
 
