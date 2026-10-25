@@ -43,6 +43,10 @@ DEFAULTS: dict[str, Any] = {
     "skip_max": 6,  # cap on skip_* per call (apps without seek support)
     "seek_hold": 3.0,  # keep scrubbing from our own target for this long
     "scrub": "seek",  # "touch" for tvOS preview scrubbing (needs pairing)
+    # Per-app override of "scrub" by the player's app_id: apps whose player
+    # ignores or misreads touch swipes (Max scrubs forward whichever way the
+    # finger goes; YouTube barely moves) but honour an absolute seek.
+    "scrub_apps": {},
     # Touch scrubbing, in touchpad units (0..1000 across the surface).
     "touch_steps": [12, [60, 2], [150, 3]],  # finger travel per detent by tier
     "touch_y": 500,  # finger height on the surface
@@ -140,9 +144,12 @@ class AppleTVKnobs:
             return "nav"
         if self._finger_down:  # mid-scrub: keep dragging
             return "touch"
-        if not self._in_playback():
+        st = self._state(self.player) or {}
+        if st.get("s") not in PLAYBACK_STATES:
             return "nav"
-        if self.cfg["scrub"] == "touch" and self._touch is not None and self._touch.available():
+        app = (st.get("a") or {}).get("app_id")
+        wanted = (self.cfg["scrub_apps"] or {}).get(app, self.cfg["scrub"])
+        if wanted == "touch" and self._touch is not None and self._touch.available():
             return "touch"
         return "seek"
 

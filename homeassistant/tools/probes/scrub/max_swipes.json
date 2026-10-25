@@ -1,0 +1,29 @@
+{
+  "note": "Scrub gesture model of the app on screen (Max): pause, one clean pyatv swipe of a given direction/speed, then OK, and read the position jump from the np/MRP lines around each step. A: left 300 units in 300 ms. B: right 300 units. C: left 300 units slowly (1500 ms). D: the knob engine's shape (press, 25-unit holds 16 ms apart, 300 units left, release) then OK after 3 s.",
+  "steps": [
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "touch", "swipe": [500, 500, 200, 500], "ms": 300},
+    {"kind": "wait", "s": 3},
+    {"kind": "companion", "hid": "select"},
+    {"kind": "wait", "s": 6},
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "touch", "swipe": [500, 500, 800, 500], "ms": 300},
+    {"kind": "wait", "s": 3},
+    {"kind": "companion", "hid": "select"},
+    {"kind": "wait", "s": 6},
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "touch", "swipe": [500, 500, 200, 500], "ms": 1500},
+    {"kind": "wait", "s": 3},
+    {"kind": "companion", "hid": "select"},
+    {"kind": "wait", "s": 6},
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "touch", "gap_ms": 16, "events": [[500,500,"press"],[475,500,"hold"],[450,500,"hold"],[425,500,"hold"],[400,500,"hold"],[375,500,"hold"],[350,500,"hold"],[325,500,"hold"],[300,500,"hold"],[275,500,"hold"],[250,500,"hold"],[225,500,"hold"],[200,500,"hold"],[200,500,"release"]]},
+    {"kind": "wait", "s": 3},
+    {"kind": "companion", "hid": "select"},
+    {"kind": "wait", "s": 5}
+  ]
+}
