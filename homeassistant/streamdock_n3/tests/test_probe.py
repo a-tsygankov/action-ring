@@ -22,6 +22,8 @@ ALL_KINDS = [
     {"kind": "webos", "entity_id": "media_player.lg", "command": "com.webos.media/getForegroundAppInfo"},
     {"kind": "wait", "s": 2},
     {"kind": "tap", "path": "/dev/hidraw0", "s": 20},
+    {"kind": "touch", "swipe": [500, 500, 200, 500], "ms": 300},
+    {"kind": "touch", "events": [[500, 500, "press"], [400, 500, "hold"], [400, 500, "release"]], "gap_ms": 16},
 ]
 
 
@@ -177,6 +179,11 @@ def test_runner_reports_a_bad_request(capsys):
 
 
 @pytest.mark.parametrize("step", [
+    {"kind": "touch"},
+    {"kind": "touch", "swipe": [500, 500, 200], "ms": 300},
+    {"kind": "touch", "swipe": [500, 500, 200, 500], "ms": 60000},
+    {"kind": "touch", "events": [[500, 500, "tap"]]},
+    {"kind": "touch", "events": [[1500, 500, "press"]]},
     {"kind": "tap", "path": "/tmp/x", "s": 5},
     {"kind": "tap", "path": "/dev/hidraw0"},
     {"kind": "tap", "path": "/dev/hidraw0", "s": 600},
@@ -254,6 +261,12 @@ def _fake_atv(protobuf, sent):
     async def hid(down, command):
         sent.append(("hid", command.name, down))
 
+    async def swipe(x0, y0, x1, y1, ms):
+        sent.append(("swipe", x0, y0, x1, y1, ms))
+
+    async def action(x, y, mode):
+        sent.append(("touch", x, y, mode.name))
+
     rate = protobuf.CommandInfo(command=protobuf.CommandInfo_pb2.ChangePlaybackRate, supportedRates=[-8, 8, 24])
     play = protobuf.CommandInfo(command=protobuf.CommandInfo_pb2.Play)
     item = protobuf.ContentItem()
@@ -268,8 +281,26 @@ def _fake_atv(protobuf, sent):
     remotes = {Protocol.MRP: mrp, Protocol.Companion: comp}
     return SimpleNamespace(
         remote_control=SimpleNamespace(get=remotes.get),
+        touch=SimpleNamespace(swipe=swipe, action=action),
         metadata=SimpleNamespace(app=SimpleNamespace(name="Pluto TV", identifier="tv.pluto.ios")),
     )
+
+
+def test_runner_touch_steps(capsys):
+    protobuf = pytest.importorskip("pyatv.protocols.mrp.protobuf")
+    sent = []
+    runner = ProbeRunner(FakeTouch(_fake_atv(protobuf, sent)), FakeCall(fail_on=""), None)
+    runner.run_request(json.dumps([
+        {"kind": "touch", "swipe": [500, 500, 200, 500], "ms": 300},
+        {"kind": "touch", "events": [[500, 500, "press"], [400, 500, "hold"], [400, 500, "release"]], "gap_ms": 1},
+    ]))
+    lines = _probe_lines(capsys)
+    assert sent == [
+        ("swipe", 500, 500, 200, 500, 300),
+        ("touch", 500, 500, "Press"), ("touch", 400, 500, "Hold"), ("touch", 400, 500, "Release"),
+    ]
+    assert lines[1] == "probe: 1 touch swipe 500,500 -> 200,500 in 300ms -> ok"
+    assert lines[2] == "probe: 2 touch 3 events, 1ms apart -> ok"
 
 
 def test_runner_atv_steps(capsys):

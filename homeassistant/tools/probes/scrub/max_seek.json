@@ -1,0 +1,11 @@
+{
+  "note": "Can Max be scrubbed by commands instead of touch? A: HA media_seek 300 s back from the position at write time. B: MRP SkipBackward (app default interval). C: MRP SeekToPlaybackPosition via HA media_seek 120 s forward. Read the positions from the np lines.",
+  "steps": [
+    {"kind": "ha", "service": "media_player.media_seek", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k", "seek_position": 3575}},
+    {"kind": "wait", "s": 4},
+    {"kind": "mrp", "command": "SkipBackward"},
+    {"kind": "wait", "s": 4},
+    {"kind": "ha", "service": "media_player.media_seek", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k", "seek_position": 3695}},
+    {"kind": "wait", "s": 4}
+  ]
+}
