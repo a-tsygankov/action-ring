@@ -1,0 +1,171 @@
+{
+ "note": "YouTube with safe swipes (x stays in 300..800). S: while playing, swipe left 700->400, 3 s, OK. T: pause, swipe left, OK. U: pause, Up (focus the bar), swipe left, OK. Watch: preview? direction? per-swipe or at OK?",
+ "steps": [
+  {
+   "kind": "snapshot",
+   "entities": [
+    "media_player.vugitv_4k_vugitv_4k"
+   ]
+  },
+  {
+   "kind": "touch",
+   "swipe": [
+    700,
+    500,
+    400,
+    500
+   ],
+   "ms": 300
+  },
+  {
+   "kind": "wait",
+   "s": 3
+  },
+  {
+   "kind": "snapshot",
+   "entities": [
+    "media_player.vugitv_4k_vugitv_4k"
+   ]
+  },
+  {
+   "kind": "ha",
+   "service": "remote.send_command",
+   "data": {
+    "entity_id": "remote.vugitv_4k_vugitv_4k",
+    "command": "select"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "snapshot",
+   "entities": [
+    "media_player.vugitv_4k_vugitv_4k"
+   ]
+  },
+  {
+   "kind": "ha",
+   "service": "media_player.media_pause",
+   "data": {
+    "entity_id": "media_player.vugitv_4k_vugitv_4k"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "snapshot",
+   "entities": [
+    "media_player.vugitv_4k_vugitv_4k"
+   ]
+  },
+  {
+   "kind": "touch",
+   "swipe": [
+    700,
+    500,
+    400,
+    500
+   ],
+   "ms": 300
+  },
+  {
+   "kind": "wait",
+   "s": 3
+  },
+  {
+   "kind": "snapshot",
+   "entities": [
+    "media_player.vugitv_4k_vugitv_4k"
+   ]
+  },
+  {
+   "kind": "ha",
+   "service": "remote.send_command",
+   "data": {
+    "entity_id": "remote.vugitv_4k_vugitv_4k",
+    "command": "select"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "snapshot",
+   "entities": [
+    "media_player.vugitv_4k_vugitv_4k"
+   ]
+  },
+  {
+   "kind": "ha",
+   "service": "media_player.media_pause",
+   "data": {
+    "entity_id": "media_player.vugitv_4k_vugitv_4k"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "remote.send_command",
+   "data": {
+    "entity_id": "remote.vugitv_4k_vugitv_4k",
+    "command": "up"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 1
+  },
+  {
+   "kind": "snapshot",
+   "entities": [
+    "media_player.vugitv_4k_vugitv_4k"
+   ]
+  },
+  {
+   "kind": "touch",
+   "swipe": [
+    700,
+    500,
+    400,
+    500
+   ],
+   "ms": 300
+  },
+  {
+   "kind": "wait",
+   "s": 3
+  },
+  {
+   "kind": "snapshot",
+   "entities": [
+    "media_player.vugitv_4k_vugitv_4k"
+   ]
+  },
+  {
+   "kind": "ha",
+   "service": "remote.send_command",
+   "data": {
+    "entity_id": "remote.vugitv_4k_vugitv_4k",
+    "command": "select"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "snapshot",
+   "entities": [
+    "media_player.vugitv_4k_vugitv_4k"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+  "note": "Quick presses in the app on screen (Max). M: pause, 3 left presses 0.4 s apart, 3 s, OK. N: pause, 5 left presses 0.2 s apart, 3 s, OK. Watch: preview before OK? picture moves per press or at OK?",
+  "steps": [
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "left", "num_repeats": 3, "delay_secs": 0.4}},
+    {"kind": "wait", "s": 3},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "select"}},
+    {"kind": "wait", "s": 5},
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "left", "num_repeats": 5, "delay_secs": 0.2}},
+    {"kind": "wait", "s": 3},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "select"}},
+    {"kind": "wait", "s": 4},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]}
+  ]
+}

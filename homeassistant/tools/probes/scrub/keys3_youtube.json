@@ -1,0 +1,28 @@
+{
+  "note": "YouTube: reach the seek bar. D: while playing, 3 MRP left presses, 3 s, OK. E: while playing, one touch swipe left 300 units, 3 s, OK. F: pause, Up (focus the progress bar), 3 left presses, 3 s, OK. Watch: seek bar with thumbnail? picture jumped before OK? resumed after OK?",
+  "steps": [
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "left", "num_repeats": 3, "delay_secs": 0.4}},
+    {"kind": "wait", "s": 3},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "select"}},
+    {"kind": "wait", "s": 5},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "touch", "swipe": [500, 500, 200, 500], "ms": 300},
+    {"kind": "wait", "s": 3},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "select"}},
+    {"kind": "wait", "s": 5},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "up"}},
+    {"kind": "wait", "s": 1},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "left", "num_repeats": 3, "delay_secs": 0.4}},
+    {"kind": "wait", "s": 3},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "select"}},
+    {"kind": "wait", "s": 5},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]}
+  ]
+}

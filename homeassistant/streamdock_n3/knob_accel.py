@@ -43,14 +43,20 @@ DEFAULTS: dict[str, Any] = {
     "skip_max": 6,  # cap on skip_* per call (apps without seek support)
     "seek_hold": 3.0,  # keep scrubbing from our own target for this long
     "scrub": "seek",  # "touch" for tvOS preview scrubbing (needs pairing)
-    # Per-app override of "scrub" by the player's app_id: apps whose player
-    # ignores or misreads touch swipes (Max scrubs forward whichever way the
-    # finger goes; YouTube barely moves) but honour an absolute seek.
+    # Per-app settings by the player's app_id: a mode name ("touch" /
+    # "seek") or {"mode": ..., "pause": false}. "pause": false skips the
+    # pause before the first touch: YouTube's own scrubber opens on a swipe
+    # while playing, whereas after a pause its focus sits on the control
+    # row and swipes walk the buttons.
     "scrub_apps": {},
     # Touch scrubbing, in touchpad units (0..1000 across the surface).
     "touch_steps": [12, [60, 2], [150, 3]],  # finger travel per detent by tier
     "touch_y": 500,  # finger height on the surface
-    "touch_min_x": 150,  # re-grip in the centre when the finger passes these
+    # Keep the finger in this x range, re-gripping in its middle at the
+    # edges. tvOS misreads touch x below 256 (pyatv sends such values in
+    # OPACK's one-byte form) as a far-right position: a drag that reaches
+    # it jumps the scrub forward. Measured: 270 fine, 260 wraps; 950 fine.
+    "touch_min_x": 300,
     "touch_max_x": 850,
     "touch_move_px": 25,  # max finger move per touch event
     "touch_interval": 0.016,  # s between touch events (as pyatv's own swipe)
@@ -144,10 +150,21 @@ class AppleTVKnobs:
         if st.get("s") not in PLAYBACK_STATES:
             return "nav"
         app = (st.get("a") or {}).get("app_id")
-        wanted = (self.cfg["scrub_apps"] or {}).get(app, self.cfg["scrub"])
+        wanted = self._app_setting(app, "mode", self.cfg["scrub"])
         if wanted == "touch" and self._touch is not None and self._touch.available():
             return "touch"
         return "seek"
+
+    def _app_setting(self, app: str | None, key: str, default: Any) -> Any:
+        entry = (self.cfg["scrub_apps"] or {}).get(app)
+        if isinstance(entry, dict):
+            return entry.get(key, default)
+        if isinstance(entry, str) and key == "mode":
+            return entry
+        return default
+
+    def _pause_before_touch(self, app: str | None) -> bool:
+        return bool(self._app_setting(app, "pause", True))
 
     # -- output (own thread) -----------------------------------------------
     def _next_job(self) -> tuple[str, Any]:
@@ -276,8 +293,10 @@ class AppleTVKnobs:
         y, lo, hi = cfg["touch_y"], cfg["touch_min_x"], cfg["touch_max_x"]
         centre = (lo + hi) // 2
         if not self._finger_down:
-            if (self._state(self.player) or {}).get("s") == "playing":
-                # Preview scrubbing only engages while paused.
+            st = self._state(self.player) or {}
+            if st.get("s") == "playing" and self._pause_before_touch((st.get("a") or {}).get("app_id")):
+                # Preview scrubbing engages while paused (except where the
+                # app's scrubber opens on the swipe itself: "pause": false).
                 self._call("media_player", "media_pause", {"entity_id": self.player})
                 time.sleep(cfg["touch_pause_delay"])
             touch.action(centre, y, "press")

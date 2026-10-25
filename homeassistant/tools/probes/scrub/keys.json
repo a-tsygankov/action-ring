@@ -1,0 +1,31 @@
+{
+  "note": "Preview scrubbing by remote keys, in the app on screen. A: pause, 5 left presses 0.3 s apart, 3 s wait (did the position move before OK? a preview must not), OK, 3 s. B: pause, left held 2 s, 3 s wait, OK. C: while playing, 3 right presses. Watch the TV: thumbnail strip? playhead moved? picture jumped before OK?",
+  "steps": [
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "companion", "hid": "left"}, {"kind": "wait", "s": 0.3},
+    {"kind": "companion", "hid": "left"}, {"kind": "wait", "s": 0.3},
+    {"kind": "companion", "hid": "left"}, {"kind": "wait", "s": 0.3},
+    {"kind": "companion", "hid": "left"}, {"kind": "wait", "s": 0.3},
+    {"kind": "companion", "hid": "left"},
+    {"kind": "wait", "s": 3},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "companion", "hid": "select"},
+    {"kind": "wait", "s": 4},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "companion", "hid": "left", "hold_s": 2},
+    {"kind": "wait", "s": 3},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "companion", "hid": "select"},
+    {"kind": "wait", "s": 4},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "companion", "hid": "right"}, {"kind": "wait", "s": 0.3},
+    {"kind": "companion", "hid": "right"}, {"kind": "wait", "s": 0.3},
+    {"kind": "companion", "hid": "right"},
+    {"kind": "wait", "s": 4},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]}
+  ]
+}

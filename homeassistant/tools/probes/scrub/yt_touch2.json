@@ -1,0 +1,102 @@
+{
+ "note": "YouTube, no pause: four swipes 1.5 s apart while its scrubber is open (left, left, right, left), then OK. Expect about -2 swipes net.",
+ "steps": [
+  {
+   "kind": "ha",
+   "service": "media_player.media_play",
+   "data": {
+    "entity_id": "media_player.vugitv_4k_vugitv_4k"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 3
+  },
+  {
+   "kind": "snapshot",
+   "entities": [
+    "media_player.vugitv_4k_vugitv_4k"
+   ]
+  },
+  {
+   "kind": "touch",
+   "swipe": [
+    700,
+    500,
+    400,
+    500
+   ],
+   "ms": 300
+  },
+  {
+   "kind": "wait",
+   "s": 1.5
+  },
+  {
+   "kind": "touch",
+   "swipe": [
+    700,
+    500,
+    400,
+    500
+   ],
+   "ms": 300
+  },
+  {
+   "kind": "wait",
+   "s": 1.5
+  },
+  {
+   "kind": "touch",
+   "swipe": [
+    400,
+    500,
+    700,
+    500
+   ],
+   "ms": 300
+  },
+  {
+   "kind": "wait",
+   "s": 1.5
+  },
+  {
+   "kind": "touch",
+   "swipe": [
+    700,
+    500,
+    400,
+    500
+   ],
+   "ms": 300
+  },
+  {
+   "kind": "wait",
+   "s": 2.5
+  },
+  {
+   "kind": "snapshot",
+   "entities": [
+    "media_player.vugitv_4k_vugitv_4k"
+   ]
+  },
+  {
+   "kind": "ha",
+   "service": "remote.send_command",
+   "data": {
+    "entity_id": "remote.vugitv_4k_vugitv_4k",
+    "command": "select"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "snapshot",
+   "entities": [
+    "media_player.vugitv_4k_vugitv_4k"
+   ]
+  }
+ ]
+}

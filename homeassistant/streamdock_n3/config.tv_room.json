@@ -26,7 +26,7 @@
     "remote": "remote.vugitv_4k_vugitv_4k",
     "media_player": "media_player.vugitv_4k_vugitv_4k",
     "scrub": "touch",
-    "scrub_apps": { "com.wbd.stream": "seek", "com.google.ios.youtube": "seek" },
+    "scrub_apps": { "com.google.ios.youtube": { "pause": false } },
     "touch_release_after": 2.5,
     "mrp_raw_log": false,
     "seek_steps": [10, [30, 2], [90, 3]],

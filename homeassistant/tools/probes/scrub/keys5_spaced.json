@@ -1,0 +1,27 @@
+{
+  "note": "Press spacing in the app on screen (Max). K: pause, then left presses 1.5 s apart, reading the position after each, then OK. L: while playing, 2 left presses 1.5 s apart, then pause to read the position.",
+  "steps": [
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "left"}},
+    {"kind": "wait", "s": 1.5},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "left"}},
+    {"kind": "wait", "s": 1.5},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "left"}},
+    {"kind": "wait", "s": 1.5},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "select"}},
+    {"kind": "wait", "s": 4},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "left"}},
+    {"kind": "wait", "s": 1.5},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "left"}},
+    {"kind": "wait", "s": 3},
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "select"}}
+  ]
+}

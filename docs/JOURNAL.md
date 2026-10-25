@@ -429,6 +429,33 @@ script cannot.
 - Confirmed on the TV: idle after a scrub jumps and plays; pressing the knob
   commits once with no extra pause.
 
+### 2026-10-25 — Scrubbing with preview: the touch surface wraps below x = 256
+
+- Research session with the probe tool (notes with all numbers:
+  `docs/superpowers/specs/2026-10-25-scrub-preview-research.md`). One
+  cause behind every "backward scrub jumps forward": pyatv encodes the
+  `_hidT` touch coordinates with OPACK, which uses a one-byte form below
+  256, and tvOS misreads it. Apple TV app, 300-unit left swipe ending at
+  x = 270: −181 s; ending at 260: +1910 s. Right edge clean to 950. The
+  knob engine dragged to `touch_min_x` = 150, so long backward drags always
+  crossed it; forward drags (500–850) never did.
+- With the finger kept in 300..800: Apple TV app, Max and Netflix scrub
+  both ways with their previews; YouTube too, but only without a pause
+  first (its own scrubber opens on the swipe; an HA pause moves focus to
+  the control row and swipes walk the buttons). Keys while paused are a
+  second mechanism (10 s per press; Apple TV app commits on OK, Max moves
+  at once, YouTube needs Up first).
+- Fix (0.5.0-9, confirmed on the TV in Max, YouTube, Netflix and the
+  Apple TV app, both directions with previews): `touch_min_x` 300 /
+  `touch_max_x` 850 with the re-grip at 575; `scrub_apps` entries may be
+  `{"mode": ..., "pause": false}` and YouTube has `"pause": false`; the
+  seek override for Max and YouTube is gone.
+- Tubi: scrubs correctly (swipes −41/−32/+45/−13 s; keys −29/−50 s) but
+  shows only the playhead and time, no thumbnail, with either method: its
+  AVKit player has no trick-play images for the stream. Not fixable here.
+- New probe step `touch` (swipe / event list); experiments in
+  `tools/probes/scrub/`.
+
 ### 2026-10-25 — Backward scrubs jumped forward: Max and YouTube don't scrub by touch
 
 - Symptom: in Max, slow or fast backward turns of the large knob ended in a

@@ -1,0 +1,33 @@
+{
+  "note": "Scrub capabilities of the app on screen. P: pause, 3 quick left presses, 3 s, OK (keys: preview? per-press jump? 10 s each?). Q: pause, touch swipe left 300 units, 3 s, OK. R: pause, touch swipe right 300 units, 3 s, OK (touch: direction right? preview?). Positions are read before and after each OK.",
+  "steps": [
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "left", "num_repeats": 3, "delay_secs": 0.4}},
+    {"kind": "wait", "s": 3},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "select"}},
+    {"kind": "wait", "s": 5},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "touch", "swipe": [500, 500, 200, 500], "ms": 300},
+    {"kind": "wait", "s": 3},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "select"}},
+    {"kind": "wait", "s": 5},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "touch", "swipe": [500, 500, 800, 500], "ms": 300},
+    {"kind": "wait", "s": 3},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "select"}},
+    {"kind": "wait", "s": 5},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]}
+  ]
+}
