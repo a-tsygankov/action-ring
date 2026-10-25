@@ -1,0 +1,32 @@
+{
+  "note": "Preview scrubbing by remote keys, two paths, in the app on screen. A: pause, 3 Companion left presses, OK. B: pause, 3 MRP left presses (HA remote.send_command), OK. C: pause, MRP left held 1 s, OK. Watch the TV for each: thumbnail/preview strip? playhead moved? picture jumped before OK? resumed after OK?",
+  "steps": [
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "companion", "hid": "left"}, {"kind": "wait", "s": 0.4},
+    {"kind": "companion", "hid": "left"}, {"kind": "wait", "s": 0.4},
+    {"kind": "companion", "hid": "left"},
+    {"kind": "wait", "s": 3},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "companion", "hid": "select"},
+    {"kind": "wait", "s": 4},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "left", "num_repeats": 3, "delay_secs": 0.4}},
+    {"kind": "wait", "s": 3},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "select"}},
+    {"kind": "wait", "s": 4},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "media_player.media_pause", "data": {"entity_id": "media_player.vugitv_4k_vugitv_4k"}},
+    {"kind": "wait", "s": 2},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "left", "hold_secs": 1}},
+    {"kind": "wait", "s": 3},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]},
+    {"kind": "ha", "service": "remote.send_command", "data": {"entity_id": "remote.vugitv_4k_vugitv_4k", "command": "select"}},
+    {"kind": "wait", "s": 4},
+    {"kind": "snapshot", "entities": ["media_player.vugitv_4k_vugitv_4k"]}
+  ]
+}

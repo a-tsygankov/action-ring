@@ -58,7 +58,7 @@ shown):
   "scrub_apps": {},
   "touch_steps": [12, [60, 2], [150, 3]],
   "touch_y": 500,
-  "touch_min_x": 150,
+  "touch_min_x": 300,
   "touch_max_x": 850,
   "touch_move_px": 25,
   "touch_interval": 0.016,
@@ -77,13 +77,12 @@ engine so it can cancel this: `"knob.3.press": {"atv_knob": {"press": true}}`.
 Pressing commits the scrub with one OK and skips the auto-resume; outside a
 scrub it's a plain OK. `0` disables auto-resume.
 
-The TV Room config sets `"scrub": "touch"` (see Preview scrubbing below),
-with `"scrub_apps"` overriding it per app (by the player's `app_id`): Max
-(`com.wbd.stream`) and YouTube (`com.google.ios.youtube`) use `"seek"`,
-because their players don't scrub by touch swipes (Max moves forward
-whichever way the finger goes; YouTube hardly moves) but land an absolute
-seek exactly. The touch path still works in AVKit players such as the
-Apple TV app.
+The TV Room config sets `"scrub": "touch"` (see Preview scrubbing below).
+`"scrub_apps"` adjusts it per app, by the player's `app_id`: a mode name
+(`"seek"` for an app that can't scrub by touch) or an object with `"mode"`
+and/or `"pause": false`. YouTube (`com.google.ios.youtube`) has
+`"pause": false`: its scrubber opens on a swipe while playing, whereas after
+a pause the focus sits on the control row and swipes walk the buttons.
 
 Steps are listed for the slow / medium / fast tiers, either per click or as
 `[amount, clicks]`. `[30, 2]` means 30 s per 2 clicks, i.e. 15 s per click.
@@ -105,7 +104,9 @@ previews:
    the knob. `touch_steps` sets finger travel per click for the slow / medium
    / fast tiers, in touchpad units out of 1000 across the surface.
 3. At an edge (`touch_min_x`/`touch_max_x`) the finger lifts and re-grips in
-   the centre, like repeated swipes.
+   the middle of that range (575), like repeated swipes. The range starts at
+   300 because tvOS misreads touch x below 256 (pyatv sends those in OPACK's
+   one-byte form) as a far-right position and the scrub jumps forward.
 4. After `touch_release_after` seconds without a click the finger lifts. The
    preview stays on screen; press the knob (OK) to jump there, or Back to
    cancel.
