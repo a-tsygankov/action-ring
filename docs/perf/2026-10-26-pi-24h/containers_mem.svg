@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 274" width="880" height="274" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12">
+<rect width="880" height="274" fill="#fcfcfb"/>
+<text x="200" y="18" fill="#0b0b0b" font-size="14" font-weight="600">Average memory per container</text>
+<line x1="200.0" y1="28" x2="200.0" y2="244" stroke="#e6e5e1"/>
+<text x="200.0" y="260" fill="#52514e" text-anchor="middle">0 MB</text>
+<line x1="389.7" y1="28" x2="389.7" y2="244" stroke="#e6e5e1"/>
+<text x="389.7" y="260" fill="#52514e" text-anchor="middle">200 MB</text>
+<line x1="579.4" y1="28" x2="579.4" y2="244" stroke="#e6e5e1"/>
+<text x="579.4" y="260" fill="#52514e" text-anchor="middle">400 MB</text>
+<line x1="769.1" y1="28" x2="769.1" y2="244" stroke="#e6e5e1"/>
+<text x="769.1" y="260" fill="#52514e" text-anchor="middle">600 MB</text>
+<text x="192" y="50" fill="#0b0b0b" text-anchor="end">Home Assistant Core</text>
+<rect x="200.0" y="34" width="588.5" height="22" rx="4" fill="#2a78d6"/>
+<text x="794.5" y="50" fill="#0b0b0b">620 MB</text>
+<text x="192" y="80" fill="#0b0b0b" text-anchor="end">Matter Server</text>
+<rect x="200.0" y="64" width="187.8" height="22" rx="4" fill="#2a78d6"/>
+<text x="393.8" y="80" fill="#0b0b0b">198 MB</text>
+<text x="192" y="110" fill="#0b0b0b" text-anchor="end">Supervisor</text>
+<rect x="200.0" y="94" width="149.8" height="22" rx="4" fill="#2a78d6"/>
+<text x="355.8" y="110" fill="#0b0b0b">158 MB</text>
+<text x="192" y="140" fill="#0b0b0b" text-anchor="end">StreamDock N3 (ActionRing)</text>
+<rect x="200.0" y="124" width="72.2" height="22" rx="4" fill="#2a78d6"/>
+<text x="278.2" y="140" fill="#0b0b0b">76 MB</text>
+<text x="192" y="170" fill="#0b0b0b" text-anchor="end">Mosquitto</text>
+<rect x="200.0" y="154" width="30.9" height="22" rx="4" fill="#2a78d6"/>
+<text x="236.9" y="170" fill="#0b0b0b">33 MB</text>
+<text x="192" y="200" fill="#0b0b0b" text-anchor="end">displaypad</text>
+<rect x="200.0" y="184" width="23.7" height="22" rx="4" fill="#2a78d6"/>
+<text x="229.7" y="200" fill="#0b0b0b">25 MB</text>
+<text x="192" y="230" fill="#0b0b0b" text-anchor="end">Terminal &amp; SSH</text>
+<rect x="200.0" y="214" width="12.2" height="22" rx="4" fill="#2a78d6"/>
+<text x="218.2" y="230" fill="#0b0b0b">13 MB</text>
+</svg>

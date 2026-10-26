@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 274" width="880" height="274" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="12">
+<rect width="880" height="274" fill="#fcfcfb"/>
+<text x="200" y="18" fill="#0b0b0b" font-size="14" font-weight="600">Average CPU % per container over 24 h</text>
+<line x1="200.0" y1="28" x2="200.0" y2="244" stroke="#e6e5e1"/>
+<text x="200.0" y="260" fill="#52514e" text-anchor="middle">0%</text>
+<line x1="366.0" y1="28" x2="366.0" y2="244" stroke="#e6e5e1"/>
+<text x="366.0" y="260" fill="#52514e" text-anchor="middle">0.5%</text>
+<line x1="532.0" y1="28" x2="532.0" y2="244" stroke="#e6e5e1"/>
+<text x="532.0" y="260" fill="#52514e" text-anchor="middle">1%</text>
+<line x1="698.0" y1="28" x2="698.0" y2="244" stroke="#e6e5e1"/>
+<text x="698.0" y="260" fill="#52514e" text-anchor="middle">1.5%</text>
+<line x1="864.0" y1="28" x2="864.0" y2="244" stroke="#e6e5e1"/>
+<text x="864.0" y="260" fill="#52514e" text-anchor="middle">2%</text>
+<text x="192" y="50" fill="#0b0b0b" text-anchor="end">Home Assistant Core</text>
+<rect x="200.0" y="34" width="509.7" height="22" rx="4" fill="#2a78d6"/>
+<text x="715.7" y="50" fill="#0b0b0b">1.54 %</text>
+<text x="192" y="80" fill="#0b0b0b" text-anchor="end">StreamDock N3 (ActionRing)</text>
+<rect x="200.0" y="64" width="295.9" height="22" rx="4" fill="#2a78d6"/>
+<text x="501.9" y="80" fill="#0b0b0b">0.89 %</text>
+<text x="192" y="110" fill="#0b0b0b" text-anchor="end">Matter Server</text>
+<rect x="200.0" y="94" width="19.0" height="22" rx="4" fill="#2a78d6"/>
+<text x="225.0" y="110" fill="#0b0b0b">0.06 %</text>
+<text x="192" y="140" fill="#0b0b0b" text-anchor="end">Supervisor</text>
+<rect x="200.0" y="124" width="12.8" height="22" rx="4" fill="#2a78d6"/>
+<text x="218.8" y="140" fill="#0b0b0b">0.04 %</text>
+<text x="192" y="170" fill="#0b0b0b" text-anchor="end">displaypad</text>
+<rect x="200.0" y="154" width="12.0" height="22" rx="4" fill="#2a78d6"/>
+<text x="218.0" y="170" fill="#0b0b0b">0.04 %</text>
+<text x="192" y="200" fill="#0b0b0b" text-anchor="end">Mosquitto</text>
+<rect x="200.0" y="184" width="4.7" height="22" rx="4" fill="#2a78d6"/>
+<text x="210.7" y="200" fill="#0b0b0b">0.01 %</text>
+<text x="192" y="230" fill="#0b0b0b" text-anchor="end">Terminal &amp; SSH</text>
+<rect x="200.0" y="214" width="2.0" height="22" rx="4" fill="#2a78d6"/>
+<text x="206.0" y="230" fill="#0b0b0b">0.00 %</text>
+</svg>
