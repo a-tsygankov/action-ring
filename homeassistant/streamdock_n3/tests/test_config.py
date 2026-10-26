@@ -204,4 +204,4 @@ def test_soccer_keys():
 
 def test_every_soccer_action_is_known():
     soccer = [a["soccer"] for a in all_actions() if isinstance(a, dict) and "soccer" in a]
-    assert sorted(soccer) == ["next", "start"]
+    assert set(soccer) == {"next", "start"}  # "start" sits on the context page and on apps_more
