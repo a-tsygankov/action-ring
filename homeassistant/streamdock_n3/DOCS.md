@@ -115,6 +115,11 @@ previews:
    preview stays on screen; press the knob (OK) to jump there, or Back to
    cancel.
 
+If a touch event fails although the connection looks up (seen after the
+Apple TV slept: pyatv gets no `connection_lost`), the app drops the
+connection so it reconnects, and sends that knob batch as a seek instead;
+the log says `atv-knob: touch failed (...); seeking instead`.
+
 Touch needs the app's own Apple TV pairing over the Companion protocol
 (`atv_touch.py`, pyatv). This pairing is separate from Home Assistant's,
 because HA's integration doesn't expose touch gestures. Until the app is
