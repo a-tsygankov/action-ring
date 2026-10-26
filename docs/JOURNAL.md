@@ -429,6 +429,20 @@ script cannot.
 - Confirmed on the TV: idle after a scrub jumps and plays; pressing the knob
   commits once with no extra pause.
 
+### 2026-10-25 — Stale touch connection: drop, reconnect, seek the batch (from #12)
+
+- Ported from the unmerged PR #12 (10-24 TV checks): after the Apple TV
+  sleeps, the app's Companion session still looks connected but every touch
+  event fails ("Send event failed"; pyatv gets no `connection_lost`), so
+  the knob did nothing in any app until the app restarted. Now a failed
+  touch batch drops the connection (`AppleTVTouch.drop`, `_supervise`
+  reconnects) and is sent as a seek, scaled from touch units to seek
+  seconds; later turns use seek until the connection is back.
+  `tests/test_knob_touch.py`. Build 0.5.0-10.
+- Left out of #12: the 50 ms finger keepalive (its premise, the resting
+  finger, was refuted by the touch-wrap finding; all apps work without it)
+  and the 2.5 s lift (already in main).
+
 ### 2026-10-25 — Apps page 2: live-soccer key instead of the Apple TV input
 
 - Round button 1, second page (`apps_more`), key 6: the live-soccer key
