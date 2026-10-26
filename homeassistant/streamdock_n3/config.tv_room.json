@@ -87,8 +87,9 @@
           "4": { "icon": "pluto_tv", "action": { "launch": { "device": "atv", "app": "tv.pluto.ios" } } },
           "5": { "icon": "tubi", "action": { "launch": { "device": "atv", "app": "com.adrise.tubitv" } } },
           "6": {
-            "icon": "apple_tv_input",
-            "action": "ha-call media_player.select_source '{\"entity_id\":\"media_player.lg_tv_2\",\"source\":\"Apple OTT\"}'"
+            "icon": "soccer_live__none", "label": "",
+            "modes": [ { "when": "soccer_live", "icon": "soccer_live__live" } ],
+            "action": { "soccer": "start" }
           }
         }
       },

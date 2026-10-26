@@ -443,6 +443,16 @@ script cannot.
   finger, was refuted by the touch-wrap finding; all apps work without it)
   and the 2.5 s lift (already in main).
 
+### 2026-10-25 — Apps page 2: live-soccer key instead of the Apple TV input
+
+- Round button 1, second page (`apps_more`), key 6: the live-soccer key
+  (`soccer_live__none` / `__live` by `soccer_live`, action `soccer: start`)
+  replaces the "Apple TV input" key (LG source → `Apple OTT`). The same
+  key stays on the live-game context page; the input switch remains on key
+  3 of the Sonos/context page. `test_every_soccer_action_is_known` now
+  checks the set of actions, since `start` appears twice. Deployed to the
+  Pi (config.json from `config.tv_room.json`, app restarted).
+
 ### 2026-10-25 — Scrubbing with preview: the touch surface wraps below x = 256
 
 - Research session with the probe tool (notes with all numbers:
