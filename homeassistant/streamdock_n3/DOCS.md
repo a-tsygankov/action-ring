@@ -496,6 +496,14 @@ The upstream daemon keeps running with a dead handle after an unplug, so
 daemon when it disappears or re-enumerates. The log shows `waiting for dock`,
 `dock found at usb ...` and `dock disconnected or re-enumerated; restarting`.
 
+Sometimes the dock comes back but the Supervisor does not grant its new
+device nodes to the running container (the dock shows its built-in images;
+`Operation not permitted`). Before each start `run.sh` opens the dock's
+hidraw and input nodes; if they stay blocked for ~10 s it logs `dock nodes
+not accessible: ... - restarting the app` and exits with an error, and the
+app's **Watchdog** (keep it on) restarts the app in a fresh container, which
+gets the nodes again.
+
 ## Updating
 
 From the repo root on the PC run `bash homeassistant/restore.sh`. It adds any

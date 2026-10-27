@@ -429,6 +429,21 @@ script cannot.
 - Confirmed on the TV: idle after a scrub jumps and plays; pressing the knob
   commits once with no extra pause.
 
+### 2026-10-27 — Dock back without device access: the app restarts itself
+
+- The dock dropped off USB again (1:11 → 1:12) and came back, but the new
+  nodes were not granted to the container: `hidraw nodes are not readable`,
+  `event0: Operation not permitted`, and the dock showed its built-in images.
+  `ha apps restart` fixed it (as on 10-25).
+- `run.sh` now opens the dock's hidraw (read-write) and input nodes before
+  each daemon start; still blocked after ~10 s, it exits 1 and the
+  Supervisor watchdog (on for this app) restarts the app in a fresh
+  container. Pitfall found while testing: a failed redirect on `:` exits a
+  POSIX shell, so the open runs in a subshell.
+- Tested: in the Terminal & SSH container, which has the nodes but no
+  device access, the check reports all three nodes; the app's own start
+  passes it (0.5.0-14). The watchdog restart itself has not been seen yet.
+
 ### 2026-10-27 — Context pages follow what is on screen; service logo; PS5 keeps its sound
 
 - **The Apple TV reports its now-playing app, not the foreground app.**

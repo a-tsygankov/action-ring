@@ -21,6 +21,26 @@ dock_id() {
     done
 }
 
+# Prints the dock's device nodes that cannot be opened: its hidraw nodes
+# (read-write) and its input event nodes (read). After the dock drops off
+# the bus and comes back, the Supervisor sometimes does not grant the new
+# nodes to this container ("Operation not permitted"); only a fresh
+# container gets them back.
+blocked_nodes() {
+    hid=$(printf '0003:%08X:%08X' "0x$VID" "0x$PID")
+    for h in /sys/class/hidraw/hidraw*; do
+        grep -qi "HID_ID=$hid" "$h/device/uevent" 2>/dev/null || continue
+        n=/dev/${h##*/}
+        # -c first: "<>" would create a plain file where the node is missing.
+        # Subshells: a failed redirect on ":" exits a non-interactive shell.
+        { [ -c "$n" ] && (: <> "$n"); } 2>/dev/null || echo "$n"
+    done
+    for e in /dev/input/by-id/*HOTSPOTEKUSB*event*; do
+        [ -e "$e" ] || continue
+        { [ -c "$e" ] && (: < "$e"); } 2>/dev/null || echo "$e"
+    done
+}
+
 child=
 stopping=
 trap 'stopping=1; [ -n "$child" ] && kill "$child" 2>/dev/null' TERM INT
@@ -41,6 +61,18 @@ while [ -z "$stopping" ]; do
     # Give the Supervisor time to grant cgroup access to the new nodes; it
     # grants them one by one (~0.2 s apart observed), so 1 s was too tight.
     sleep 2
+    blocked=$(blocked_nodes)
+    for _ in 1 2 3 4; do
+        [ -z "$blocked" ] && break
+        sleep 2
+        blocked=$(blocked_nodes)
+    done
+    if [ -n "$blocked" ]; then
+        # Exit with an error: the Supervisor watchdog (on for this app)
+        # restarts the app in a fresh container, which regains the nodes.
+        echo "dock nodes not accessible:" $blocked "- restarting the app"
+        exit 1
+    fi
 
     echo "dock found at usb ${id}; starting streamdock-n3"
     # Upstream daemon + live HA state on keys that set "state_entity".
