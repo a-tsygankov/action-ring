@@ -1,0 +1,347 @@
+{
+ "note": "LG Media Player, a video from USB playing: each command is announced by a TV toast 'Probe N: ...'. Note what the player did after each one (seek, scan speed, subtitle/audio popup).",
+ "steps": [
+  {
+   "kind": "snapshot",
+   "entities": [
+    "media_player.lg_tv_2"
+   ]
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "com.webos.media/getForegroundAppInfo"
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "settings/getSystemSettings",
+   "payload": {
+    "category": "caption",
+    "keys": [
+     "captionEnable"
+    ]
+   }
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 1: RIGHT"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "RIGHT"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 2: RIGHT again"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "RIGHT"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 3: LEFT"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "LEFT"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 4: FASTFORWARD x2, then PLAY"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "FASTFORWARD"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "FASTFORWARD"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "PLAY"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 5: REWIND, then PLAY"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "REWIND"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "PLAY"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 6: CC (subtitles?)"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "CC"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 7: CC again"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "CC"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 8: SAP (audio track?)"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "SAP"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 9: BACK"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "BACK"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 10: INFO"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "INFO"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 11: BACK"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "BACK"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "settings/getSystemSettings",
+   "payload": {
+    "category": "caption",
+    "keys": [
+     "captionEnable"
+    ]
+   }
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "com.webos.media/setSubtitleEnable",
+   "payload": {
+    "mediaId": "_",
+    "enable": true
+   }
+  }
+ ]
+}

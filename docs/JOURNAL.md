@@ -429,6 +429,30 @@ script cannot.
 - Confirmed on the TV: idle after a scrub jumps and plays; pressing the knob
   commits once with no extra pause.
 
+### 2026-10-27 — LG Media Player: what controls subtitles, audio and seeking (in progress)
+
+Wanted on the `context:lg_media` page: knob scrubbing, subtitles on/off/next
+and audio track next. Live probes (`tools/probes/lg_media_*.json`, each step
+announced by a TV toast via `system.notifications/createToast`):
+- `com.webos.media/getForegroundAppInfo` gives a **real mediaId** for the
+  playing file (`_09ezunCbjac3Nd`; it changes per playback), unlike the `_`
+  seen on webOS 7.
+- Luna calls by mediaId via the createAlert hack (`seek`,
+  `setSubtitleEnable`, `selectTrack` text/audio; alert confirmed with
+  ENTER) changed nothing on screen. Direct `com.webos.media/setSubtitleEnable`
+  is 404. `settings/getSystemSettings` caption read fails (500).
+- Buttons: `CC` opens the "Internal Subtitle" panel (Subtitle switch
+  focused; Track, Code Page, Sync, Position, Size); a second `CC` does not
+  close it. `SAP` does nothing. `QMENU` opens the TV's own quick menu.
+  **`BACK` with no menu open quits playback** - never send it blind.
+- Audio track lives in the playback bar: bottom row `SUB`, replay, rewind,
+  repeat, fast-forward, 360, `⋯` -> Options (Resume Play, Play Speed, Audio
+  Track, progress bar) -> Audio Track list (radio buttons).
+- Not yet known: whether RIGHT/LEFT or `FASTFORWARD` seek (for the knob), and
+  the exact presses from playback to `⋯`. Next session: one button at a
+  time with the user watching, then encode the sequences as key actions and
+  give the lg_media page its own knob actions.
+
 ### 2026-10-27 — Dock back without device access: the app restarts itself
 
 - The dock dropped off USB again (1:11 → 1:12) and came back, but the new
@@ -682,6 +706,9 @@ script cannot.
       thresholds) and note which apps support seek vs. fall back to skips.
 - [ ] Preview scrubbing: tune `touch_steps` / `touch_release_after` with use;
       note which apps' players respond to touch scrubbing.
+- [ ] LG Media Player keys: subtitles on/off/next via the `CC` panel,
+      audio track via playback bar `⋯` -> Options -> Audio Track, knob
+      scrubbing (find what seeks). See the 10-27 entry.
 - [ ] YouTube paused, then the TV app with nothing playing: the YouTube
       page stays (no signal). Check the `youtube: event` lines
       (`debug_events`, enabled on the Pi only) for one.
