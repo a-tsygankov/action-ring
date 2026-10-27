@@ -438,7 +438,9 @@ script cannot.
 - On a video change (next/previous, autoplay) the key falls back to +10 s
   at once and switches to "next chapter" when that video's chapters load;
   cached videos switch immediately. Chapter loading now redraws the keys.
-  `tests/test_youtube.py`. Build 0.5.0-11.
+  `tests/test_youtube.py`. Build 0.5.0-11, deployed to the Pi with
+  `restore.sh` (config.json from `config.tv_room.json`); on a video with no
+  chapters the log shows `0 chapters` and key 2 stays on +10 s.
 
 ### 2026-10-25 — Stale touch connection: drop, reconnect, seek the batch (from #12)
 
