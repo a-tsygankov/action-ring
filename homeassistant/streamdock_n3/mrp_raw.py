@@ -32,6 +32,15 @@ MESSAGES = {
     protobuf.UPDATE_CONTENT_ITEM_MESSAGE: "update_content_item",
     protobuf.SET_NOW_PLAYING_CLIENT_MESSAGE: "now_playing_client",
     protobuf.SET_NOW_PLAYING_PLAYER_MESSAGE: "now_playing_player",
+    # Client/app lifecycle: candidates for telling the foreground app apart
+    # from the now-playing one.
+    protobuf.UPDATE_CLIENT_MESSAGE: "update_client",
+    protobuf.REMOVE_CLIENT_MESSAGE: "remove_client",
+    protobuf.REMOVE_PLAYER_MESSAGE: "remove_player",
+    protobuf.SET_DEFAULT_SUPPORTED_COMMANDS_MESSAGE: "default_supported_commands",
+    protobuf.ORIGIN_CLIENT_PROPERTIES_MESSAGE: "origin_client_properties",
+    protobuf.PLAYER_CLIENT_PROPERTIES_MESSAGE: "player_client_properties",
+    protobuf.DEVICE_INFO_UPDATE_MESSAGE: "device_info_update",
 }
 
 

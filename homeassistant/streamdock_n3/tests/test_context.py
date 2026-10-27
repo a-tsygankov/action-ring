@@ -94,3 +94,53 @@ def test_lg_other_app():
 
 def test_lg_playing_state_counts_as_on():
     assert layout(st("playing", "HDMI 1", "com.webos.app.browser")) == "lg_app"
+
+
+# -- AtvApp: the Apple TV app that counts ------------------------------------------
+
+from context import AtvApp  # noqa: E402
+
+TV = "com.apple.TVWatchList"
+YT = "com.google.ios.youtube"
+
+
+def atv(state, app, ctype=None, cid=None):
+    return {ATV: {"s": state, "a": {"app_id": app, "media_content_type": ctype, "media_content_id": cid}}}.get
+
+
+def test_app_counts_once_seen_playing_and_through_a_pause():
+    t = AtvApp({**CFG, "content_apps": [TV]})
+    assert t.update(atv("idle", "com.netflix.Netflix")) is None  # menus
+    assert t.update(atv("playing", "com.netflix.Netflix")) == "com.netflix.Netflix"
+    assert t.update(atv("paused", "com.netflix.Netflix")) == "com.netflix.Netflix"
+    assert t.update(atv("idle", "")) is None  # Home screen
+
+
+def test_paused_fallback_after_another_app_does_not_count():
+    # YouTube paused, the TV app plays a trailer, then the Apple TV reports
+    # the paused YouTube again while the user is still in the TV app.
+    t = AtvApp({**CFG, "content_apps": [TV]})
+    assert t.update(atv("playing", YT)) == YT
+    assert t.update(atv("paused", YT)) == YT
+    assert t.update(atv("paused", TV, None)) is None  # trailer
+    assert t.update(atv("paused", YT)) is None
+    assert t.update(atv("playing", YT)) == YT  # back in YouTube, playing
+
+
+def test_tv_app_counts_only_real_content():
+    t = AtvApp({**CFG, "content_apps": [TV]})
+    assert t.update(atv("playing", TV, None)) is None  # trailer
+    assert t.update(atv("paused", TV, "video", "PREVIEW")) is None  # hero preview, never played
+    assert t.update(atv("paused", TV, "music", "PREVIEW")) is None
+    assert t.update(atv("paused", TV, "video", "A1")) is None  # title opened, not started
+    assert t.update(atv("playing", TV, "video", "A1")) == TV
+    assert t.update(atv("paused", TV, "video", "A1")) == TV
+    assert t.update(atv("paused", TV, None)) is None  # trailer after the episode
+    assert t.update(atv("paused", TV, "video", "A2")) is None  # next title must play first
+
+
+def test_layout_uses_tracked_app():
+    states = st("on", "Apple OTT", None, YT)
+    assert layout(states, atv_app=None) == "idle"
+    assert layout(states, atv_app=YT) == "youtube"
+    assert layout(states, atv_app="com.netflix.Netflix") == "streaming"

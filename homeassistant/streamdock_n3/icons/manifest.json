@@ -993,6 +993,24 @@
         },
         "notes": "Placeholder / entity unavailable: dashed frame + ?."
       }
+    },
+    "ps5": {
+      "default": {
+        "file": "ps5.png",
+        "sources": [
+          {
+            "id": "simple-icons:playstation5",
+            "set": "Simple Icons 16.35.0",
+            "author": "Simple Icons Collaborators",
+            "license": "CC0-1.0",
+            "url": "https://api.iconify.design/simple-icons/playstation5.svg"
+          }
+        ],
+        "colors": {
+          "background": "#0070d1->#003791"
+        },
+        "notes": "PS5 input on the LG: white PS5 wordmark on PlayStation blue."
+      }
     }
   }
 }

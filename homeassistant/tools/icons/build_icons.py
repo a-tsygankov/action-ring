@@ -334,6 +334,13 @@ def _appletv(ico):
     return k
 
 
+@icon("ps5", notes="PS5 input on the LG: white PS5 wordmark on PlayStation blue.")
+def _ps5(ico):
+    k = Key(ico, "#0070d1", "#003791")
+    k.glyph("simple-icons:playstation5", 56, 56, 88, 40, color=WHITE)
+    return k
+
+
 @icon("max", notes="HBO Max app tile (2025 name): stacked white 'HBO max' on Max blue gradient.")
 def _max(ico):
     k = Key(ico, "#0b39f5", "#061a7a")
