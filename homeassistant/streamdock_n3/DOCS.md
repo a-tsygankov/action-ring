@@ -199,12 +199,13 @@ Key actions, besides shell strings (`ha-call domain.service '<json>'`):
 | `{"launch": {"device": "atv", "app": "<bundle id>"}}` | Powers the TV on if it is off (Apple TV wake, HDMI-CEC), switches the LG to `atv_source`, starts the app on the Apple TV |
 | `{"launch": {"device": "lg", "app": "<webOS app id>"}}` | Powers on if needed, starts the app on the LG (`system.launcher/launch`) |
 | `{"next_playing": [entities]}` | Next track on the first of those speakers that is playing and leads its group |
-| `{"youtube": "play_pause" \| "next" \| "previous" \| "next_chapter" \| "subtitles"}` | Controls the linked YouTube app (see below); `subtitles` toggles captions |
+| `{"youtube": "play_pause" \| "next" \| "previous" \| "next_chapter" \| "forward" \| "subtitles"}` | Controls the linked YouTube app (see below); `forward` skips 10 s, `subtitles` toggles captions |
 | `{"soccer": "start" \| "next"}` | Plays the first live soccer game (powering on first), or the next one (see Live soccer) |
 
 Named `when` conditions for modes: `youtube` (YouTube in the foreground on a
 screen), `youtube_playing`, `youtube_subtitles` (its live play and caption
-state), `soccer_live` (a live soccer game is listed).
+state), `youtube_chapters` (the playing video has chapters; rechecked on every
+video change), `soccer_live` (a live soccer game is listed).
 
 ### Key modes
 
@@ -277,7 +278,10 @@ it over YouTube's TV-link ("Lounge") protocol (`yt_lounge.py`, pyytlounge).
 That session provides the playing video, its position, play and ad state, and
 seek. `{"youtube": "next_chapter"}` reads the video's chapters from its public
 watch page (`yt_chapters.py`: YouTube's chapter markers, else description
-timestamps) and seeks to the next one. Ad starts and ends are logged
+timestamps) and seeks to the next one. The YouTube page's key 2 shows
+"next chapter" while the playing video has chapters and "+10 s"
+(`{"youtube": "forward"}`) otherwise; a new video shows "+10 s" until its
+chapters have loaded. Ad starts and ends are logged
 (`youtube: lg: ad started (15s, skippable)`).
 
 Link each TV once: in its YouTube app open **Settings → Link with TV code**,

@@ -255,7 +255,11 @@
             "modes": [ { "when": "youtube_playing", "icon": "play_pause__playing" } ],
             "action": { "youtube": "play_pause" }
           },
-          "2": { "icon": "next_chapter", "action": { "youtube": "next_chapter" } },
+          "2": {
+            "icon": "skip_fwd_10",
+            "modes": [ { "when": "youtube_chapters", "icon": "next_chapter", "action": { "youtube": "next_chapter" } } ],
+            "action": { "youtube": "forward" }
+          },
           "3": { "icon": "next_video", "action": { "youtube": "next" } },
           "4": { "icon": "prev_video", "action": { "youtube": "previous" } },
           "5": {

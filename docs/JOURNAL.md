@@ -429,6 +429,19 @@ script cannot.
 - Confirmed on the TV: idle after a scrub jumps and plays; pressing the knob
   commits once with no extra pause.
 
+### 2026-10-26 — YouTube key 2: next chapter, else +10 s
+
+- The YouTube context page's key 2 shows "next chapter" only while the
+  playing video has chapters (condition `youtube_chapters`); otherwise it
+  is `skip_fwd_10` and seeks +10 s through the Lounge (`{"youtube":
+  "forward"}`, from the tracked position, so repeated presses add up).
+- On a video change (next/previous, autoplay) the key falls back to +10 s
+  at once and switches to "next chapter" when that video's chapters load;
+  cached videos switch immediately. Chapter loading now redraws the keys.
+  `tests/test_youtube.py`. Build 0.5.0-11, deployed to the Pi with
+  `restore.sh` (config.json from `config.tv_room.json`); on a video with no
+  chapters the log shows `0 chapters` and key 2 stays on +10 s.
+
 ### 2026-10-25 — Stale touch connection: drop, reconnect, seek the batch (from #12)
 
 - Ported from the unmerged PR #12 (10-24 TV checks): after the Apple TV

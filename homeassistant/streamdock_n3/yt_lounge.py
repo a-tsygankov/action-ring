@@ -4,8 +4,8 @@ Each configured screen (the YouTube app on a TV) is linked once with the
 12-digit code from the app's Settings > Link with TV code. While Home
 Assistant reports YouTube in the foreground on that TV, the app keeps a
 Lounge session, which gives the playing video, its position, play/ad state
-and a seek command. Used for "next chapter" (yt_chapters.py), next/previous,
-play/pause and a subtitles toggle, and ad logging.
+and a seek command. Used for "next chapter" (yt_chapters.py), a 10 s skip
+forward, next/previous, play/pause and a subtitles toggle, and ad logging.
 
 Linking is driven through files in the app's config share (/config here,
 /addon_configs/local_streamdock_n3 outside): write the code to
@@ -107,7 +107,8 @@ class Screen(EventListener):
         self.in_ad = event.ad_state == State.Advertisement or self.in_ad
 
 
-COMMANDS = ("next", "previous", "play_pause", "subtitles")
+COMMANDS = ("next", "previous", "play_pause", "subtitles", "forward")
+FORWARD_SECONDS = 10
 
 
 class YouTubeScreens:
@@ -144,7 +145,7 @@ class YouTubeScreens:
         asyncio.run_coroutine_threadsafe(self._next_chapter(), self._loop).result(20)
 
     def command(self, name: str) -> None:
-        """next | previous | play_pause | subtitles on the screen that is playing."""
+        """next | previous | play_pause | subtitles | forward on the screen that is playing."""
         if name not in COMMANDS:
             raise ValueError(f"unknown YouTube command {name!r}")
         asyncio.run_coroutine_threadsafe(self._command(name), self._loop).result(20)
@@ -178,6 +179,11 @@ class YouTubeScreens:
         screen = self._pick()
         return screen is not None and screen.subtitles is not None
 
+    def has_chapters(self) -> bool:
+        """Whether the current video's chapters are loaded and non-empty."""
+        screen = self._pick()
+        return screen is not None and bool(self._chapters.get(screen.video_id))
+
     # -- internals (YouTube loop) -----------------------------------------------
     def _prefetch(self, video_id: str) -> None:
         if video_id not in self._chapters:
@@ -188,6 +194,7 @@ class YouTubeScreens:
             chs = await self._loop.run_in_executor(None, yt_chapters.chapters, video_id)
             self._chapters[video_id] = chs
             log(f"{video_id}: {len(chs)} chapters")
+            self._notify()  # keys that depend on chapters (next chapter / +10 s)
         return self._chapters[video_id]
 
     def _notify(self) -> None:
@@ -211,6 +218,10 @@ class YouTubeScreens:
             await api.previous()
         elif name == "play_pause":
             await (api.pause() if screen.state == State.Playing else api.play())
+        elif name == "forward":
+            target = screen.position_now() + FORWARD_SECONDS
+            await api.seek_to(target)
+            screen._set(target, None)
         else:
             await self._toggle_subtitles(screen)
         log(f"{screen.name}: {name}")
