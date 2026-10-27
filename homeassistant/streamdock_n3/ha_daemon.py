@@ -119,7 +119,8 @@ _np_log: Any = None  # np_log.NowPlayingLog
 _soccer: Any = None  # soccer.LiveSoccer; set in main() with a "soccer" config
 _engine = TabEngine({}, {})  # replaced in main() before the device starts
 _ctx_cfg: dict | None = None  # config "tabs.context"; None = no context detection
-_atv_app: AtvApp | None = None  # with _ctx_cfg; HA thread only
+_atv_app: AtvApp | None = None  # with _ctx_cfg; under _ctx_lock
+_ctx_lock = threading.Lock()
 _atv_now: str | None = None  # the Apple TV app that counts; set by the HA thread
 _logo_cfg: dict | None = None  # config "tabs.logo"; None = no logo
 _logo_icons: dict[str, str] = {}  # app id -> icon id
@@ -450,6 +451,8 @@ def _tick() -> None:
             if _logo_clock is not None and _logo_clock.showing(now) != _logo_on:
                 _logo_on = not _logo_on
                 _signal()
+            if _atv_app is not None and _atv_app.pending:
+                _update_context()  # the play time may have run out
             version = _engine.version  # unlocked read: only a "something changed" hint
             if version != seen:
                 seen = version
@@ -461,11 +464,14 @@ def _tick() -> None:
 
 
 def _update_context() -> None:
+    # HA thread on state changes; ticker while an app's play time runs.
     global _atv_now
-    if _ctx_cfg is not None:
-        _atv_now = _atv_app.update(state_of) if _atv_app is not None else None
-        layout = foreground_layout(state_of, _ctx_cfg, _watching_game(), _atv_now)
-        _engine.set_context(layout, time.monotonic())
+    with _ctx_lock:
+        if _ctx_cfg is not None:
+            now = time.monotonic()
+            _atv_now = _atv_app.update(state_of, now) if _atv_app is not None else None
+            layout = foreground_layout(state_of, _ctx_cfg, _watching_game(), _atv_now)
+            _engine.set_context(layout, now)
     _signal()
 
 

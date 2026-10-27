@@ -156,7 +156,10 @@ before):
                "atv_source": "Apple OTT",
                "youtube_apps": { "atv": ["com.google.ios.youtube"], "lg": ["youtube.leanback.v4"] },
                "lg_media_apps": ["com.webos.app.mediadiscovery"],
-               "lg_idle_app_prefixes": ["com.webos.app.hdmi", "com.webos.app.livetv", "com.webos.app.home"] },
+               "lg_idle_app_prefixes": ["com.webos.app.hdmi", "com.webos.app.livetv", "com.webos.app.home"],
+               "content_apps": ["com.apple.TVWatchList"], "min_play_s": 10 },
+  "logo": { "key": 6, "show_s": 2, "every_s": [10, 15], "default": "apple_tv_app",
+            "sources": { "PS5 Game Console": "ps5" }, "apps": { "youtube.leanback.v4": "youtube" } },
   "launch": { "lg": "media_player.lg_tv_2", "atv": "media_player.vugitv_4k_vugitv_4k",
               "atv_remote": "remote.vugitv_4k_vugitv_4k", "atv_source": "Apple OTT",
               "power_on_wait": 25 },
@@ -176,6 +179,20 @@ before):
   streaming, no app → idle); on the LG itself, YouTube, the media player or
   any other app. A new layout is drawn after it has held for
   `context_debounce` seconds.
+- **Which Apple TV app counts.** The Apple TV reports its now-playing app,
+  not the one on screen: after you leave a paused video it keeps reporting
+  that app while you browse elsewhere, and menus autoplay previews. So an
+  app gets its page only after playing `min_play_s` seconds without a break
+  since it became the reported app; a pause keeps the page. Apps in
+  `content_apps` (the TV app) count only for real content
+  (`media_content_type` `video`), never for trailers or previews. Anything
+  else shows the idle page.
+- **Service logo** (`logo`, `logo.py`): on a context page, key `key` shows
+  the logo of what is on screen for `show_s` seconds every `every_s` seconds
+  (a `[min, max]` range picks each gap at random); a press does what the key
+  does on that page. App pages show the app's icon, taken from the launch
+  keys on the pages plus `apps`; the idle page shows the LG input's logo
+  from `sources` (here the PS5), else `default` (the Apple TV).
 - **Temporary pages** (here `apps`, `apps_more`, `sonos`) open from a round
   button. `round` maps a button to its cycle of pages: each press shows the
   next page in the cycle, and after the last one the cycle starts again. A

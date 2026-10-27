@@ -144,3 +144,18 @@ def test_layout_uses_tracked_app():
     assert layout(states, atv_app=None) == "idle"
     assert layout(states, atv_app=YT) == "youtube"
     assert layout(states, atv_app="com.netflix.Netflix") == "streaming"
+
+
+def test_app_counts_after_min_play_time():
+    t = AtvApp({**CFG, "min_play_s": 10})
+    nf = "com.netflix.Netflix"
+    assert t.update(atv("playing", nf), 0.0) is None  # a menu preview starts
+    assert t.pending
+    assert t.update(atv("playing", nf), 6.0) is None
+    assert t.update(atv("paused", nf), 7.0) is None  # preview ended: starts over
+    assert not t.pending
+    assert t.update(atv("playing", nf), 20.0) is None  # the movie
+    assert t.update(atv("playing", nf), 30.0) == nf  # 10 s of play, no state change needed
+    assert not t.pending
+    assert t.update(atv("paused", nf), 40.0) == nf  # a pause keeps it
+    assert t.update(atv("playing", nf), 41.0) == nf  # and resuming counts at once

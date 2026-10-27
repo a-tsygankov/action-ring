@@ -19,33 +19,49 @@ _RAW = object()  # foreground_layout: read the Apple TV app from its entity
 class AtvApp:
     """The Apple TV app that counts for the context layout, or None.
 
-    An app counts once it has been seen playing since it became the reported
-    app; a pause keeps it. One reported while not playing (the Home screen, an
-    app's menus, a paused app the Apple TV falls back to) does not count.
-    Apps in `content_apps` (the TV app) count only for real content
+    An app counts once it has played for `min_play_s` without a break since it
+    became the reported app (menu previews play for a few seconds); a pause
+    keeps it. One reported while not playing (the Home screen, an app's menus,
+    a paused app the Apple TV falls back to) does not count. Apps in
+    `content_apps` (the TV app) count only for real content
     (media_content_type "video", not trailers or previews), each title anew.
-    Stateful: call update() on every state change, from one thread.
+    Stateful: call update() on every state change, and while `pending` also
+    without one (the play time can run out between changes); callers serialize.
     """
 
     def __init__(self, cfg: dict) -> None:
         self.entity = cfg.get("atv")
         self.content_apps = set(cfg.get("content_apps") or [])
-        self._key: tuple | None = None  # what was seen playing: (app,) or (app, content id)
+        self.min_play_s = float(cfg.get("min_play_s", 0))
+        self._key: tuple | None = None  # what counts: (app,) or (app, content id)
+        self._playing: tuple[tuple, float] | None = None  # (key, since): playing, not counted yet
 
-    def update(self, state_of: StateLookup) -> str | None:
+    @property
+    def pending(self) -> bool:
+        """Something is playing that will count once its play time is reached."""
+        return self._playing is not None
+
+    def update(self, state_of: StateLookup, now: float = 0.0) -> str | None:
         st = (state_of(self.entity) if self.entity else None) or {}
         attrs = st.get("a") or {}
         app = attrs.get("app_id")
         if not app or (self._key is not None and self._key[0] != app):
             self._key = None  # another app took over: it must play again to count
         if not app:
+            self._playing = None
             return None
         content = app in self.content_apps
         if content and attrs.get("media_content_type") != "video":
-            return None  # a trailer or preview; a title seen playing stays remembered
+            self._playing = None
+            return None  # a trailer or preview; a title that counts stays remembered
         key = (app, attrs.get("media_content_id")) if content else (app,)
-        if st.get("s") == "playing":
-            self._key = key
+        if st.get("s") == "playing" and key != self._key:
+            if self._playing is None or self._playing[0] != key:
+                self._playing = (key, now)
+            if now - self._playing[1] >= self.min_play_s:
+                self._key, self._playing = key, None
+        else:
+            self._playing = None  # paused or stopped before the play time: start over
         return app if key == self._key else None
 
 

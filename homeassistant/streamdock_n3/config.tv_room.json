@@ -60,7 +60,8 @@
       "youtube_apps": { "atv": ["com.google.ios.youtube"], "lg": ["youtube.leanback.v4"] },
       "lg_media_apps": ["com.webos.app.mediadiscovery"],
       "lg_idle_app_prefixes": ["com.webos.app.hdmi", "com.webos.app.livetv", "com.webos.app.home"],
-      "content_apps": ["com.apple.TVWatchList"]
+      "content_apps": ["com.apple.TVWatchList"],
+      "min_play_s": 10
     },
     "logo": {
       "key": 6,

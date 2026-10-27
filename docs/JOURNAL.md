@@ -429,6 +429,42 @@ script cannot.
 - Confirmed on the TV: idle after a scrub jumps and plays; pressing the knob
   commits once with no extra pause.
 
+### 2026-10-27 — Context pages follow what is on screen; service logo; PS5 keeps its sound
+
+- **The Apple TV reports its now-playing app, not the foreground app.**
+  After leaving a paused YouTube video, HA's `app_id` stayed YouTube (paused)
+  while the TV app was open, so the dock showed the YouTube page. A capture
+  (YouTube pause → TV app → Home → YouTube) showed no signal at all: HA,
+  raw MRP (now also logging client lifecycle messages: `update_client`,
+  `default_supported_commands`, ...) and Companion are silent on app
+  switches. When another app plays something (a menu preview, a TV-app
+  trailer) and stops, the Apple TV falls back to reporting the paused app.
+- Rule (`context.AtvApp`, `tabs.context.min_play_s` 10): an Apple TV app
+  gets its page only after playing 10 s without a break since it became
+  the reported app; a pause keeps it. The TV app (`content_apps`) counts
+  only for real content: `media_content_type` `video` with an id (trailers
+  report no type, hero previews `music`). Verified live: Netflix and Prime
+  menu previews, then the fallback to the paused YouTube, left the dock on
+  the idle page.
+- Still open: YouTube paused, then straight into the TV app with nothing
+  playing there: nothing reports the switch, so the YouTube page stays.
+  `youtube.debug_events` logs raw Lounge events to look for a signal.
+- **Service logo** (`logo.py`, `tabs.logo`): key 6 of a context page shows
+  the logo of what is on screen for 2 s every 10-15 s and keeps its action.
+  App icons come from the apps-page launch keys; the idle page shows the
+  PS5 logo on the `PS5 Game Console` input (`com.webos.app.hdmi3`), else the
+  Apple TV logo. New `icons/ps5.png` (Simple Icons `playstation5`, CC0).
+  Verified on LG Media Player: 18 flashes in 215 s, key 1 followed the LG's
+  playing/paused, Home went back to idle.
+- **PS5 was muted** by the `streaming_pause_mute` automation whenever the
+  Apple TV paused, whatever the LG showed. It and the Pluto ad muting
+  (`ad_detect` `lg` + `atv_source`) now act only on the `Apple OTT` input;
+  the automation also unmutes on an LG input change.
+- The Dockerfile lists modules by name: `logo.py` was missing at first
+  (`ModuleNotFoundError`); `test_dockerfile_copies_every_module` guards it.
+- Builds 0.5.0-12 and 0.5.0-13, deployed with `restore.sh
+  --replace-ha-config` (automation updated).
+
 ### 2026-10-26 — YouTube key 2: next chapter, else +10 s
 
 - The YouTube context page's key 2 shows "next chapter" only while the
@@ -631,6 +667,9 @@ script cannot.
       thresholds) and note which apps support seek vs. fall back to skips.
 - [ ] Preview scrubbing: tune `touch_steps` / `touch_release_after` with use;
       note which apps' players respond to touch scrubbing.
+- [ ] YouTube paused, then the TV app with nothing playing: the YouTube
+      page stays (no signal). Check the `youtube: event` lines
+      (`debug_events`, enabled on the Pi only) for one.
 - [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
       chapter there (Apple TV done).
 - [ ] Decide whether to track the HA-created script `netflix_on_apple_tv`
