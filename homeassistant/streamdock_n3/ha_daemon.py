@@ -39,9 +39,10 @@ Runs the upstream daemon unchanged and adds:
    {"entity", "attr" ("state" by default), "in": [...]} (any).
 
 4. YouTube (yt_lounge.py): {"youtube": name} controls the video playing in a
-   linked YouTube TV app: "next_chapter" jumps to the next chapter; "next",
-   "previous", "play_pause" and "subtitles" (toggle) go through the Lounge.
-   Conditions "youtube_playing" and "youtube_subtitles" follow its live state.
+   linked YouTube TV app: "next_chapter" jumps to the next chapter; "forward"
+   (+10 s), "next", "previous", "play_pause" and "subtitles" (toggle) go
+   through the Lounge. Conditions "youtube_playing", "youtube_subtitles" and
+   "youtube_chapters" (the current video has chapters) follow its live state.
 
 5. Now-playing log (np_log.py): "now_playing_log": {"entities": [...]} logs
    what changes in those media players, to find ad markers per app.
@@ -99,7 +100,7 @@ TICK_SECONDS = 0.2
 SLOW_PASS_SECONDS = 0.5
 EMPTY_LOOK = Look(None, "", "#000000")  # a key the visible page leaves undefined
 ERROR_LOOK = Look(None, "?", "#5c3b00")  # a key whose spec failed to resolve
-YOUTUBE_COMMANDS = ("next_chapter", "next", "previous", "play_pause", "subtitles")
+YOUTUBE_COMMANDS = ("next_chapter", "forward", "next", "previous", "play_pause", "subtitles")
 SOCCER_COMMANDS = ("start", "next")
 
 _ready = threading.Event()
@@ -133,6 +134,7 @@ _conds: dict[str, Callable[[], bool]] = {
     "youtube": lambda: _youtube is not None and _youtube.any_active(),
     "youtube_playing": lambda: _youtube is not None and _youtube.playing(),
     "youtube_subtitles": lambda: _youtube is not None and _youtube.subtitles_on(),
+    "youtube_chapters": lambda: _youtube is not None and _youtube.has_chapters(),
     "soccer_live": lambda: _soccer is not None and bool(_soccer.games()),
 }
 

@@ -158,6 +158,46 @@ def test_subtitles_without_captions_does_nothing(yt, monkeypatch, capsys):
     assert "no captions" in capsys.readouterr().out
 
 
+def test_forward_seeks_ten_seconds(yt):
+    a = yt.screens["a"]
+    a._set(42.0, None)  # paused: position_now() does not advance
+    yt.command("forward")
+    assert a.api.calls == [("seek_to", 52.0)]
+    assert a.position_now() == 52.0  # repeated presses step on from the target
+
+
+def test_has_chapters_follows_current_video(yt, monkeypatch):
+    assert not yt.has_chapters()  # not loaded yet
+    monkeypatch.setattr(yt_chapters, "chapters", lambda vid: [(0.0, "Intro"), (60.0, "Main")] if vid == "vid_a" else [])
+    for vid in ("vid_a", "vid_b"):
+        asyncio.run_coroutine_threadsafe(yt._load_chapters(vid), yt._loop).result(5)
+    assert yt.changes  # loading chapters redraws keys
+    assert yt.has_chapters()  # "a" is the first live screen
+    yt.screens["b"].state = State.Playing  # "b" (no chapters) wins
+    assert not yt.has_chapters()
+
+
+def test_video_switch_rechecks_chapters(yt, monkeypatch):
+    monkeypatch.setattr(yt_chapters, "chapters", lambda vid: [(0.0, "Intro"), (60.0, "Main")] if vid != "plain" else [])
+    a = yt.screens["a"]
+    a.state = State.Playing
+    a._prefetch = yt._prefetch
+    now = lambda vid: SimpleNamespace(video_id=vid, current_time=0.0, state=State.Playing)  # noqa: E731
+
+    def switch(vid):
+        yt.changes.clear()
+        asyncio.run_coroutine_threadsafe(a.now_playing_changed(now(vid)), yt._loop).result(5)
+        asyncio.run_coroutine_threadsafe(yt._load_chapters(vid), yt._loop).result(5)  # let the prefetch land
+        assert yt.changes  # keys redraw for the new video
+
+    switch("chaptered")
+    assert yt.has_chapters()
+    switch("plain")  # next video has none: back to +10 s
+    assert not yt.has_chapters()
+    switch("chaptered")  # cached: chapters again at once
+    assert yt.has_chapters()
+
+
 def test_unknown_command_raises(yt):
     with pytest.raises(ValueError):
         yt.command("explode")

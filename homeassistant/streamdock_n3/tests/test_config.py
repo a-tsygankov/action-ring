@@ -38,7 +38,7 @@ KNOWN_ENTITIES = {
     "script.tv_room_power_toggle",
 }
 CONTEXT_LAYOUTS = ("idle", "streaming", "youtube", "lg_media", "lg_app", "live_game")
-NAMED_CONDITIONS = {"youtube", "youtube_playing", "youtube_subtitles", "soccer_live"}
+NAMED_CONDITIONS = {"youtube", "youtube_playing", "youtube_subtitles", "youtube_chapters", "soccer_live"}
 # (device, app) per launch key, from the Global Constraints bundle ids.
 LAUNCH_IDS = {
     ("apps", "1"): ("atv", "com.netflix.Netflix"),
