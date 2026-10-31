@@ -107,6 +107,18 @@ class Screen(EventListener):
         self.in_ad = event.ad_state == State.Advertisement or self.in_ad
 
 
+def _log_raw_events() -> None:
+    """Diagnostics ("debug_events": true): log every Lounge event but noop."""
+    original = YtLoungeApi._process_event
+
+    async def process(self, event_type, args):
+        if event_type != "noop":
+            log(f"event {event_type} {json.dumps(args, default=str)[:300]}")
+        await original(self, event_type, args)
+
+    YtLoungeApi._process_event = process
+
+
 COMMANDS = ("next", "previous", "play_pause", "subtitles", "forward")
 FORWARD_SECONDS = 10
 
@@ -126,6 +138,8 @@ class YouTubeScreens:
             name: Screen(name, spec.get("match", []), self._prefetch, self._notify)
             for name, spec in cfg.get("screens", {}).items()
         }
+        if cfg.get("debug_events"):
+            _log_raw_events()
         self._loop = asyncio.new_event_loop()
         threading.Thread(target=self._loop.run_forever, daemon=True, name="youtube").start()
         for screen in self.screens.values():

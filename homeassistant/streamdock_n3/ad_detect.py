@@ -54,6 +54,8 @@ class AdDetector:
         self.speaker: str = cfg["speaker"]  # media_player to mute (the Arc)
         self.source: str | None = cfg.get("source", "TV")  # only mute this source
         self.player: str | None = cfg.get("media_player")  # Apple TV, for app checks
+        self.lg: str | None = cfg.get("lg")  # TV; with atv_source, only mute on that input
+        self.atv_source: str | None = cfg.get("atv_source")
         self._call = call
         self._state_of = state_of
         self._lock = threading.Lock()
@@ -139,6 +141,8 @@ class AdDetector:
             if on:
                 if muted or (self.source and attrs.get("source") != self.source):
                     return  # already muted (by the user), or not TV audio
+                if self.lg and self.atv_source and                         (self._state_of(self.lg) or {}).get("a", {}).get("source") != self.atv_source:
+                    return  # the TV shows another input (PS5): its sound isn't the ad
                 self._call("media_player", "volume_mute",
                            {"entity_id": self.speaker, "is_volume_muted": True})
                 self.muted_by_us = True

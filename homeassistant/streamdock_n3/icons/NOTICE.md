@@ -12,7 +12,7 @@ SVG cache (`homeassistant/tools/icons/out/`) is not committed.
 |---|---|---|---|---|
 | `material-symbols` | Material Symbols | Google | Apache-2.0 (https://github.com/google/material-design-icons/blob/master/LICENSE) | playback, tracks, navigation, TV/Sonos glyphs |
 | `mdi` | Material Design Icons | Pictogrammers | Apache-2.0 (https://github.com/Templarian/MaterialDesign/blob/master/LICENSE) | `mdi:soccer`, `mdi:folder-play` |
-| `simple-icons` | Simple Icons 16.35.0 | Simple Icons Collaborators | CC0-1.0 (https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md) | Apple TV, Paramount+, Tubi marks |
+| `simple-icons` | Simple Icons 16.35.0 | Simple Icons Collaborators | CC0-1.0 (https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md) | Apple TV, Paramount+, Tubi, PS5 marks |
 | `logos` | SVG Logos | Gil Barbara | CC0-1.0 (https://github.com/gilbarbara/logos) | Netflix, YouTube marks |
 | `selfhst` | selfh.st/icons | selfh.st | **CC BY 4.0** (https://github.com/selfhst/icons/blob/main/LICENSE), attribution required | Prime Video, HBO Max, Hulu, Disney+ marks |
 | `thesvg-color` | theSVG Color | thesvg.org | MIT as declared (https://github.com/glincker/thesvg/blob/main/LICENSE) | Pluto TV tile |
@@ -30,7 +30,7 @@ Hulu and Prime Video from its set, so those are taken from selfh.st.
 ## Trademarks
 
 Netflix, YouTube, Prime Video, Apple TV, HBO Max, Hulu, Disney+, Paramount+,
-Pluto TV, Tubi, LG and webOS are trademarks of their respective owners. They
+Pluto TV, Tubi, PlayStation/PS5, LG and webOS are trademarks of their respective owners. They
 appear only to identify the app or input that a key opens in a personal
 controller. This project is not affiliated with, sponsored by or endorsed by
 any of them. A copyright licence on an SVG (CC0, MIT, Apache, CC BY) does not

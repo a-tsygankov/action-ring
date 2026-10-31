@@ -101,6 +101,12 @@ def test_every_context_layout_has_a_page():
         assert f"context:{layout}" in PAGES
 
 
+def test_every_logo_icon_exists():
+    logo = TABS["logo"]
+    for icon in [logo["default"], *logo["sources"].values(), *logo["apps"].values()]:
+        assert (APP_DIR / "icons" / f"{icon}.png").is_file(), icon
+
+
 def test_every_icon_exists():
     for page, key, spec in key_specs():
         for part in looks(spec):
@@ -205,3 +211,9 @@ def test_soccer_keys():
 def test_every_soccer_action_is_known():
     soccer = [a["soccer"] for a in all_actions() if isinstance(a, dict) and "soccer" in a]
     assert set(soccer) == {"next", "start"}  # "start" sits on the context page and on apps_more
+
+
+def test_dockerfile_copies_every_module():
+    copied = " ".join(l for l in (APP_DIR / "Dockerfile").read_text().splitlines() if l.startswith("COPY"))
+    for module in APP_DIR.glob("*.py"):
+        assert module.name in copied, f"{module.name} missing from the Dockerfile COPY lines"

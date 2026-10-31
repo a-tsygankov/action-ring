@@ -4,6 +4,8 @@
   "ad_detect": {
     "speaker": "media_player.tv_room_tv_room",
     "media_player": "media_player.vugitv_4k_vugitv_4k",
+    "lg": "media_player.lg_tv_2",
+    "atv_source": "Apple OTT",
     "apps": ["tv.pluto.ios"]
   },
   "now_playing_log": { "entities": ["media_player.vugitv_4k_vugitv_4k"] },
@@ -57,7 +59,17 @@
       "atv_source": "Apple OTT",
       "youtube_apps": { "atv": ["com.google.ios.youtube"], "lg": ["youtube.leanback.v4"] },
       "lg_media_apps": ["com.webos.app.mediadiscovery"],
-      "lg_idle_app_prefixes": ["com.webos.app.hdmi", "com.webos.app.livetv", "com.webos.app.home"]
+      "lg_idle_app_prefixes": ["com.webos.app.hdmi", "com.webos.app.livetv", "com.webos.app.home"],
+      "content_apps": ["com.apple.TVWatchList"],
+      "min_play_s": 10
+    },
+    "logo": {
+      "key": 6,
+      "show_s": 2,
+      "every_s": [10, 15],
+      "default": "apple_tv_app",
+      "sources": { "PS5 Game Console": "ps5" },
+      "apps": { "youtube.leanback.v4": "youtube" }
     },
     "launch": {
       "lg": "media_player.lg_tv_2",

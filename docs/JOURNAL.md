@@ -429,6 +429,81 @@ script cannot.
 - Confirmed on the TV: idle after a scrub jumps and plays; pressing the knob
   commits once with no extra pause.
 
+### 2026-10-27 — LG Media Player: what controls subtitles, audio and seeking (in progress)
+
+Wanted on the `context:lg_media` page: knob scrubbing, subtitles on/off/next
+and audio track next. Live probes (`tools/probes/lg_media_*.json`, each step
+announced by a TV toast via `system.notifications/createToast`):
+- `com.webos.media/getForegroundAppInfo` gives a **real mediaId** for the
+  playing file (`_09ezunCbjac3Nd`; it changes per playback), unlike the `_`
+  seen on webOS 7.
+- Luna calls by mediaId via the createAlert hack (`seek`,
+  `setSubtitleEnable`, `selectTrack` text/audio; alert confirmed with
+  ENTER) changed nothing on screen. Direct `com.webos.media/setSubtitleEnable`
+  is 404. `settings/getSystemSettings` caption read fails (500).
+- Buttons: `CC` opens the "Internal Subtitle" panel (Subtitle switch
+  focused; Track, Code Page, Sync, Position, Size); a second `CC` does not
+  close it. `SAP` does nothing. `QMENU` opens the TV's own quick menu.
+  **`BACK` with no menu open quits playback** - never send it blind.
+- Audio track lives in the playback bar: bottom row `SUB`, replay, rewind,
+  repeat, fast-forward, 360, `⋯` -> Options (Resume Play, Play Speed, Audio
+  Track, progress bar) -> Audio Track list (radio buttons).
+- Not yet known: whether RIGHT/LEFT or `FASTFORWARD` seek (for the knob), and
+  the exact presses from playback to `⋯`. Next session: one button at a
+  time with the user watching, then encode the sequences as key actions and
+  give the lg_media page its own knob actions.
+
+### 2026-10-27 — Dock back without device access: the app restarts itself
+
+- The dock dropped off USB again (1:11 → 1:12) and came back, but the new
+  nodes were not granted to the container: `hidraw nodes are not readable`,
+  `event0: Operation not permitted`, and the dock showed its built-in images.
+  `ha apps restart` fixed it (as on 10-25).
+- `run.sh` now opens the dock's hidraw (read-write) and input nodes before
+  each daemon start; still blocked after ~10 s, it exits 1 and the
+  Supervisor watchdog (on for this app) restarts the app in a fresh
+  container. Pitfall found while testing: a failed redirect on `:` exits a
+  POSIX shell, so the open runs in a subshell.
+- Tested: in the Terminal & SSH container, which has the nodes but no
+  device access, the check reports all three nodes; the app's own start
+  passes it (0.5.0-14). The watchdog restart itself has not been seen yet.
+
+### 2026-10-27 — Context pages follow what is on screen; service logo; PS5 keeps its sound
+
+- **The Apple TV reports its now-playing app, not the foreground app.**
+  After leaving a paused YouTube video, HA's `app_id` stayed YouTube (paused)
+  while the TV app was open, so the dock showed the YouTube page. A capture
+  (YouTube pause → TV app → Home → YouTube) showed no signal at all: HA,
+  raw MRP (now also logging client lifecycle messages: `update_client`,
+  `default_supported_commands`, ...) and Companion are silent on app
+  switches. When another app plays something (a menu preview, a TV-app
+  trailer) and stops, the Apple TV falls back to reporting the paused app.
+- Rule (`context.AtvApp`, `tabs.context.min_play_s` 10): an Apple TV app
+  gets its page only after playing 10 s without a break since it became
+  the reported app; a pause keeps it. The TV app (`content_apps`) counts
+  only for real content: `media_content_type` `video` with an id (trailers
+  report no type, hero previews `music`). Verified live: Netflix and Prime
+  menu previews, then the fallback to the paused YouTube, left the dock on
+  the idle page.
+- Still open: YouTube paused, then straight into the TV app with nothing
+  playing there: nothing reports the switch, so the YouTube page stays.
+  `youtube.debug_events` logs raw Lounge events to look for a signal.
+- **Service logo** (`logo.py`, `tabs.logo`): key 6 of a context page shows
+  the logo of what is on screen for 2 s every 10-15 s and keeps its action.
+  App icons come from the apps-page launch keys; the idle page shows the
+  PS5 logo on the `PS5 Game Console` input (`com.webos.app.hdmi3`), else the
+  Apple TV logo. New `icons/ps5.png` (Simple Icons `playstation5`, CC0).
+  Verified on LG Media Player: 18 flashes in 215 s, key 1 followed the LG's
+  playing/paused, Home went back to idle.
+- **PS5 was muted** by the `streaming_pause_mute` automation whenever the
+  Apple TV paused, whatever the LG showed. It and the Pluto ad muting
+  (`ad_detect` `lg` + `atv_source`) now act only on the `Apple OTT` input;
+  the automation also unmutes on an LG input change.
+- The Dockerfile lists modules by name: `logo.py` was missing at first
+  (`ModuleNotFoundError`); `test_dockerfile_copies_every_module` guards it.
+- Builds 0.5.0-12 and 0.5.0-13, deployed with `restore.sh
+  --replace-ha-config` (automation updated).
+
 ### 2026-10-26 — YouTube key 2: next chapter, else +10 s
 
 - The YouTube context page's key 2 shows "next chapter" only while the
@@ -631,6 +706,12 @@ script cannot.
       thresholds) and note which apps support seek vs. fall back to skips.
 - [ ] Preview scrubbing: tune `touch_steps` / `touch_release_after` with use;
       note which apps' players respond to touch scrubbing.
+- [ ] LG Media Player keys: subtitles on/off/next via the `CC` panel,
+      audio track via playback bar `⋯` -> Options -> Audio Track, knob
+      scrubbing (find what seeks). See the 10-27 entry.
+- [ ] YouTube paused, then the TV app with nothing playing: the YouTube
+      page stays (no signal). Check the `youtube: event` lines
+      (`debug_events`, enabled on the Pi only) for one.
 - [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
       chapter there (Apple TV done).
 - [ ] Decide whether to track the HA-created script `netflix_on_apple_tv`

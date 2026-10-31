@@ -4,8 +4,9 @@
     Mute the TV Room Arc while the Apple TV is paused in any app, and unmute
     when it plays again. Mainly for ad breaks that can't be skipped: Tubi
     reports "paused" for a whole break and sometimes never reports its end.
-    Only mutes TV audio (Arc source "TV"), so music on the Arc is never
-    touched. Unmutes on play, app change, Arc source change or after 5 minutes,
+    Only mutes TV audio (Arc source "TV") while the LG shows the Apple TV
+    input, so music on the Arc and other inputs (PS5) are never touched.
+    Unmutes on play, app change, Arc or LG source change or after 5 minutes,
     and only undoes its own mute: skipped if already muted, backs off if unmuted
     by hand. Some apps report a pause as "idle" (Netflix); those are listed in
     idle_pause_apps. Apps in excluded_apps are skipped: Pluto TV reports a false
@@ -34,6 +35,10 @@
       attribute: source
       state: TV
     - condition: state
+      entity_id: media_player.lg_tv_2
+      attribute: source
+      state: Apple OTT
+    - condition: state
       entity_id: media_player.tv_room_tv_room
       attribute: is_volume_muted
       state: false
@@ -56,6 +61,9 @@
           to: false
         - trigger: state
           entity_id: media_player.tv_room_tv_room
+          attribute: source
+        - trigger: state
+          entity_id: media_player.lg_tv_2
           attribute: source
       timeout: "00:05:00"
     - if:

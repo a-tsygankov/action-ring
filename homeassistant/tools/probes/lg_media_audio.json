@@ -1,0 +1,305 @@
+{
+ "note": "LG Media Player audio-track buttons; toasts announce each step.",
+ "steps": [
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "BACK"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 1: SAP (audio menu or next track?)"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "SAP"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 2: SAP again"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "SAP"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 3: ENTER"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "ENTER"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 4: DOWN, ENTER"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "DOWN"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "ENTER"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 5: BACK, BACK"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "BACK"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "BACK"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 4
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 6: AD"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "AD"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 7: BACK"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "BACK"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 3
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 8: TEXTOPTION"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "TEXTOPTION"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 9: BACK"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "BACK"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 3
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 10: QMENU"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "QMENU"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "webos",
+   "entity_id": "media_player.lg_tv_2",
+   "command": "system.notifications/createToast",
+   "payload": {
+    "message": "Probe 11: BACK"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 2
+  },
+  {
+   "kind": "ha",
+   "service": "webostv.button",
+   "data": {
+    "entity_id": "media_player.lg_tv_2",
+    "button": "BACK"
+   }
+  },
+  {
+   "kind": "wait",
+   "s": 3
+  }
+ ]
+}

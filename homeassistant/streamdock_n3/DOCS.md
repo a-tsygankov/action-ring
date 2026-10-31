@@ -156,7 +156,10 @@ before):
                "atv_source": "Apple OTT",
                "youtube_apps": { "atv": ["com.google.ios.youtube"], "lg": ["youtube.leanback.v4"] },
                "lg_media_apps": ["com.webos.app.mediadiscovery"],
-               "lg_idle_app_prefixes": ["com.webos.app.hdmi", "com.webos.app.livetv", "com.webos.app.home"] },
+               "lg_idle_app_prefixes": ["com.webos.app.hdmi", "com.webos.app.livetv", "com.webos.app.home"],
+               "content_apps": ["com.apple.TVWatchList"], "min_play_s": 10 },
+  "logo": { "key": 6, "show_s": 2, "every_s": [10, 15], "default": "apple_tv_app",
+            "sources": { "PS5 Game Console": "ps5" }, "apps": { "youtube.leanback.v4": "youtube" } },
   "launch": { "lg": "media_player.lg_tv_2", "atv": "media_player.vugitv_4k_vugitv_4k",
               "atv_remote": "remote.vugitv_4k_vugitv_4k", "atv_source": "Apple OTT",
               "power_on_wait": 25 },
@@ -176,6 +179,20 @@ before):
   streaming, no app → idle); on the LG itself, YouTube, the media player or
   any other app. A new layout is drawn after it has held for
   `context_debounce` seconds.
+- **Which Apple TV app counts.** The Apple TV reports its now-playing app,
+  not the one on screen: after you leave a paused video it keeps reporting
+  that app while you browse elsewhere, and menus autoplay previews. So an
+  app gets its page only after playing `min_play_s` seconds without a break
+  since it became the reported app; a pause keeps the page. Apps in
+  `content_apps` (the TV app) count only for real content
+  (`media_content_type` `video`), never for trailers or previews. Anything
+  else shows the idle page.
+- **Service logo** (`logo`, `logo.py`): on a context page, key `key` shows
+  the logo of what is on screen for `show_s` seconds every `every_s` seconds
+  (a `[min, max]` range picks each gap at random); a press does what the key
+  does on that page. App pages show the app's icon, taken from the launch
+  keys on the pages plus `apps`; the idle page shows the LG input's logo
+  from `sources` (here the PS5), else `default` (the Apple TV).
 - **Temporary pages** (here `apps`, `apps_more`, `sonos`) open from a round
   button. `round` maps a button to its cycle of pages: each press shows the
   next page in the cycle, and after the last one the cycle starts again. A
@@ -364,6 +381,8 @@ PIN on the TV), it has its own media-remote (MRP) session:
   "media_player.vugitv_4k_vugitv_4k", "apps": ["tv.pluto.ios"]}` mutes the
   speaker during detected ad breaks (`ad_detect.py`) and unmutes after,
   undoing only its own mute. Log lines: `ad-detect: HH:MM:SS ad started (…)`.
+  With `"lg"` and `"atv_source"` it mutes only while the TV shows the Apple TV
+  input, so another input (a game console) keeps its sound.
 - `"mrp_raw_log": true` in the `atv` section writes every raw now-playing
   message to `mrp_raw.log` (research; 5 MB cap).
 
@@ -476,6 +495,14 @@ The upstream daemon keeps running with a dead handle after an unplug, so
 `run.sh` watches the dock's USB `busnum:devnum` once a second and restarts the
 daemon when it disappears or re-enumerates. The log shows `waiting for dock`,
 `dock found at usb ...` and `dock disconnected or re-enumerated; restarting`.
+
+Sometimes the dock comes back but the Supervisor does not grant its new
+device nodes to the running container (the dock shows its built-in images;
+`Operation not permitted`). Before each start `run.sh` opens the dock's
+hidraw and input nodes; if they stay blocked for ~10 s it logs `dock nodes
+not accessible: ... - restarting the app` and exits with an error, and the
+app's **Watchdog** (keep it on) restarts the app in a fresh container, which
+gets the nodes again.
 
 ## Updating
 

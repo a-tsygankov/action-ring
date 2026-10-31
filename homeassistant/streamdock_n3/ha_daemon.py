@@ -66,7 +66,13 @@ Runs the upstream daemon unchanged and adds:
    live; labels get {soccer_count} and {soccer_pos}; context "live_game"
    applies while a started game's app is in the foreground.
 
-9. Probe tool (probe.py): with the Apple TV connection up, a request written
+9. Service logo (logo.py): a "tabs.logo" section flashes the logo of what is
+   on screen (the app, the PS5 input, else the Apple TV) on key 6 of a
+   context page for 2 s every 10-15 s; the key keeps its action.
+   "tabs.context.content_apps" (the TV app) count only for real content, and
+   an Apple TV app only once seen playing (context.AtvApp).
+
+10. Probe tool (probe.py): with the Apple TV connection up, a request written
    to probe_request.json (homeassistant/tools/probe.sh) runs raw MRP,
    Companion, HA, Lounge and webOS commands and logs each result as
    "probe: …", for the live test session.
@@ -84,9 +90,10 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-from context import foreground_layout
-from keyspec import Look, changed_keys, entities_of, resolve_action, resolve_look
+from context import AtvApp, foreground_layout
+from keyspec import Look, changed_keys, entities_of, icon_path, resolve_action, resolve_look
 from knob_accel import AppleTVKnobs
+from logo import LogoClock, app_icons, logo_for
 from media_actions import launch, next_playing
 from streamdock_n3 import config as configmod
 from streamdock_n3 import daemon, icons, paths
@@ -112,6 +119,13 @@ _np_log: Any = None  # np_log.NowPlayingLog
 _soccer: Any = None  # soccer.LiveSoccer; set in main() with a "soccer" config
 _engine = TabEngine({}, {})  # replaced in main() before the device starts
 _ctx_cfg: dict | None = None  # config "tabs.context"; None = no context detection
+_atv_app: AtvApp | None = None  # with _ctx_cfg; under _ctx_lock
+_ctx_lock = threading.Lock()
+_atv_now: str | None = None  # the Apple TV app that counts; set by the HA thread
+_logo_cfg: dict | None = None  # config "tabs.logo"; None = no logo
+_logo_icons: dict[str, str] = {}  # app id -> icon id
+_logo_clock: LogoClock | None = None  # ticker thread only
+_logo_on = False  # logo phase, set by the ticker, read by the renderer
 _launch_cfg: dict | None = None  # config "tabs.launch"; None = launch actions do nothing
 _core: "CoreAPI | None" = None  # shared REST client for media actions; set in main()
 _wake = threading.Event()  # set by _signal(): the renderer has work
@@ -382,10 +396,24 @@ def _look_for(key: int, keys: dict, label_vars: dict[str, str]) -> Look:
         return ERROR_LOOK
 
 
+def _logo_look() -> tuple[int, Look] | None:
+    """(key, look) while the logo shows on a context page."""
+    if _logo_cfg is None or not _logo_on or _ctx_cfg is None:
+        return None
+    page = _engine.visible
+    if not page.startswith("context:"):
+        return None
+    icon = logo_for(page.split(":", 1)[1], state_of, _ctx_cfg, _logo_cfg, _logo_icons, _atv_now)
+    return (int(_logo_cfg.get("key", 6)), Look(icon_path(icon), "", None)) if icon else None
+
+
 def _render_pass() -> None:
     keys = _engine.keys()  # one snapshot per pass
     label_vars = _vars()
     looks = {k: _look_for(k, keys, label_vars) for k in range(1, 7)}
+    logo = _logo_look()
+    if logo is not None and logo[0] in looks:
+        looks[logo[0]] = logo[1]
     todo = changed_keys(_drawn, looks)
     if not todo:
         return
@@ -414,10 +442,17 @@ def _render() -> None:
 
 
 def _tick() -> None:
+    global _logo_on
     seen = -1
     while True:
         try:
-            _engine.tick(time.monotonic())
+            now = time.monotonic()
+            _engine.tick(now)
+            if _logo_clock is not None and _logo_clock.showing(now) != _logo_on:
+                _logo_on = not _logo_on
+                _signal()
+            if _atv_app is not None and _atv_app.pending:
+                _update_context()  # the play time may have run out
             version = _engine.version  # unlocked read: only a "something changed" hint
             if version != seen:
                 seen = version
@@ -429,9 +464,14 @@ def _tick() -> None:
 
 
 def _update_context() -> None:
-    if _ctx_cfg is not None:
-        layout = foreground_layout(state_of, _ctx_cfg, _watching_game())
-        _engine.set_context(layout, time.monotonic())
+    # HA thread on state changes; ticker while an app's play time runs.
+    global _atv_now
+    with _ctx_lock:
+        if _ctx_cfg is not None:
+            now = time.monotonic()
+            _atv_now = _atv_app.update(state_of, now) if _atv_app is not None else None
+            layout = foreground_layout(state_of, _ctx_cfg, _watching_game(), _atv_now)
+            _engine.set_context(layout, now)
     _signal()
 
 
@@ -487,6 +527,7 @@ def _watch(entities: list[str]) -> None:
 
 def main() -> int:
     global _knobs, _youtube, _np_log, _engine, _ctx_cfg, _launch_cfg, _core, _soccer
+    global _atv_app, _logo_cfg, _logo_icons, _logo_clock
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", type=Path)
     args, _ = parser.parse_known_args()
@@ -498,8 +539,13 @@ def main() -> int:
     }
     if _ctx_cfg is not None:
         entities |= {e for e in (_ctx_cfg.get("lg"), _ctx_cfg.get("atv")) if e}
+        _atv_app = AtvApp(_ctx_cfg)
     _core = CoreAPI()
     tabs_cfg = config.get("tabs")
+    if isinstance(tabs_cfg, dict) and isinstance(tabs_cfg.get("logo"), dict):
+        _logo_cfg = tabs_cfg["logo"]
+        _logo_icons = app_icons(pages, _logo_cfg.get("apps"))
+        _logo_clock = LogoClock(_logo_cfg)
     if isinstance(tabs_cfg, dict) and isinstance(tabs_cfg.get("launch"), dict):
         _launch_cfg = tabs_cfg["launch"]
         entities |= {e for e in (_launch_cfg.get("lg"),) if e}
