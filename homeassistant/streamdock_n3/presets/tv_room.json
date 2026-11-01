@@ -6,7 +6,8 @@
     "media_player": "media_player.vugitv_4k_vugitv_4k",
     "lg": "media_player.lg_tv_2",
     "atv_source": "Apple OTT",
-    "apps": ["tv.pluto.ios"]
+    "apps": ["tv.pluto.ios"],
+    "frozen_apps": ["com.peacocktv.peacock"]
   },
   "now_playing_log": { "entities": ["media_player.vugitv_4k_vugitv_4k"] },
   "youtube": {
