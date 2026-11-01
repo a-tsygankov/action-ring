@@ -22,6 +22,7 @@ ALL_KINDS = [
     {"kind": "webos", "entity_id": "media_player.lg", "command": "com.webos.media/getForegroundAppInfo"},
     {"kind": "wait", "s": 2},
     {"kind": "tap", "path": "/dev/hidraw0", "s": 20},
+    {"kind": "mrp_queue", "location": 0},
     {"kind": "touch", "swipe": [500, 500, 200, 500], "ms": 300},
     {"kind": "touch", "events": [[500, 500, "press"], [400, 500, "hold"], [400, 500, "release"]], "gap_ms": 16},
 ]
@@ -276,7 +277,20 @@ def _fake_atv(protobuf, sent):
     player = SimpleNamespace(identifier="avkit-1", display_name=None, supported_commands=[rate],
                              items=[item], location=0)
     client = SimpleNamespace(bundle_identifier="tv.pluto.ios", supported_commands=[play])
-    mrp = SimpleNamespace(_send_command=send_command, psm=SimpleNamespace(client=client, playing=player))
+    async def send_and_receive(message):
+        from pyatv.protocols.mrp import messages
+
+        sent.append(("queue", protobuf.extract_inner(message).location))
+        reply = messages.create(protobuf.SET_STATE_MESSAGE)
+        state = protobuf.extract_inner(reply)
+        state.playerPath.client.bundleIdentifier = "tv.pluto.ios"
+        state.playerPath.player.identifier = "MediaRemote-DefaultPlayer"
+        md = state.playbackQueue.contentItems.add().metadata
+        md.elapsedTime, md.elapsedTimeTimestamp, md.playbackRate = 1509.0, 814645000.0, 1.0
+        return reply
+
+    mrp = SimpleNamespace(_send_command=send_command, psm=SimpleNamespace(client=client, playing=player),
+                          protocol=SimpleNamespace(send_and_receive=send_and_receive))
     comp = SimpleNamespace(api=SimpleNamespace(mediacontrol_command=mcc, hid_command=hid))
     remotes = {Protocol.MRP: mrp, Protocol.Companion: comp}
     return SimpleNamespace(
@@ -328,6 +342,19 @@ def test_runner_atv_steps(capsys):
     assert snap["client_commands"] == ["Play"]
     assert snap["languages"] == [{"type": 1, "options": ["1:en:English-en-English"]}]
     assert snap["languages_current"] == ["0:en:English [Original]-en-English"]
+
+
+def test_runner_mrp_queue_reports_the_items_timing(capsys):
+    protobuf = pytest.importorskip("pyatv.protocols.mrp.protobuf")
+    sent = []
+    runner = ProbeRunner(FakeTouch(_fake_atv(protobuf, sent)), FakeCall(fail_on=""), None)
+    runner.run_request(json.dumps([{"kind": "mrp_queue", "location": 0}]))
+    line = _probe_lines(capsys)[1]
+    assert sent == [("queue", 0)]
+    assert line.startswith("probe: 1 mrp_queue location 0 -> ok ")
+    out = json.loads(line.split(" -> ok ", 1)[1])
+    assert out["client"] == "tv.pluto.ios" and out["player"] == "MediaRemote-DefaultPlayer"
+    assert out["items"] == [{"elapsedTime": 1509.0, "elapsedTimeTimestamp": 814645000.0, "playbackRate": 1.0}]
 
 
 def test_runner_rejects_unknown_mrp_command(capsys):

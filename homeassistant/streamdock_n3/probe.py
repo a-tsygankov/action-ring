@@ -7,6 +7,9 @@ app log; the user watches the TV and says what it did.
 
 A request is a JSON list of steps, or {"run": <id>, "steps": [...]}:
 
+- {"kind": "mrp_queue", "location": 0}: an MRP playback-queue request (the
+  Apple TV answers with the current item's elapsed time, rate and duration
+  on demand, without waiting for the app to publish); logs the reply.
 - {"kind": "mrp", "command": "<CommandInfo name>", "options": {...}}: a raw
   MRP command (needs the AirPlay pairing). options are CommandOptions fields
   ("playbackRate", "skipInterval", ...); "languageOption" takes
@@ -59,7 +62,7 @@ MAX_WAIT_S = 60
 MAX_HOLD_S = 5
 ATV_TIMEOUT = 10
 RESULT_CHARS = 2000
-KINDS = ("mrp", "companion", "ha", "lounge", "webos", "wait", "touch", "tap", "snapshot")
+KINDS = ("mrp", "mrp_queue", "companion", "ha", "lounge", "webos", "wait", "touch", "tap", "snapshot")
 TOUCH_MODES = ("press", "hold", "release")
 MAX_SWIPE_MS = 10_000
 TAP_PREFIXES = ("/dev/hidraw", "/dev/input/event")
@@ -137,6 +140,10 @@ def _check_step(n: int, step: Any) -> None:
         if lang is not None:
             _check(isinstance(lang, dict) and isinstance(lang.get("type"), int), n,
                    "languageOption needs {\"type\": 0|1, ...}")
+    elif kind == "mrp_queue":
+        _check(_number(step.get("location", 0), -1000, 1000), n, "location must be a number")
+        for key in ("client", "player"):
+            _check(step.get(key) is None or isinstance(step[key], str), n, f"{key} must be a string")
     elif kind == "companion":
         has_mcc, has_hid = isinstance(step.get("mcc"), str), isinstance(step.get("hid"), str)
         _check(has_mcc != has_hid, n, "companion needs exactly one of mcc / hid")
@@ -258,6 +265,8 @@ def _summary(step: dict) -> str:
     if kind == "mrp":
         options = step.get("options") or {}
         return f"{step['command']} {json.dumps(options)}" if options else step["command"]
+    if kind == "mrp_queue":
+        return f"location {step.get('location', 0)}"
     if kind == "companion":
         if "mcc" in step:
             args = step.get("args") or {}
@@ -382,6 +391,57 @@ async def _mrp(atv: Any, step: dict) -> Any:
     await mrp._send_command(CommandInfo_pb2.Command.Value(step["command"]), **options)
 
 
+async def _mrp_queue(atv: Any, step: dict) -> Any:
+    """Ask the Apple TV for the playback queue item at `location` and return
+    the reply's player path, state and the items' timing fields."""
+    from pyatv.const import Protocol
+    from pyatv.protocols.mrp import messages, protobuf
+
+    mrp = atv.remote_control.get(Protocol.MRP)
+    if mrp is None:
+        raise RuntimeError("no MRP session (pair.sh atv airplay)")
+    request = messages.playback_queue_request(int(step.get("location", 0)))
+    req = protobuf.extract_inner(request)
+    req.includeMetadata = bool(step.get("include_metadata", True))
+    req.includeInfo = bool(step.get("include_info", False))
+    if step.get("legacy"):
+        req.isLegacyNowPlayingInfoRequest = True
+    client, player = step.get("client"), step.get("player")
+    if client or player:
+        # Target a specific player (e.g. tv.pluto.ios / MediaRemote-DefaultPlayer);
+        # the origin is copied from the session's last seen now-playing player.
+        known = getattr(getattr(mrp, "psm", None), "playing", None)
+        path = getattr(known, "path", None)
+        if path is not None and path.HasField("origin"):
+            req.playerPath.origin.CopyFrom(path.origin)
+        if client:
+            req.playerPath.client.bundleIdentifier = client
+        if player:
+            req.playerPath.player.identifier = player
+    resp = await mrp.protocol.send_and_receive(request)
+    inner = protobuf.extract_inner(resp)
+    out: dict[str, Any] = {"type": resp.type, "received": time.time()}
+    if step.get("raw"):
+        from google.protobuf.json_format import MessageToDict
+
+        d = MessageToDict(inner, preserving_proto_field_name=True)
+        for k in ("artworkData", "remoteArtworks", "animatedArtworks"):
+            d.pop(k, None)
+        out["raw"] = d
+    if hasattr(inner, "playerPath") and inner.HasField("playerPath"):
+        out["client"] = inner.playerPath.client.bundleIdentifier
+        out["player"] = inner.playerPath.player.identifier
+    if hasattr(inner, "playbackState") and inner.HasField("playbackState"):
+        out["state"] = inner.playbackState
+    items = []
+    queue = getattr(inner, "playbackQueue", None)
+    for item in (queue.contentItems if queue is not None else []):
+        md = item.metadata
+        items.append({k: getattr(md, k) for k in ("elapsedTime", "elapsedTimeTimestamp", "duration", "playbackRate") if md.HasField(k)})
+    out["items"] = items
+    return out
+
+
 async def _companion(atv: Any, step: dict) -> Any:
     from pyatv.const import Protocol
     from pyatv.protocols.companion.api import HidCommand, MediaControlCommand
@@ -492,6 +552,8 @@ class ProbeRunner:
         kind = step["kind"]
         if kind == "mrp":
             return self._atv(lambda atv: _mrp(atv, step))
+        if kind == "mrp_queue":
+            return self._atv(lambda atv: _mrp_queue(atv, step))
         if kind == "companion":
             return self._atv(lambda atv: _companion(atv, step))
         if kind == "touch":

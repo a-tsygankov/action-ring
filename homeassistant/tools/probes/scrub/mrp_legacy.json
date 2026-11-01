@@ -1,0 +1,13 @@
+{
+  "note": "Is the legacy now-playing-info request live? Three rounds 5 s apart: now-playing player, then Pluto's DefaultPlayer.",
+  "steps": [
+    {"kind": "mrp_queue", "location": 0, "legacy": true, "include_info": true},
+    {"kind": "mrp_queue", "location": 0, "legacy": true, "include_info": true, "client": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer"},
+    {"kind": "wait", "s": 5},
+    {"kind": "mrp_queue", "location": 0, "legacy": true, "include_info": true},
+    {"kind": "mrp_queue", "location": 0, "legacy": true, "include_info": true, "client": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer"},
+    {"kind": "wait", "s": 5},
+    {"kind": "mrp_queue", "location": 0, "legacy": true, "include_info": true},
+    {"kind": "mrp_queue", "location": 0, "legacy": true, "include_info": true, "client": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer"}
+  ]
+}
