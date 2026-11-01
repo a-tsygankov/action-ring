@@ -18,7 +18,8 @@ SLUG=local_streamdock_n3
 DIR=/app_configs/$SLUG
 TIMEOUT="${PROBE_TIMEOUT:-120}"
 
-ssh_ha() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$@"; }
+# shellcheck source=../ssh_ha.sh
+. "$(cd "$(dirname "$0")/.." && pwd)/ssh_ha.sh"
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 file=${1:-}

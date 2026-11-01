@@ -4,6 +4,10 @@
 #
 #   homeassistant/restore.sh [--replace-ha-config] [ssh-host]
 #
+# ssh-host: the Terminal & SSH app on Home Assistant OS, or, on Home
+# Assistant Supervised, the host itself as a user with passwordless sudo
+# (ssh_ha.sh).
+#
 # HA scripts/automations from ha-config/ are added when missing. One that
 # exists but differs from the repo is reported and kept (it may have been
 # edited in HA's UI) unless --replace-ha-config is given.
@@ -27,7 +31,8 @@ APP=streamdock_n3
 SLUG=local_streamdock_n3
 STAMP=$(date +%Y%m%d-%H%M%S)
 
-ssh_ha() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$@"; }
+# shellcheck source=ssh_ha.sh
+. "$HERE/ssh_ha.sh"
 step() { printf '\n==> %s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
 
@@ -35,6 +40,10 @@ step "Checking SSH access to $HOST"
 if ! ssh_ha 'ha core info >/dev/null'; then
     echo "Cannot run 'ha' on $HOST over SSH. See docs/JOURNAL.md > Restore > Prerequisites." >&2
     exit 1
+fi
+if [ "$HA_SUDO" = 1 ]; then
+    step "Supervised host: linking the app paths"
+    ha_link_paths
 fi
 
 # --- Entities the mappings depend on -------------------------------------
@@ -145,6 +154,15 @@ ssh_ha "ha store reload >/dev/null
     else
         ha apps rebuild $SLUG
     fi"
+
+step "App watchdog"
+# run.sh exits when the dock comes back without device access; the watchdog
+# restarts the app in a fresh container (off by default on a new install).
+if ha_api_post "/addons/$SLUG/options" '{"watchdog": true}' >/dev/null; then
+    echo "watchdog on"
+else
+    warn "could not turn the watchdog on; turn it on in the app's Info tab"
+fi
 
 step "App config (mappings)"
 ssh_ha "d=/app_configs/$SLUG; mkdir -p \$d
