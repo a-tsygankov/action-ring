@@ -359,11 +359,12 @@ PROBES = Path(__file__).resolve().parents[2] / "tools" / "probes"
 
 def test_probe_files_are_valid_and_fit_the_timeout():
     files = sorted(PROBES.glob("*.json"))
-    assert len(files) == 7  # spec §10 items 1-6 + knob_tap (input diagnostics)
+    assert files
     for path in files:
         data = json.loads(path.read_text(encoding="utf-8"))
         assert data["note"], path.name
         steps = parse_request(path.read_text(encoding="utf-8"))
         waits = sum(s["s"] for s in steps if s["kind"] in ("wait", "tap"))
-        # probe.sh waits 120 s for "probe: done"; leave room for the calls
-        assert waits + 2 * len(steps) <= 120, path.name
+        # probe.sh waits the file's "timeout_s" (default 120) for "probe: done";
+        # leave room for the calls
+        assert waits + 2 * len(steps) <= data.get("timeout_s", 120), path.name

@@ -10,13 +10,13 @@
 # (pair.sh atv; MRP steps also need pair.sh atv airplay).
 #
 # HA_HOST overrides the SSH host (default: homeassistant); PROBE_TIMEOUT the
-# seconds to wait for "probe: done" (default 120).
+# seconds to wait for "probe: done" (default: the file's "timeout_s", else 120).
 set -euo pipefail
 
 HOST="${HA_HOST:-homeassistant}"
 SLUG=local_streamdock_n3
 DIR=/app_configs/$SLUG
-TIMEOUT="${PROBE_TIMEOUT:-120}"
+TIMEOUT="${PROBE_TIMEOUT:-}"
 
 # shellcheck source=../ssh_ha.sh
 . "$(cd "$(dirname "$0")/.." && pwd)/ssh_ha.sh"
@@ -25,6 +25,8 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 file=${1:-}
 [ -n "$file" ] || { sed -n '2,13p' "$0"; exit 2; }
 [ -f "$file" ] || die "no such file: $file"
+[ -n "$TIMEOUT" ] || TIMEOUT=$(grep -o '"timeout_s": *[0-9]*' "$file" | grep -o '[0-9]*$' || true)
+TIMEOUT=${TIMEOUT:-120}
 
 ssh_ha 'ha apps info '"$SLUG"' | grep -q "^state: started"' \
     || die "app $SLUG is not running on $HOST (run homeassistant/restore.sh first)"

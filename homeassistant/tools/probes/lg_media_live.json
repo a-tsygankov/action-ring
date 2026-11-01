@@ -1,5 +1,6 @@
 {
  "note": "LG Media Player, a video from USB playing: each command is announced by a TV toast 'Probe N: ...'. Note what the player did after each one (seek, scan speed, subtitle/audio popup).",
+ "timeout_s": 200,
  "steps": [
   {
    "kind": "snapshot",
