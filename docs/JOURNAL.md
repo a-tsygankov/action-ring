@@ -64,6 +64,14 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
    any that are missing.
 3. Install the **Terminal & SSH** app. In its Configuration, add the PC's key
    (`~/.ssh/id_ed25519_ha.pub`) to `authorized_keys`, save, start.
+   **Home Assistant Supervised** (HA on Ubuntu/Debian, e.g. `arpi`) instead:
+   no app needed. Install the key for a host user (`ssh-copy-id`, or on
+   Windows pipe the `.pub` into `~/.ssh/authorized_keys` over ssh), give that
+   user passwordless sudo (`/etc/sudoers.d/`), and pass the host alias to
+   `restore.sh` (e.g. `restore.sh arpi`). `ssh_ha.sh` detects
+   `/etc/hassio.json`, runs every command under `sudo`, and links
+   `/homeassistant`, `/local_apps`, `/app_configs` into the Supervisor data
+   folder. (The SSH app can't take port 22 there: the host's sshd has it.)
 4. On the PC, if the key or alias is missing:
    ```bash
    ssh-keygen -t ed25519 -N '' -C claude-ha -f ~/.ssh/id_ed25519_ha
@@ -429,6 +437,26 @@ script cannot.
 - Confirmed on the TV: idle after a scrub jumps and plays; pressing the knob
   commits once with no extra pause.
 
+### 2026-11-01 — Restore onto a second Pi running HA Supervised (`arpi`)
+
+- `arpi` (192.168.1.144, `ssh arpi` as andrey): Raspberry Pi 4, Ubuntu
+  22.04, **Home Assistant Supervised** 2026.10.4 (Supervisor, OS Agent, `ha`
+  CLI as `docker exec hassio_cli`). Data folder `/var/lib/homeassistant`
+  (`/etc/hassio.json`). Host sshd: `PermitRootLogin no`.
+- `restore.sh`, `pair.sh` and `tools/probe.sh` now share `ssh_ha.sh`: on a
+  Supervised host (detected by `/etc/hassio.json`) commands run under
+  `sudo -n sh -c` as a user with passwordless sudo, and the app paths are
+  symlinked into the data folder, so nothing else in the scripts changed.
+  Tested on both hosts (root on each, quoting intact).
+- New restore step: the app's **watchdog** is turned on through the
+  Supervisor API (`ha_api_post`; the CLI has no option for it). A fresh
+  install had it off, which would have disabled the dock self-restart.
+- `restore.sh arpi`: scripts and the automation added (core restarted), app
+  0.5.0-14 built and started, waiting for the dock. Missing on arpi:
+  `media_player.lg_tv_2`, `media_player.vugitv_4k_vugitv_4k`,
+  `remote.vugitv_4k_vugitv_4k` (pair LG webOS and Apple TV there), Apple TV
+  touch/AirPlay pairing and YouTube links (`HA_HOST=arpi pair.sh ...`).
+
 ### 2026-10-27 — LG Media Player: what controls subtitles, audio and seeking (in progress)
 
 Wanted on the `context:lg_media` page: knob scrubbing, subtitles on/off/next
@@ -706,6 +734,9 @@ announced by a TV toast via `system.notifications/createToast`):
       thresholds) and note which apps support seek vs. fall back to skips.
 - [ ] Preview scrubbing: tune `touch_steps` / `touch_release_after` with use;
       note which apps' players respond to touch scrubbing.
+- [ ] `arpi`: pair LG webOS and Apple TV in its HA, then `HA_HOST=arpi
+      bash homeassistant/pair.sh atv` / `youtube atv|lg`; move the dock and
+      stop the old Pi's app (two HAs would both act on the TV).
 - [ ] LG Media Player keys: subtitles on/off/next via the `CC` panel,
       audio track via playback bar `⋯` -> Options -> Audio Track, knob
       scrubbing (find what seeks). See the 10-27 entry.
