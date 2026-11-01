@@ -1,4 +1,4 @@
-"""Static checks of the shipped TV Room config (config.tv_room.json).
+"""Static checks of the shipped TV Room config (presets/tv_room.json).
 
 The config is data the daemon only validates at run time, on the device; these
 tests catch a typo'd icon id, entity, bundle id or button route on the PC.
@@ -13,7 +13,7 @@ from pathlib import Path
 from keyspec import ICON_DIR, entities_of, icon_path
 
 APP_DIR = Path(__file__).resolve().parent.parent
-CONFIG = json.loads((APP_DIR / "config.tv_room.json").read_text(encoding="utf-8"))
+CONFIG = json.loads((APP_DIR / "presets" / "tv_room.json").read_text(encoding="utf-8"))
 TABS = CONFIG["tabs"]
 PAGES = TABS["pages"]
 

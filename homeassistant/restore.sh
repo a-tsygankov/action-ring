@@ -53,7 +53,7 @@ step "Checking referenced entities exist"
 # script id (the "entity" of a `when`, next_playing lists, templates).
 # Service names (ha-call media_player.x, action: x) are unquoted and skipped.
 # script.* is skipped: those are created by the next step.
-entities=$(cat "$HERE/$APP/config.tv_room.json" "$HERE"/ha-config/scripts/*.yaml "$HERE"/ha-config/automations/*.yaml \
+entities=$(cat "$HERE/$APP/presets/tv_room.json" "$HERE"/ha-config/scripts/*.yaml "$HERE"/ha-config/automations/*.yaml \
     | grep -oE -e '(entity_id|state_entity|remote|media_player)[\\":[:space:]]+\[?[a-z_]+\.[a-z0-9_]+' \
         -e "[\"'](media_player|switch|remote|script)\.[a-z0-9_]+" \
     | grep -oE '[a-z_]+\.[a-z0-9_]+$' | grep -v '^script\.' | sort -u)
@@ -167,7 +167,7 @@ fi
 step "App config (mappings)"
 ssh_ha "d=/app_configs/$SLUG; mkdir -p \$d
     [ -f \$d/config.json ] && cp \$d/config.json \$d/config.json.bak-$STAMP
-    cat > \$d/config.json" < "$HERE/$APP/config.tv_room.json"
+    cat > \$d/config.json" < "$HERE/$APP/presets/tv_room.json"
 
 step "App icons"
 # Key images referenced as /config/icons/... in the mappings.
@@ -213,7 +213,7 @@ fi
 # --- Apple TV Companion pairing (touch / preview scrubbing) ---------------
 step "Apple TV touch pairing"
 CONF_DIR=/app_configs/$SLUG
-if ! grep -qE '"scrub": *"touch"' "$HERE/$APP/config.tv_room.json"; then
+if ! grep -qE '"scrub": *"touch"' "$HERE/$APP/presets/tv_room.json"; then
     echo "touch scrubbing not enabled in config; skipped"
 elif ssh_ha "test -f $CONF_DIR/atv_companion.json"; then
     echo "already paired"

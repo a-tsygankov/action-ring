@@ -33,7 +33,7 @@ RUN apt-get update \
 # Separate layer so the slow compile above stays cached.
 RUN pip install --no-cache-dir pyytlounge==3.5.0
 
-COPY config.default.json /opt/streamdock/config.default.json
+COPY presets/default.json /opt/streamdock/default.json
 COPY ha-call /usr/local/bin/ha-call
 COPY ha_daemon.py keyspec.py tabs.py context.py media_actions.py soccer.py knob_accel.py atv_touch.py yt_lounge.py yt_chapters.py np_log.py mrp_raw.py ad_detect.py probe.py logo.py /opt/streamdock/
 COPY run.sh /run.sh
