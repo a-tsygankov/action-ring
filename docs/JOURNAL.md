@@ -10,13 +10,13 @@ To restore onto a fresh device, see [Restore](#restore).
 Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Home_Assistant_Developer_Handoff.md)
 (converted from the original `.docx`).
 
-## System state (2026-10-23)
+## System state (2026-11-01)
 
 | Item | Value |
 |---|---|
-| Host | Raspberry Pi 4 (aarch64), `homeassistant.local` |
-| Home Assistant OS / Supervisor / Core | 18.3 / 2026.10.3 / 2026.10.2 |
-| SSH | Terminal & SSH app 10.5.0; from the PC: `ssh homeassistant` |
+| Host | `arpi`, 192.168.1.144: Raspberry Pi 4 (aarch64), Ubuntu 22.04 (since 2026-11-01; the old HAOS Pi `homeassistant.local` is powered off) |
+| Home Assistant | Supervised, Core 2026.10.4; data folder `/var/lib/homeassistant` |
+| SSH | Host sshd as `andrey` (passwordless sudo); from the PC: `ssh homeassistant` (= `ssh arpi`). Scripts go through `homeassistant/ssh_ha.sh` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
 | Dock software | Local app `local_streamdock_n3` v0.4.0-21, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
 | HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle`, `automation.streaming_pause_mute` |
@@ -746,11 +746,11 @@ announced by a TV toast via `system.notifications/createToast`):
       thresholds) and note which apps support seek vs. fall back to skips.
 - [ ] Preview scrubbing: tune `touch_steps` / `touch_release_after` with use;
       note which apps' players respond to touch scrubbing.
-- [ ] `arpi` drives the dock (11-01): LG webOS + Apple TV paired, Apple TV
-      touch paired and connected, YouTube linked on the Apple TV. Left:
-      `pair.sh atv airplay` (Pluto ad muting needs it), `pair.sh youtube lg`,
-      stop the old Pi's app and one of the two `streaming_pause_mute`
-      automations (both HAs run it on the same Arc).
+- [ ] `arpi` is live (11-01): integrations, Apple TV touch + AirPlay,
+      YouTube (Apple TV) all paired; old Pi powered off. Left: `pair.sh
+      youtube lg` if the LG's YouTube app is used; if the old Pi comes back,
+      stop its app (boot auto) and its `streaming_pause_mute`; re-point the
+      HA MCP server for Claude to arpi (needs a new long-lived token).
 - [ ] LG Media Player keys: subtitles on/off/next via the `CC` panel,
       audio track via playback bar `⋯` -> Options -> Audio Track, knob
       scrubbing (find what seeks). See the 10-27 entry.
