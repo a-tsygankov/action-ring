@@ -109,13 +109,50 @@ Idempotent. Steps:
    unless you pass `--replace-ha-config`.
 3. Uploads and builds the app, patching in the dock's by-id link found on
    the target.
-4. Deploys the mappings and icons, backing up any existing `config.json`.
-5. Restarts the app and confirms the controller is running.
-6. Pairs the Apple TV via `pair.sh atv` if needed (prompts for the PIN),
+4. Turns the app's watchdog on (Supervisor API); the dock self-restart
+   needs it.
+5. Deploys the mappings and icons, backing up any existing `config.json`.
+6. Restarts the app (retrying while the Supervisor is busy) and confirms the
+   controller is running.
+7. Pairs the Apple TV via `pair.sh atv` if needed (prompts for the PIN),
    then prints `pair.sh status`.
 
 Link YouTube apps afterwards with `bash homeassistant/pair.sh youtube <screen>`.
 Verified against the live Pi.
+
+### Hiccups seen on a real restore (arpi, 2026-11-01)
+
+The first restore onto a fresh machine (HA Supervised on Ubuntu) found
+these; all but the manual ones are now handled by the scripts:
+
+- **Not HAOS.** The scripts assumed the Terminal & SSH app (root, `ha`,
+  `/homeassistant`...). On Supervised the app can't take port 22 (the
+  host's sshd has it) and the host refuses root logins. Fix: log in as a
+  host user with passwordless sudo; `ssh_ha.sh` detects `/etc/hassio.json`,
+  wraps commands in `sudo` and links the app paths into
+  `/var/lib/homeassistant`.
+- **Watchdog off on a fresh install**, which silently disables the dock
+  self-restart. `restore.sh` now turns it on; the `ha` CLI has no option
+  for it, so it goes through the Supervisor API.
+- **Fresh build, newer dependencies:** srptools 2.0.0 broke pyatv 0.18
+  pairing (`SRPClientSession.__init__() takes 2 positional arguments`). The
+  live Pi never saw it (cached image). Pinned `srptools==1.0.1`. A fresh
+  build is the real test of a restore.
+- **"Supervisor is not ready"** right after the app update: the start step
+  now retries for a minute.
+- **Pairing needs the dock plugged in:** the app's main program (which
+  pairs the Apple TV and links YouTube) only starts once the dock is there;
+  without it `pair.sh` waits and leaves `atv_pair_request.json` behind
+  (remove it, or it fires when the dock arrives). Move the dock first.
+- **Windows shells:** `ssh-copy-id` doesn't exist (pipe the `.pub` into
+  `~/.ssh/authorized_keys` over ssh), and PowerShell needs
+  `$env:HA_HOST = "arpi"; bash ...` instead of `HA_HOST=arpi bash ...`.
+- **Reading states:** on Supervised the CLI container's token gets 401 from
+  the Core API; read the recorder DB (`home-assistant_v2.db`) with the
+  host's `python3` instead.
+- **Names:** `homeassistant.local` vanished with the old Pi; the
+  `homeassistant` SSH alias now points at arpi by IP, so the scripts need
+  no `HA_HOST`.
 
 Alternative for a like-for-like replacement: a full HA backup
 (**Settings → System → Backups**) also carries integration pairings, which the
