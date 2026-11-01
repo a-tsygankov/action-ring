@@ -28,7 +28,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Path | Purpose |
 |---|---|
 | `homeassistant/streamdock_n3/` | The HA app (Dockerfile, `config.yaml`, `run.sh` watchdog, `ha_daemon.py` live key state + HA calls, `knob_accel.py` Apple TV knob engine, `atv_touch.py` Companion touch connection, `yt_lounge.py` + `yt_chapters.py` YouTube link and chapters, `np_log.py` now-playing log, `ha-call`, `patch_ids.py`, `DOCS.md`) |
-| `homeassistant/streamdock_n3/config.tv_room.json` | Live dock mappings (source of truth) |
+| `homeassistant/streamdock_n3/presets/tv_room.json` | Live dock mappings (source of truth) |
 | `homeassistant/streamdock_n3/icons/` | Key images, deployed to `/app_configs/local_streamdock_n3/icons/` (`/config/icons/` in the app) |
 | `homeassistant/ha-config/scripts/*.yaml` | HA scripts, one top-level key per file |
 | `homeassistant/ha-config/automations/*.yaml` | HA automations, one `- id:` entry per file |
@@ -776,6 +776,18 @@ announced by a TV toast via `system.notifications/createToast`):
 - Not in `restore.sh`: the integration and the token are manual steps
   (Restore → Prerequisites, step 6), because the token belongs to a user and
   must not be in the repo.
+
+### 2026-11-01 — Presets out of the Supervisor's manifest scan
+
+- The Supervisor finds app manifests with `**/config.*` (`.json`, `.yaml`,
+  `.yml`), recursively, so the shipped presets `config.default.json` and
+  `config.tv_room.json` were read as manifests on every store reload and
+  logged `Can't read …/config.tv_room.json: Invalid app config!`.
+- They are now `presets/default.json` and `presets/tv_room.json` (DisplayPad:
+  `presets/default.json`). The live config is still `/config/config.json`;
+  `run.sh` seeds it from `/opt/<app>/default.json` on first start only, so
+  existing configs are untouched. `restore.sh` replaces the app folder on
+  upload, which removes the old files from `/local_apps/`.
 
 ## Open items
 

@@ -2,7 +2,7 @@
 # Config lives in the app's addon_config share, editable from the HA
 # File editor / Samba as /addon_configs/local_streamdock_n3/config.json.
 CONFIG=/config/config.json
-[ -f "$CONFIG" ] || cp /opt/streamdock/config.default.json "$CONFIG"
+[ -f "$CONFIG" ] || cp /opt/streamdock/default.json "$CONFIG"
 
 # Marker for restore.sh: log lines after it belong to this start.
 echo "run.sh started $(date +%s)"

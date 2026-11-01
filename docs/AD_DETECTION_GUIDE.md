@@ -148,7 +148,7 @@ seconds. That's what `stream_quiet` uses to tell them from ads.
   `excluded_apps`, or write a new automation with the same mute rules.
   Deploy with `restore.sh --replace-ha-config`.
 - **Same show-clock pattern as Pluto**: add the bundle to `ad_detect.apps`
-  in `config.tv_room.json` and to the automation's `excluded_apps`. Replay
+  in `presets/tv_room.json` and to the automation's `excluded_apps`. Replay
   first; the thresholds (`stream_quiet`, `heartbeat_timeout`) may need
   per-app values.
 - **A different MRP pattern**: add a detector next to `AdDetector` in

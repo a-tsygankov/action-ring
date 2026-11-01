@@ -509,7 +509,7 @@ gets the nodes again.
 From the repo root on the PC run `bash homeassistant/restore.sh`. It adds any
 missing HA scripts from `ha-config/scripts/`, uploads this folder, then
 installs, updates (after a `version` bump in `config.yaml`) or rebuilds the
-app. It also deploys `config.tv_room.json` and `icons/`, and confirms the
+app. It also deploys `presets/tv_room.json` (as `config.json`) and `icons/`, and confirms the
 controller is running. Changes to `config.json` or icons alone only need an
 app restart. To move to a newer upstream revision, change `STREAMDOCK_REF` in
 the Dockerfile.
