@@ -17,7 +17,7 @@ ssh root@homeassistant.local 'ha store reload && ha apps install local_displaypa
 ## Configuration
 
 `/addon_configs/local_displaypad/config.json` (created from
-`config.default.json` on first start). Keys are numbered 1–12, row by row
+`presets/default.json` on first start). Keys are numbered 1–12, row by row
 from the top left; each maps an `icon` (a PNG in `icons/`) to an Apple TV
 bundle id in `app`. `rotate` turns every icon (degrees, counter-clockwise).
 Restart the app after editing.
