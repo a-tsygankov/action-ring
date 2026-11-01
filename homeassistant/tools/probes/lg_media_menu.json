@@ -1,18 +1,7 @@
 {
- "note": "LG Media Player subtitle-menu navigation; toasts announce each step.",
+ "note": "LG Media Player subtitle-menu navigation; toasts announce each step. Start from plain playback with no menu open (BACK with no menu quits the movie).",
+ "timeout_s": 200,
  "steps": [
-  {
-   "kind": "ha",
-   "service": "webostv.button",
-   "data": {
-    "entity_id": "media_player.lg_tv_2",
-    "button": "BACK"
-   }
-  },
-  {
-   "kind": "wait",
-   "s": 2
-  },
   {
    "kind": "webos",
    "entity_id": "media_player.lg_tv_2",

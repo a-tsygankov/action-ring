@@ -21,7 +21,8 @@ HOST="${HA_HOST:-homeassistant}"
 SLUG=local_streamdock_n3
 DIR=/app_configs/$SLUG
 
-ssh_ha() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$@"; }
+# shellcheck source=ssh_ha.sh
+. "$(cd "$(dirname "$0")" && pwd)/ssh_ha.sh"
 die() { echo "ERROR: $*" >&2; exit 1; }
 mtime() { ssh_ha "stat -c %Y $1 2>/dev/null || echo 0"; }
 last_log() { ssh_ha "ha apps logs $SLUG --lines 1000 2>&1 | grep '$1' | tail -${2:-1}"; }

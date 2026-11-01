@@ -4,6 +4,10 @@
 #
 #   homeassistant/restore.sh [--replace-ha-config] [ssh-host]
 #
+# ssh-host: the Terminal & SSH app on Home Assistant OS, or, on Home
+# Assistant Supervised, the host itself as a user with passwordless sudo
+# (ssh_ha.sh).
+#
 # HA scripts/automations from ha-config/ are added when missing. One that
 # exists but differs from the repo is reported and kept (it may have been
 # edited in HA's UI) unless --replace-ha-config is given.
@@ -27,7 +31,8 @@ APP=streamdock_n3
 SLUG=local_streamdock_n3
 STAMP=$(date +%Y%m%d-%H%M%S)
 
-ssh_ha() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$@"; }
+# shellcheck source=ssh_ha.sh
+. "$HERE/ssh_ha.sh"
 step() { printf '\n==> %s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
 
@@ -35,6 +40,10 @@ step "Checking SSH access to $HOST"
 if ! ssh_ha 'ha core info >/dev/null'; then
     echo "Cannot run 'ha' on $HOST over SSH. See docs/JOURNAL.md > Restore > Prerequisites." >&2
     exit 1
+fi
+if [ "$HA_SUDO" = 1 ]; then
+    step "Supervised host: linking the app paths"
+    ha_link_paths
 fi
 
 # --- Entities the mappings depend on -------------------------------------
@@ -146,6 +155,15 @@ ssh_ha "ha store reload >/dev/null
         ha apps rebuild $SLUG
     fi"
 
+step "App watchdog"
+# run.sh exits when the dock comes back without device access; the watchdog
+# restarts the app in a fresh container (off by default on a new install).
+if ha_api_post "/addons/$SLUG/options" '{"watchdog": true}' >/dev/null; then
+    echo "watchdog on"
+else
+    warn "could not turn the watchdog on; turn it on in the app's Info tab"
+fi
+
 step "App config (mappings)"
 ssh_ha "d=/app_configs/$SLUG; mkdir -p \$d
     [ -f \$d/config.json ] && cp \$d/config.json \$d/config.json.bak-$STAMP
@@ -158,7 +176,13 @@ ssh_ha "ls /app_configs/$SLUG/icons"
 
 step "Starting app"
 t0=$(ssh_ha 'date +%s')
-ssh_ha "ha apps restart $SLUG >/dev/null 2>&1 || ha apps start $SLUG"
+# Right after an install/update the Supervisor may still be busy ("not ready
+# to perform this operation"): retry for up to a minute.
+ssh_ha "for i in 1 2 3 4 5 6; do
+        ha apps restart $SLUG >/dev/null 2>&1 || ha apps start $SLUG >/dev/null 2>&1 && exit 0
+        sleep 10
+    done
+    ha apps start $SLUG"
 # Only judge log lines after this start's "run.sh started <epoch>" marker;
 # older runs and button presses would otherwise mask the result.
 since_start() {

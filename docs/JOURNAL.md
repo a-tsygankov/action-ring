@@ -10,18 +10,18 @@ To restore onto a fresh device, see [Restore](#restore).
 Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Home_Assistant_Developer_Handoff.md)
 (converted from the original `.docx`).
 
-## System state (2026-10-23)
+## System state (2026-11-01)
 
 | Item | Value |
 |---|---|
-| Host | Raspberry Pi 4 (aarch64), `homeassistant.local` |
-| Home Assistant OS / Supervisor / Core | 18.3 / 2026.10.3 / 2026.10.2 |
-| SSH | Terminal & SSH app 10.5.0; from the PC: `ssh homeassistant` |
+| Host | `arpi`, 192.168.1.144: Raspberry Pi 4 (aarch64), Ubuntu 22.04 (since 2026-11-01; the old HAOS Pi `homeassistant.local` is powered off) |
+| Home Assistant | Supervised, Core 2026.10.4; data folder `/var/lib/homeassistant` |
+| SSH | Host sshd as `andrey` (passwordless sudo); from the PC: `ssh homeassistant` (= `ssh arpi`). Scripts go through `homeassistant/ssh_ha.sh` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
 | Dock software | Local app `local_streamdock_n3` v0.4.0-21, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
 | HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle`, `automation.streaming_pause_mute` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
-| MCP for Claude | HA **Model Context Protocol Server** integration (all LLM APIs, admin only) at `http://homeassistant.local/api/mcp` (HA is on port 80); registered in Claude Code at user scope as `home-assistant` |
+| MCP for Claude | None since 2026-11-01 (the `home-assistant` server pointed at the old Pi and was removed). Re-add per Restore > Prerequisites 6 with a token from arpi if wanted |
 
 ### Repo layout
 
@@ -64,6 +64,14 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
    any that are missing.
 3. Install the **Terminal & SSH** app. In its Configuration, add the PC's key
    (`~/.ssh/id_ed25519_ha.pub`) to `authorized_keys`, save, start.
+   **Home Assistant Supervised** (HA on Ubuntu/Debian, e.g. `arpi`) instead:
+   no app needed. Install the key for a host user (`ssh-copy-id`, or on
+   Windows pipe the `.pub` into `~/.ssh/authorized_keys` over ssh), give that
+   user passwordless sudo (`/etc/sudoers.d/`), and pass the host alias to
+   `restore.sh` (e.g. `restore.sh arpi`). `ssh_ha.sh` detects
+   `/etc/hassio.json`, runs every command under `sudo`, and links
+   `/homeassistant`, `/local_apps`, `/app_configs` into the Supervisor data
+   folder. (The SSH app can't take port 22 there: the host's sshd has it.)
 4. On the PC, if the key or alias is missing:
    ```bash
    ssh-keygen -t ed25519 -N '' -C claude-ha -f ~/.ssh/id_ed25519_ha
@@ -101,13 +109,50 @@ Idempotent. Steps:
    unless you pass `--replace-ha-config`.
 3. Uploads and builds the app, patching in the dock's by-id link found on
    the target.
-4. Deploys the mappings and icons, backing up any existing `config.json`.
-5. Restarts the app and confirms the controller is running.
-6. Pairs the Apple TV via `pair.sh atv` if needed (prompts for the PIN),
+4. Turns the app's watchdog on (Supervisor API); the dock self-restart
+   needs it.
+5. Deploys the mappings and icons, backing up any existing `config.json`.
+6. Restarts the app (retrying while the Supervisor is busy) and confirms the
+   controller is running.
+7. Pairs the Apple TV via `pair.sh atv` if needed (prompts for the PIN),
    then prints `pair.sh status`.
 
 Link YouTube apps afterwards with `bash homeassistant/pair.sh youtube <screen>`.
 Verified against the live Pi.
+
+### Hiccups seen on a real restore (arpi, 2026-11-01)
+
+The first restore onto a fresh machine (HA Supervised on Ubuntu) found
+these; all but the manual ones are now handled by the scripts:
+
+- **Not HAOS.** The scripts assumed the Terminal & SSH app (root, `ha`,
+  `/homeassistant`...). On Supervised the app can't take port 22 (the
+  host's sshd has it) and the host refuses root logins. Fix: log in as a
+  host user with passwordless sudo; `ssh_ha.sh` detects `/etc/hassio.json`,
+  wraps commands in `sudo` and links the app paths into
+  `/var/lib/homeassistant`.
+- **Watchdog off on a fresh install**, which silently disables the dock
+  self-restart. `restore.sh` now turns it on; the `ha` CLI has no option
+  for it, so it goes through the Supervisor API.
+- **Fresh build, newer dependencies:** srptools 2.0.0 broke pyatv 0.18
+  pairing (`SRPClientSession.__init__() takes 2 positional arguments`). The
+  live Pi never saw it (cached image). Pinned `srptools==1.0.1`. A fresh
+  build is the real test of a restore.
+- **"Supervisor is not ready"** right after the app update: the start step
+  now retries for a minute.
+- **Pairing needs the dock plugged in:** the app's main program (which
+  pairs the Apple TV and links YouTube) only starts once the dock is there;
+  without it `pair.sh` waits and leaves `atv_pair_request.json` behind
+  (remove it, or it fires when the dock arrives). Move the dock first.
+- **Windows shells:** `ssh-copy-id` doesn't exist (pipe the `.pub` into
+  `~/.ssh/authorized_keys` over ssh), and PowerShell needs
+  `$env:HA_HOST = "arpi"; bash ...` instead of `HA_HOST=arpi bash ...`.
+- **Reading states:** on Supervised the CLI container's token gets 401 from
+  the Core API; read the recorder DB (`home-assistant_v2.db`) with the
+  host's `python3` instead.
+- **Names:** `homeassistant.local` vanished with the old Pi; the
+  `homeassistant` SSH alias now points at arpi by IP, so the scripts need
+  no `HA_HOST`.
 
 Alternative for a like-for-like replacement: a full HA backup
 (**Settings → System → Backups**) also carries integration pairings, which the
@@ -429,6 +474,38 @@ script cannot.
 - Confirmed on the TV: idle after a scrub jumps and plays; pressing the knob
   commits once with no extra pause.
 
+### 2026-11-01 — Restore onto a second Pi running HA Supervised (`arpi`)
+
+- `arpi` (192.168.1.144, `ssh arpi` as andrey): Raspberry Pi 4, Ubuntu
+  22.04, **Home Assistant Supervised** 2026.10.4 (Supervisor, OS Agent, `ha`
+  CLI as `docker exec hassio_cli`). Data folder `/var/lib/homeassistant`
+  (`/etc/hassio.json`). Host sshd: `PermitRootLogin no`.
+- `restore.sh`, `pair.sh` and `tools/probe.sh` now share `ssh_ha.sh`: on a
+  Supervised host (detected by `/etc/hassio.json`) commands run under
+  `sudo -n sh -c` as a user with passwordless sudo, and the app paths are
+  symlinked into the data folder, so nothing else in the scripts changed.
+  Tested on both hosts (root on each, quoting intact).
+- New restore step: the app's **watchdog** is turned on through the
+  Supervisor API (`ha_api_post`; the CLI has no option for it). A fresh
+  install had it off, which would have disabled the dock self-restart.
+- `restore.sh arpi`: scripts and the automation added (core restarted), app
+  0.5.0-14 built and started, waiting for the dock. Missing on arpi:
+  `media_player.lg_tv_2`, `media_player.vugitv_4k_vugitv_4k`,
+  `remote.vugitv_4k_vugitv_4k` (pair LG webOS and Apple TV there), Apple TV
+  touch/AirPlay pairing and YouTube links (`HA_HOST=arpi pair.sh ...`).
+
+### 2026-11-01 — Apple TV pairing broke on a fresh build: srptools 2.0
+
+- `pair.sh atv` on arpi failed: `PairingError: SRPClientSession.__init__()
+  takes 2 positional arguments but 3 were given`. arpi's fresh image had
+  pulled srptools 2.0.0 (pyatv 0.18.0 only pins `srptools>=…`); the old Pi's
+  cached image and this PC have 1.0.1, which works. Dockerfile now pins
+  `srptools==1.0.1`. Build 0.5.0-15.
+- `restore.sh` "Starting app" retries for a minute: right after the update
+  the Supervisor answered "not ready to perform this operation".
+- Lesson: an unpinned transitive dependency can break a restore that the
+  live system (old cached layers) never hits; a fresh build is the real test.
+
 ### 2026-10-27 — LG Media Player: what controls subtitles, audio and seeking (in progress)
 
 Wanted on the `context:lg_media` page: knob scrubbing, subtitles on/off/next
@@ -706,6 +783,10 @@ announced by a TV toast via `system.notifications/createToast`):
       thresholds) and note which apps support seek vs. fall back to skips.
 - [ ] Preview scrubbing: tune `touch_steps` / `touch_release_after` with use;
       note which apps' players respond to touch scrubbing.
+- [ ] `arpi` is live (11-01): integrations, Apple TV touch + AirPlay,
+      YouTube (Apple TV) all paired; old Pi powered off. Left: `pair.sh
+      youtube lg` if the LG's YouTube app is used; if the old Pi comes back,
+      stop its app (boot auto) and its `streaming_pause_mute`.
 - [ ] LG Media Player keys: subtitles on/off/next via the `CC` panel,
       audio track via playback bar `⋯` -> Options -> Audio Track, knob
       scrubbing (find what seeks). See the 10-27 entry.

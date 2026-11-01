@@ -1,5 +1,6 @@
 {
- "note": "LG Media Player, same playback as the mediaId baked in: toasts announce each step.",
+ "note": "LG Media Player, same playback as the mediaId baked in: toasts announce each step. The mediaId is baked in: refresh it from getForegroundAppInfo first.",
+ "timeout_s": 210,
  "steps": [
   {
    "kind": "webos",
