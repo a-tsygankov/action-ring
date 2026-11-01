@@ -42,6 +42,16 @@ DEFAULTS: dict[str, Any] = {
     "heartbeat_min": 40.0,
     "heartbeat_factor": 1.5,
     "heartbeat_timeout": 90.0,
+    # Frozen-clock apps (Peacock): the app's own player keeps state Playing
+    # while an ad runs, but its content clock is published with playbackRate
+    # 0 and its supportedCommands republished within a few seconds; the ad
+    # ends with a clock update at rate > 0 (plus a republish). A scrub also
+    # publishes rate-0 updates, but with the clock jumping and no republish.
+    "frozen_apps": [],
+    "frozen_cmds_window": 3.0,  # rate-0 update and republish this close = ad start
+    "frozen_scrub_window": 3.0,  # ignore rate-0 updates this soon after a clock jump
+    "frozen_jump": 5.0,  # clock off continuous playback by more than this = jump
+    "frozen_timeout": 300.0,  # safety net: ad ends after this long regardless
 }
 DEFAULT_PLAYER = "MediaRemote-DefaultPlayer"
 PLAYING = 1
@@ -172,9 +182,83 @@ class AdDetector:
             log(f"mute {'on' if on else 'off'} failed: {err}")
 
 
-def install(detector: AdDetector) -> None:
-    """Feed every MRP session in this process into the detector, and run its
-    periodic check."""
+class FrozenClockDetector(AdDetector):
+    """Ads in apps whose own player stays Playing but freezes its content
+    clock (Peacock). Feed on_player_state / on_clock from the app's
+    MediaRemote-DefaultPlayer; same mute rules and transitions as AdDetector."""
+
+    def __init__(self, cfg: dict[str, Any], call: Call, state_of: StateLookup) -> None:
+        super().__init__(cfg, call, state_of)
+        self.apps = set(self.cfg["frozen_apps"])
+
+    def reset(self) -> None:
+        super().reset()
+        self.player_state: int | None = None
+        self.cmds_at = -1e9  # last supportedCommands republish
+        self.frozen_at: float | None = None  # first rate-0 clock since the clock last ran
+        self.jump_at = -1e9  # last clock jump (scrub)
+        self.last_clock: tuple[float, float, float] | None = None  # (elapsed, rate, at)
+        self.ad_since = 0.0
+
+    def on_player_state(self, bundle: str, state: int | None, commands: bool,
+                        now: float | None = None) -> None:
+        if bundle not in self.apps:
+            return
+        now = time.monotonic() if now is None else now
+        with self._lock:
+            if state is not None:
+                self.player_state = state
+                if state != PLAYING and self.ad:
+                    self._end("player left Playing")
+            if commands:
+                self.cmds_at = now
+                self._maybe_start(now)
+
+    def on_clock(self, bundle: str, elapsed: float, rate: float, now: float | None = None) -> None:
+        if bundle not in self.apps:
+            return
+        now = time.monotonic() if now is None else now
+        with self._lock:
+            if self.last_clock is not None:
+                e0, r0, t0 = self.last_clock
+                if abs(elapsed - (e0 + r0 * (now - t0))) > self.cfg["frozen_jump"]:
+                    self.jump_at = now
+            self.last_clock = (elapsed, rate, now)
+            if rate > 0:
+                self.frozen_at = None
+                if self.ad:
+                    self._end("clock running again")
+                return
+            if self.frozen_at is None:
+                self.frozen_at = now
+            self._maybe_start(now)
+
+    def _maybe_start(self, now: float) -> None:
+        if self.ad or self.player_state != PLAYING or self.frozen_at is None:
+            return
+        if abs(now - self.cmds_at) > self.cfg["frozen_cmds_window"]:
+            return
+        if now - self.jump_at < self.cfg["frozen_scrub_window"]:
+            return
+        self.ad_since = now
+        self._start("clock frozen with commands republished")
+
+    def tick(self, now: float | None = None) -> None:
+        now = time.monotonic() if now is None else now
+        with self._lock:
+            if not self.ad:
+                return
+            if now - self.ad_since > self.cfg["frozen_timeout"]:
+                self._end("timeout")
+            elif self.player:
+                app = ((self._state_of(self.player) or {}).get("a") or {}).get("app_id")
+                if app not in self.apps:
+                    self._end(f"app changed to {app}")
+
+
+def install(detector: AdDetector, frozen: "FrozenClockDetector | None" = None) -> None:
+    """Feed every MRP session in this process into the detectors, and run
+    their periodic checks."""
     from pyatv.protocols.mrp import protobuf
     from pyatv.protocols.mrp import protocol as mrp_protocol
 
@@ -185,9 +269,11 @@ def install(detector: AdDetector) -> None:
     async def on_set_state(message) -> None:
         inner = protobuf.extract_inner(message)
         bundle, player = path_of(inner)
+        state = inner.playbackState if inner.HasField("playbackState") else None
         if player.startswith("avkit-"):
-            state = inner.playbackState if inner.HasField("playbackState") else None
             detector.on_stream_state(bundle, state, inner.HasField("supportedCommands"))
+        elif player == DEFAULT_PLAYER and frozen is not None:
+            frozen.on_player_state(bundle, state, inner.HasField("supportedCommands"))
 
     async def on_content(message) -> None:
         inner = protobuf.extract_inner(message)
@@ -198,6 +284,8 @@ def install(detector: AdDetector) -> None:
             md = item.metadata
             if md.HasField("elapsedTime") and md.HasField("elapsedTimeTimestamp"):
                 detector.on_show_clock(bundle, md.elapsedTime, md.elapsedTimeTimestamp)
+            if frozen is not None and md.HasField("elapsedTime") and md.HasField("playbackRate"):
+                frozen.on_clock(bundle, md.elapsedTime, md.playbackRate)
 
     original = mrp_protocol.MrpProtocol.__init__
 
@@ -212,6 +300,9 @@ def install(detector: AdDetector) -> None:
         while True:
             time.sleep(5)
             detector.tick()
+            if frozen is not None:
+                frozen.tick()
 
     threading.Thread(target=ticker, daemon=True, name="ad-detect").start()
-    log(f"watching {', '.join(sorted(detector.apps))}")
+    apps = sorted(detector.apps | (frozen.apps if frozen is not None else set()))
+    log(f"watching {', '.join(apps)}")

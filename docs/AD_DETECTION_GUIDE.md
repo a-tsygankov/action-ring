@@ -100,10 +100,11 @@ duration and skippability. The app log shows `youtube: <screen>: ad started (…
 | App (bundle) | Ad start | During ad | Ad end | Handling | Evidence |
 |---|---|---|---|---|---|
 | Tubi (`com.adrise.tubitv`) | HA: `paused` | HA unchanged (still paused); playback locked | HA: `playing` + forward `pos_jump` = pod length, then a jump back; sometimes **never reported** | automation (5-min cap covers the missing end) | 2 captures, confirmed on the TV |
-| Pluto TV (`tv.pluto.ios`) | HA: nothing. MRP: show-clock (`MediaRemote-DefaultPlayer`) `update_content_item` while the AVKit stream plays | show clock republished every 30 s (15 s near the end), frozen at the cue point; heartbeat can skip one beat | MRP: AVKit player republishes `supportedCommands`; HA then reports a **false `paused`** | `ad_detect`; excluded from the automation | 3 breaks captured + 1 confirmed live; fixture `tools/fixtures/pluto_ads_20261023.jsonl` |
+| Pluto TV (`tv.pluto.ios`) | HA: nothing. MRP: show-clock (`MediaRemote-DefaultPlayer`) `update_content_item` while the AVKit stream plays | show clock republished every 30 s (15 s near the end), frozen at the cue point; heartbeat can skip one beat | MRP (10-24): AVKit player republishes `supportedCommands`; HA then reports a **false `paused`**. On arpi (11-01) nothing marks the end: the ads play in interstitial AVKit players that publish nothing, so the end is the heartbeat stopping (40 s / 1.5× the last gap) | `ad_detect`; excluded from the automation | 3 breaks captured + 1 confirmed live; fixture `tools/fixtures/pluto_ads_20261023.jsonl`; 3 breaks on 11-01 |
 | Netflix (`com.netflix.Netflix`) | n/a (pause = `idle`) | n/a | n/a | automation with `idle_pause_apps` | confirmed on the TV |
 | YouTube (`com.google.ios.youtube`, LG) | Lounge `ad_playing_changed` | Lounge state `Advertisement` | Lounge state change | logged only (no mute yet) | events in the app log |
 | Apple TV app (`com.apple.TVWatchList`) | not analyzed | | | automation pause-mute applies | |
+| Peacock (`com.peacocktv.peacock`) | HA: nothing (`playing`, position frozen). MRP: the app's `MediaRemote-DefaultPlayer` stays `Playing`, republishes `supportedCommands` and publishes its content clock with `playbackRate` 0 within the same second | clock frozen at the cue; no further messages | MRP: `supportedCommands` republished + a clock update with `playbackRate` 1 | `ad_detect` `FrozenClockDetector` (`frozen_apps`); a scrub also gives rate-0 updates but with the clock jumping and no republish; a pause changes the state | pre-roll 09:42:10–09:42:42 and mid-roll 09:45:25–09:46:19 on 2026-11-01; fixture `tools/fixtures/peacock_ads_20261101.jsonl` |
 
 Pluto's user actions (pause, play, scrub) also produce show-clock updates,
 but always together with an AVKit `Paused`/`Playing` change within a few
@@ -151,6 +152,8 @@ seconds. That's what `stream_quiet` uses to tell them from ads.
   in `presets/tv_room.json` and to the automation's `excluded_apps`. Replay
   first; the thresholds (`stream_quiet`, `heartbeat_timeout`) may need
   per-app values.
+- **Frozen-clock pattern (Peacock)**: add the bundle to `ad_detect.frozen_apps`
+  (the `FrozenClockDetector`) and replay with `--frozen-app`.
 - **A different MRP pattern**: add a detector next to `AdDetector` in
   `ad_detect.py`. Feed it from `install()`, which receives every MRP
   `set_state` / `update_content_item` with the bundle and player id. Reuse
@@ -179,7 +182,7 @@ seconds. That's what `stream_quiet` uses to tell them from ads.
 
 ## 7. Candidates not analyzed yet
 
-Peacock, Hulu (ad tier), Prime Video (ads), Max, Paramount+, The Roku
+Hulu (ad tier), Prime Video (ads), Max, Paramount+, The Roku
 Channel, Freevee, Plex free streams, Netflix with ads, and YouTube on the
 LG (link with `pair.sh youtube lg`). For each, follow section 4 and record
 the result in section 3.

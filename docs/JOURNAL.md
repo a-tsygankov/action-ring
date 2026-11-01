@@ -594,6 +594,24 @@ announced by a TV toast via `system.notifications/createToast`):
   `restore.sh` (config.json from `config.tv_room.json`); on a video with no
   chapters the log shows `0 chapters` and key 2 stays on +10 s.
 
+### 2026-11-01 — Peacock ad detection (frozen content clock)
+
+- Captured with the user marking breaks: a pre-roll (09:42:10–09:42:42) and
+  a mid-roll (09:45:25–09:46:19) in "Halloween Surprise". HA sees nothing
+  (`playing`, position frozen, then a `pos_jump`). MRP: Peacock has one
+  player, its `MediaRemote-DefaultPlayer`; at an ad start it republishes
+  `supportedCommands` and publishes the content clock with `playbackRate`
+  0 in the same second while the state stays `Playing`; nothing during the
+  ad; at the end the same republish plus a clock update at rate 1. A scrub
+  (09:44:40–45) also gives rate-0 clock updates, but the clock jumps and
+  there is no republish; a pause changes the state.
+- `FrozenClockDetector` in `ad_detect.py` (config `ad_detect.frozen_apps`,
+  TV Room preset: Peacock): start on a rate-0 clock within 3 s of a
+  republish while Playing and no clock jump in the last 3 s; end on a
+  rate > 0 clock, a state other than Playing, an app change, or 5 min.
+  Same mute rules. Replay (`replay_ad_detect.py --frozen-app`) matches both
+  windows; fixture `tools/fixtures/peacock_ads_20261101.jsonl`. 0.5.0-20.
+
 ### 2026-11-01 — Pluto ad end: no live signal, so a 40 s heartbeat wait
 
 - On arpi (0.5.0-16) both breaks of the morning were caught at their start

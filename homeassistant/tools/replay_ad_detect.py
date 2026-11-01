@@ -35,7 +35,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("capture")
     ap.add_argument("--expect", nargs="*", default=None, help="ad windows HH:MM:SS-HH:MM:SS")
-    ap.add_argument("--app", action="append", help="app bundle(s) to watch (default: detector's)")
+    ap.add_argument("--app", action="append", help="show-clock app bundle(s) to watch (default: detector's)")
+    ap.add_argument("--frozen-app", action="append", help="frozen-clock app bundle(s) (default: detector's)")
     args = ap.parse_args()
 
     out: list[tuple[str, str]] = []
@@ -50,7 +51,10 @@ def main() -> int:
     cfg = {"speaker": "media_player.speaker"}
     if args.app:
         cfg["apps"] = args.app
+    if args.frozen_app:
+        cfg["frozen_apps"] = args.frozen_app
     det = ad_detect.AdDetector(cfg, call, lambda e: speaker)
+    fz = ad_detect.FrozenClockDetector(cfg, call, lambda e: speaker)
 
     with open(args.capture, encoding="utf-8") as fh:
         lines = fh.read().splitlines()
@@ -67,11 +71,16 @@ def main() -> int:
         state = STATES.get(state, state) if isinstance(state, str) else state
         if r["msg"] == "set_state" and r["player"].startswith("avkit-"):
             det.on_stream_state(r["bundle"], state, bool(r.get("supportedCommands")), now=now)
+        elif r["msg"] == "set_state" and r["player"] == "MediaRemote-DefaultPlayer":
+            fz.on_player_state(r["bundle"], state, bool(r.get("supportedCommands")), now=now)
         elif r["msg"] == "update_content_item" and r["player"] == "MediaRemote-DefaultPlayer":
             for c in r.get("clocks", []):
                 if "elapsedTime" in c and "elapsedTimeTimestamp" in c:
                     det.on_show_clock(r["bundle"], c["elapsedTime"], c["elapsedTimeTimestamp"], now=now)
+                if "elapsedTime" in c and "playbackRate" in c:
+                    fz.on_clock(r["bundle"], c["elapsedTime"], c["playbackRate"], now=now)
         det.tick(now=now)
+        fz.tick(now=now)
         time.sleep(0.01)  # mute calls run on threads; keep their order
     time.sleep(0.2)
 
