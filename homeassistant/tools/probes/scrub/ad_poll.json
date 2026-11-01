@@ -1,0 +1,622 @@
+{
+ "note": "During a Pluto ad: every 5 s for ~4 min, the stream player's live elapsed/duration and the DefaultPlayer's last published show clock. Compare with the user's 'ad ended now'.",
+ "steps": [
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0
+  },
+  {
+   "kind": "mrp_queue",
+   "location": 0,
+   "client": "tv.pluto.ios",
+   "player": "MediaRemote-DefaultPlayer"
+  },
+  {
+   "kind": "wait",
+   "s": 5
+  }
+ ],
+ "timeout_s": 520
+}

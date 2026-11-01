@@ -1,0 +1,10 @@
+{
+  "note": "Does an MRP playback-queue request return the playing app's clock on demand? Three requests 5 s apart; compare elapsedTime across them (live if it advances in step with the 5 s).",
+  "steps": [
+    {"kind": "mrp_queue", "location": 0},
+    {"kind": "wait", "s": 5},
+    {"kind": "mrp_queue", "location": 0},
+    {"kind": "wait", "s": 5},
+    {"kind": "mrp_queue", "location": 0}
+  ]
+}

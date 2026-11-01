@@ -594,6 +594,34 @@ announced by a TV toast via `system.notifications/createToast`):
   `restore.sh` (config.json from `config.tv_room.json`); on a video with no
   chapters the log shows `0 chapters` and key 2 stays on +10 s.
 
+### 2026-11-01 — Pluto ad end: no live signal, so a 40 s heartbeat wait
+
+- On arpi (0.5.0-16) both breaks of the morning were caught at their start
+  but ended only by the 90 s heartbeat timeout, ~86 s after the real end.
+  The stream player's `supportedCommands` republish that ended breaks on
+  10-24 no longer arrives; the raw MRP capture shows Pluto's AVKit players
+  (the ad plays in its own interstitial player) publishing nothing at pod
+  start or end, and the main player's clock frozen at the pre-ad snapshot
+  throughout. The only trace of a break is the pinned show-clock beat every
+  15-30 s (09:20:03, :33, :48, 21:18, :33, 22:03, :33; the pod ended ~7 s
+  after the last one).
+- Polling cannot do better: an MRP playback-queue request (new probe step
+  `mrp_queue`, with `legacy`, `include_metadata`, `client`/`player` and
+  `raw` options) returns the same stored snapshots for every player and
+  form, so neither clock is live on demand. A "10 s heartbeat" would unmute
+  inside every break.
+- Fix: `heartbeat_min` 40 s / `heartbeat_factor` 1.5 x the last beat gap,
+  capped at `heartbeat_timeout` 90 s; a beat after the end starts the ad
+  again (mute back on). Today's break: unmute ~38 s after the end instead
+  of 86 s. Replay of the 10-23 fixture: first break unchanged; the second
+  (a skipped beat) now ends 2 s early and re-mutes for those 2 s. 0.5.0-19.
+- Two mutes stuck during the session were my restarts (an app update wipes
+  the detector while a pod runs; Pluto also runs a pre-roll pod at a
+  movie's start). Don't update the app during a Pluto break.
+- Knob: scrubbing in Pluto reacted within 0.7 s of the first click (pause
+  through HA plus the 0.4 s delay); the user's earlier 30 s lag was with a
+  thumbnail app, still to be timed there.
+
 ### 2026-10-25 — Stale touch connection: drop, reconnect, seek the batch (from #12)
 
 - Ported from the unmerged PR #12 (10-24 TV checks): after the Apple TV

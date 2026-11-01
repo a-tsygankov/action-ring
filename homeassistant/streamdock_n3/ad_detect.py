@@ -34,7 +34,14 @@ DEFAULTS: dict[str, Any] = {
     "jump_threshold": 20.0,  # clock ahead of real time by more than this = cue jump
     "frozen_min": 10.0,  # clock unchanged across at least this long = frozen
     "stream_quiet": 5.0,  # ignore clock jumps this soon after a stream state change
-    "heartbeat_timeout": 90.0,  # safety net: heartbeat (30 s, seen skipping one) stopped
+    # The ad ends when the show-clock heartbeat stops. Pluto beats every
+    # 15-30 s (one seen skipped) and nothing else marks the pod's end, so wait
+    # heartbeat_min or heartbeat_factor x the last beat gap, whichever is
+    # longer, capped at heartbeat_timeout. A beat arriving after the end
+    # starts the ad again (mute back on).
+    "heartbeat_min": 40.0,
+    "heartbeat_factor": 1.5,
+    "heartbeat_timeout": 90.0,
 }
 DEFAULT_PLAYER = "MediaRemote-DefaultPlayer"
 PLAYING = 1
@@ -64,6 +71,7 @@ class AdDetector:
     def reset(self) -> None:
         self.clock: tuple[float, float] | None = None  # (elapsed, elapsedTimestamp)
         self.clock_seen = 0.0
+        self.beat_gap = 0.0  # seconds between the last two beats of this ad
         self.stream_state: int | None = None
         self.stream_change = -1e9
         self.ad = False
@@ -87,6 +95,8 @@ class AdDetector:
             return
         now = time.monotonic() if now is None else now
         with self._lock:
+            if self.ad and self.clock_seen:
+                self.beat_gap = now - self.clock_seen
             prev, self.clock, self.clock_seen = self.clock, (elapsed, stamp), now
             streaming = self.stream_state == PLAYING
             scrubbing = now - self.stream_change < self.cfg["stream_quiet"]
@@ -115,16 +125,21 @@ class AdDetector:
         with self._lock:
             if not self.ad:
                 return
-            if now - self.clock_seen > self.cfg["heartbeat_timeout"]:
+            if now - self.clock_seen > self._heartbeat_wait():
                 self._end("show-clock heartbeat stopped")
             elif self.player:
                 app = ((self._state_of(self.player) or {}).get("a") or {}).get("app_id")
                 if app not in self.apps:
                     self._end(f"app changed to {app}")
 
+    def _heartbeat_wait(self) -> float:
+        wait = max(self.cfg["heartbeat_min"], self.cfg["heartbeat_factor"] * self.beat_gap)
+        return min(wait, self.cfg["heartbeat_timeout"])
+
     # -- transitions (called with the lock held) -------------------------------
     def _start(self, why: str) -> None:
         self.ad = True
+        self.beat_gap = 0.0
         log(f"ad started ({why})")
         threading.Thread(target=self._mute, args=(True,), daemon=True).start()
 

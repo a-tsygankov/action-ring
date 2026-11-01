@@ -1,0 +1,10 @@
+{
+  "note": "Playback-queue requests with metadata, targeted at Pluto's DefaultPlayer (the show clock) and at the now-playing player, plus the legacy now-playing form. Raw replies logged.",
+  "steps": [
+    {"kind": "mrp_queue", "location": 0, "raw": true},
+    {"kind": "mrp_queue", "location": 0, "client": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer", "raw": true},
+    {"kind": "mrp_queue", "location": 0, "legacy": true, "include_info": true, "raw": true},
+    {"kind": "wait", "s": 5},
+    {"kind": "mrp_queue", "location": 0, "client": "tv.pluto.ios", "player": "MediaRemote-DefaultPlayer"}
+  ]
+}
