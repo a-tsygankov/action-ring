@@ -734,9 +734,10 @@ announced by a TV toast via `system.notifications/createToast`):
       thresholds) and note which apps support seek vs. fall back to skips.
 - [ ] Preview scrubbing: tune `touch_steps` / `touch_release_after` with use;
       note which apps' players respond to touch scrubbing.
-- [ ] `arpi`: pair LG webOS and Apple TV in its HA, then `HA_HOST=arpi
-      bash homeassistant/pair.sh atv` / `youtube atv|lg`; move the dock and
-      stop the old Pi's app (two HAs would both act on the TV).
+- [ ] `arpi`: LG webOS and Apple TV paired (11-01; entity ids match, live).
+      Left: `HA_HOST=arpi bash homeassistant/pair.sh atv` / `youtube
+      atv|lg`; move the dock and stop the old Pi's app. Until then both HAs
+      run `streaming_pause_mute` on the same Arc.
 - [ ] LG Media Player keys: subtitles on/off/next via the `CC` panel,
       audio track via playback bar `⋯` -> Options -> Audio Track, knob
       scrubbing (find what seeks). See the 10-27 entry.
