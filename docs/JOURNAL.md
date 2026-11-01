@@ -457,6 +457,18 @@ script cannot.
   `remote.vugitv_4k_vugitv_4k` (pair LG webOS and Apple TV there), Apple TV
   touch/AirPlay pairing and YouTube links (`HA_HOST=arpi pair.sh ...`).
 
+### 2026-11-01 — Apple TV pairing broke on a fresh build: srptools 2.0
+
+- `pair.sh atv` on arpi failed: `PairingError: SRPClientSession.__init__()
+  takes 2 positional arguments but 3 were given`. arpi's fresh image had
+  pulled srptools 2.0.0 (pyatv 0.18.0 only pins `srptools>=…`); the old Pi's
+  cached image and this PC have 1.0.1, which works. Dockerfile now pins
+  `srptools==1.0.1`. Build 0.5.0-15.
+- `restore.sh` "Starting app" retries for a minute: right after the update
+  the Supervisor answered "not ready to perform this operation".
+- Lesson: an unpinned transitive dependency can break a restore that the
+  live system (old cached layers) never hits; a fresh build is the real test.
+
 ### 2026-10-27 — LG Media Player: what controls subtitles, audio and seeking (in progress)
 
 Wanted on the `context:lg_media` page: knob scrubbing, subtitles on/off/next

@@ -13,6 +13,8 @@ ENV HOME=/data \
 
 COPY patch_ids.py /tmp/patch_ids.py
 
+# srptools 2.0 changed SRPClientSession's signature and breaks pyatv 0.18
+# pairing ("takes 2 positional arguments but 3 were given"): keep 1.0.1.
 # Compilers are only needed to build python-evdev and pyatv's miniaudio (no
 # aarch64 wheel; its cffi build needs c++ and may link libatomic), then removed.
 RUN apt-get update \
@@ -22,6 +24,7 @@ RUN apt-get update \
         "https://github.com/asad-albadi/streamdock-n3/archive/${STREAMDOCK_REF}.tar.gz" \
         websockets==15.0.1 \
         pyatv==0.18.0 \
+        srptools==1.0.1 \
     && python /tmp/patch_ids.py \
     && apt-get purge -y gcc g++ libc6-dev \
     && apt-get autoremove -y \

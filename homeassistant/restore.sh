@@ -176,7 +176,13 @@ ssh_ha "ls /app_configs/$SLUG/icons"
 
 step "Starting app"
 t0=$(ssh_ha 'date +%s')
-ssh_ha "ha apps restart $SLUG >/dev/null 2>&1 || ha apps start $SLUG"
+# Right after an install/update the Supervisor may still be busy ("not ready
+# to perform this operation"): retry for up to a minute.
+ssh_ha "for i in 1 2 3 4 5 6; do
+        ha apps restart $SLUG >/dev/null 2>&1 || ha apps start $SLUG >/dev/null 2>&1 && exit 0
+        sleep 10
+    done
+    ha apps start $SLUG"
 # Only judge log lines after this start's "run.sh started <epoch>" marker;
 # older runs and button presses would otherwise mask the result.
 since_start() {
