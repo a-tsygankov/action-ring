@@ -21,7 +21,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Dock software | Local app `local_streamdock_n3` v0.4.0-21, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
 | HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle`, `automation.streaming_pause_mute` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
-| MCP for Claude | HA **Model Context Protocol Server** integration (all LLM APIs, admin only) at `http://homeassistant.local/api/mcp` (HA is on port 80); registered in Claude Code at user scope as `home-assistant` |
+| MCP for Claude | None since 2026-11-01 (the `home-assistant` server pointed at the old Pi and was removed). Re-add per Restore > Prerequisites 6 with a token from arpi if wanted |
 
 ### Repo layout
 
@@ -749,8 +749,7 @@ announced by a TV toast via `system.notifications/createToast`):
 - [ ] `arpi` is live (11-01): integrations, Apple TV touch + AirPlay,
       YouTube (Apple TV) all paired; old Pi powered off. Left: `pair.sh
       youtube lg` if the LG's YouTube app is used; if the old Pi comes back,
-      stop its app (boot auto) and its `streaming_pause_mute`; re-point the
-      HA MCP server for Claude to arpi (needs a new long-lived token).
+      stop its app (boot auto) and its `streaming_pause_mute`.
 - [ ] LG Media Player keys: subtitles on/off/next via the `CC` panel,
       audio track via playback bar `⋯` -> Options -> Audio Track, knob
       scrubbing (find what seeks). See the 10-27 entry.
