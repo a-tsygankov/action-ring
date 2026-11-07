@@ -58,6 +58,7 @@ def main() -> int:
 
     with open(args.capture, encoding="utf-8") as fh:
         lines = fh.read().splitlines()
+    day = last = 0
     for line in lines:
         try:
             r = json.loads(line)
@@ -66,7 +67,11 @@ def main() -> int:
         r = r if "bundle" in r else next(iter(sanitize([line])), None)
         if not r:
             continue
-        now_t["t"], now = r["t"], secs(r["t"])
+        now = secs(r["t"]) + day
+        if now < last:  # past midnight: keep time running forward
+            day += 86400
+            now += 86400
+        now_t["t"], last = r["t"], now
         state = r.get("playbackState")
         state = STATES.get(state, state) if isinstance(state, str) else state
         if r["msg"] == "set_state" and r["player"].startswith("avkit-"):
@@ -75,13 +80,15 @@ def main() -> int:
             fz.on_player_state(r["bundle"], state, bool(r.get("supportedCommands")), now=now)
             for c in r.get("clocks", []):  # a new title's first clock can come in the queue
                 if "elapsedTime" in c and "playbackRate" in c:
-                    fz.on_clock(r["bundle"], c["elapsedTime"], c["playbackRate"], c.get("item"), now=now)
+                    fz.on_clock(r["bundle"], c["elapsedTime"], c["playbackRate"], c.get("item"), now=now,
+                               stamp=c.get("elapsedTimeTimestamp"))
         elif r["msg"] == "update_content_item" and r["player"] == "MediaRemote-DefaultPlayer":
             for c in r.get("clocks", []):
                 if "elapsedTime" in c and "elapsedTimeTimestamp" in c:
                     det.on_show_clock(r["bundle"], c["elapsedTime"], c["elapsedTimeTimestamp"], now=now)
                 if "elapsedTime" in c and "playbackRate" in c:
-                    fz.on_clock(r["bundle"], c["elapsedTime"], c["playbackRate"], c.get("item"), now=now)
+                    fz.on_clock(r["bundle"], c["elapsedTime"], c["playbackRate"], c.get("item"), now=now,
+                               stamp=c.get("elapsedTimeTimestamp"))
         det.tick(now=now)
         fz.tick(now=now)
         time.sleep(0.01)  # mute calls run on threads; keep their order
