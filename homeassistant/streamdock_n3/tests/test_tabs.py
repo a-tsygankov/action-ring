@@ -63,9 +63,21 @@ def test_press_uses_visible_context_not_pending():
     assert e.key_press(1, 1.5) == {"action": "power"}
 
 
-def test_context_changes_under_open_tab():
-    e = eng(); e.round_press(8, 1.0); e.set_context("streaming", 1.0); e.tick(2.5)
-    assert e.visible == "sonos"; e.tick(11.5); assert e.visible == "context:streaming"
+def test_a_context_change_closes_an_open_tab():
+    e = eng(); e.round_press(8, 1.0); e.set_context("streaming", 1.0); e.tick(1.5)
+    assert e.visible == "sonos"  # still settling
+    e.tick(2.5); assert e.visible == "context:streaming"
+
+
+def test_the_same_context_reported_again_keeps_an_open_tab():
+    e = eng(); e.round_press(8, 1.0); e.set_context("idle", 1.5); e.tick(3.0)
+    assert e.visible == "sonos"
+
+
+def test_a_context_flap_under_an_open_tab_keeps_it():
+    e = eng(); e.round_press(8, 1.0)
+    e.set_context("streaming", 1.2); e.set_context("idle", 1.5); e.tick(3.0)
+    assert e.visible == "sonos"
 
 
 def test_version_bumps_on_visible_change_only():

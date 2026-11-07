@@ -119,8 +119,8 @@ def _log_raw_events() -> None:
     YtLoungeApi._process_event = process
 
 
-COMMANDS = ("next", "previous", "play_pause", "subtitles", "forward")
-FORWARD_SECONDS = 10
+COMMANDS = ("next", "previous", "play_pause", "subtitles", "forward", "rewind")
+FORWARD_SECONDS = 10  # "forward" and "rewind" step
 
 
 class YouTubeScreens:
@@ -232,8 +232,9 @@ class YouTubeScreens:
             await api.previous()
         elif name == "play_pause":
             await (api.pause() if screen.state == State.Playing else api.play())
-        elif name == "forward":
-            target = screen.position_now() + FORWARD_SECONDS
+        elif name in ("forward", "rewind"):
+            step = FORWARD_SECONDS if name == "forward" else -FORWARD_SECONDS
+            target = max(0.0, screen.position_now() + step)
             await api.seek_to(target)
             screen._set(target, None)
         else:
