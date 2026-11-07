@@ -47,6 +47,8 @@ DEFAULTS: dict[str, Any] = {
     # 0 and its supportedCommands republished within a few seconds; the ad
     # ends with a clock update at rate > 0 (plus a republish). A scrub also
     # publishes rate-0 updates, but with the clock jumping and no republish.
+    # A new title's first clock (its pre-roll) is not a jump, however far it
+    # is from the last title's; it may come in a set_state's queue.
     "frozen_apps": [],
     "frozen_cmds_window": 3.0,  # rate-0 update and republish this close = ad start
     "frozen_scrub_window": 3.0,  # ignore rate-0 updates this soon after a clock jump
@@ -55,6 +57,7 @@ DEFAULTS: dict[str, Any] = {
 }
 DEFAULT_PLAYER = "MediaRemote-DefaultPlayer"
 PLAYING = 1
+CLOCK_ITEMS = 20  # content items whose last clock FrozenClockDetector keeps
 
 Call = Callable[[str, str, dict[str, Any]], None]
 StateLookup = Callable[[str], "dict[str, Any] | None"]
@@ -76,6 +79,7 @@ class AdDetector:
         self._call = call
         self._state_of = state_of
         self._lock = threading.Lock()
+        self._mute_lock = threading.Lock()  # one mute call at a time, in any order
         self.reset()
 
     def reset(self) -> None:
@@ -151,12 +155,18 @@ class AdDetector:
         self.ad = True
         self.beat_gap = 0.0
         log(f"ad started ({why})")
-        threading.Thread(target=self._mute, args=(True,), daemon=True).start()
+        threading.Thread(target=self._sync_mute, daemon=True).start()
 
     def _end(self, why: str) -> None:
         self.ad = False
         log(f"ad ended ({why})")
-        threading.Thread(target=self._mute, args=(False,), daemon=True).start()
+        threading.Thread(target=self._sync_mute, daemon=True).start()
+
+    def _sync_mute(self) -> None:
+        # Apply the state wanted now, not the one at the transition: an ad that
+        # ended before its mute thread ran must not mute the show.
+        with self._mute_lock:
+            self._mute(self.ad)
 
     def _mute(self, on: bool) -> None:
         try:
@@ -195,9 +205,10 @@ class FrozenClockDetector(AdDetector):
         super().reset()
         self.player_state: int | None = None
         self.cmds_at = -1e9  # last supportedCommands republish
-        self.frozen_at: float | None = None  # first rate-0 clock since the clock last ran
+        self.frozen_at: float | None = None  # last rate-0 clock while the clock is stopped
         self.jump_at = -1e9  # last clock jump (scrub)
-        self.last_clock: tuple[float, float, float] | None = None  # (elapsed, rate, at)
+        # (elapsed, rate, at) of the last clock per content item (None: unknown)
+        self.clocks: dict[str | None, tuple[float, float, float]] = {}
         self.ad_since = 0.0
 
     def on_player_state(self, bundle: str, state: int | None, commands: bool,
@@ -214,29 +225,36 @@ class FrozenClockDetector(AdDetector):
                 self.cmds_at = now
                 self._maybe_start(now)
 
-    def on_clock(self, bundle: str, elapsed: float, rate: float, now: float | None = None) -> None:
+    def on_clock(self, bundle: str, elapsed: float, rate: float, item: str | None = None,
+                 now: float | None = None) -> None:
         if bundle not in self.apps:
             return
         now = time.monotonic() if now is None else now
         with self._lock:
-            if self.last_clock is not None:
-                e0, r0, t0 = self.last_clock
+            # A jump is against the same item's last clock: a title not seen
+            # before (an episode's pre-roll) cannot jump.
+            prev = self.clocks.pop(item, None)
+            if prev is not None:
+                e0, r0, t0 = prev
                 if abs(elapsed - (e0 + r0 * (now - t0))) > self.cfg["frozen_jump"]:
                     self.jump_at = now
-            self.last_clock = (elapsed, rate, now)
+            self.clocks[item] = (elapsed, rate, now)
+            while len(self.clocks) > CLOCK_ITEMS:
+                del self.clocks[next(iter(self.clocks))]  # the least recently seen
             if rate > 0:
                 self.frozen_at = None
                 if self.ad:
                     self._end("clock running again")
                 return
-            if self.frozen_at is None:
-                self.frozen_at = now
+            self.frozen_at = now
             self._maybe_start(now)
 
     def _maybe_start(self, now: float) -> None:
         if self.ad or self.player_state != PLAYING or self.frozen_at is None:
             return
-        if abs(now - self.cmds_at) > self.cfg["frozen_cmds_window"]:
+        # The republish must come with the rate-0 clock itself: the one at the
+        # ad's end follows a clock frozen since the ad's start.
+        if abs(self.frozen_at - self.cmds_at) > self.cfg["frozen_cmds_window"]:
             return
         if now - self.jump_at < self.cfg["frozen_scrub_window"]:
             return
@@ -256,15 +274,19 @@ class FrozenClockDetector(AdDetector):
                     self._end(f"app changed to {app}")
 
 
-def install(detector: AdDetector, frozen: "FrozenClockDetector | None" = None) -> None:
-    """Feed every MRP session in this process into the detectors, and run
-    their periodic checks."""
+def _handlers(detector: AdDetector, frozen: "FrozenClockDetector | None"):
+    """The (set_state, update_content_item) MRP listeners feeding the detectors."""
     from pyatv.protocols.mrp import protobuf
-    from pyatv.protocols.mrp import protocol as mrp_protocol
 
     def path_of(inner) -> tuple[str, str]:
         pp = inner.playerPath
         return pp.client.bundleIdentifier, pp.player.identifier
+
+    def frozen_clocks(bundle: str, items) -> None:
+        for item in items:
+            md = item.metadata
+            if md.HasField("elapsedTime") and md.HasField("playbackRate"):
+                frozen.on_clock(bundle, md.elapsedTime, md.playbackRate, item.identifier or None)
 
     async def on_set_state(message) -> None:
         inner = protobuf.extract_inner(message)
@@ -274,6 +296,8 @@ def install(detector: AdDetector, frozen: "FrozenClockDetector | None" = None) -
             detector.on_stream_state(bundle, state, inner.HasField("supportedCommands"))
         elif player == DEFAULT_PLAYER and frozen is not None:
             frozen.on_player_state(bundle, state, inner.HasField("supportedCommands"))
+            if inner.HasField("playbackQueue"):  # a new title's first clock can come here
+                frozen_clocks(bundle, inner.playbackQueue.contentItems)
 
     async def on_content(message) -> None:
         inner = protobuf.extract_inner(message)
@@ -284,9 +308,19 @@ def install(detector: AdDetector, frozen: "FrozenClockDetector | None" = None) -
             md = item.metadata
             if md.HasField("elapsedTime") and md.HasField("elapsedTimeTimestamp"):
                 detector.on_show_clock(bundle, md.elapsedTime, md.elapsedTimeTimestamp)
-            if frozen is not None and md.HasField("elapsedTime") and md.HasField("playbackRate"):
-                frozen.on_clock(bundle, md.elapsedTime, md.playbackRate)
+        if frozen is not None:
+            frozen_clocks(bundle, inner.contentItems)
 
+    return on_set_state, on_content
+
+
+def install(detector: AdDetector, frozen: "FrozenClockDetector | None" = None) -> None:
+    """Feed every MRP session in this process into the detectors, and run
+    their periodic checks."""
+    from pyatv.protocols.mrp import protobuf
+    from pyatv.protocols.mrp import protocol as mrp_protocol
+
+    on_set_state, on_content = _handlers(detector, frozen)
     original = mrp_protocol.MrpProtocol.__init__
 
     def init(self, *args, **kwargs):

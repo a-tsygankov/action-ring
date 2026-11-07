@@ -44,6 +44,8 @@ CLOCK_GRACE = 30 * 60  # seconds a running clock still counts after the live win
 SOON = 15 * 60  # seconds before a listed start when polling speeds up to poll_s
 OPEN_TIMEOUT = 60  # seconds for a started game's app to come up before it is forgotten
 STALE_MIN = 30 * 60  # a list not refreshed for max(2 x poll_s, this) seconds counts as empty
+CYCLE_S = 60  # a press this soon after the last one (or while a started game shows) moves on
+SWITCH_AFTER_S = 1.5  # presses settle this long before the TV switches to the last pick
 HTTP_TIMEOUT = 15
 USER_AGENT = "Mozilla/5.0"
 
@@ -221,6 +223,12 @@ class LiveSoccer:
         self._tokens: tuple[str, str] | None = None
         self._tokens_at = 0.0
         self._cursor = 0
+        # The key's pick: shown at once, switched to once presses settle.
+        self._pick_lock = threading.Lock()
+        self._picked: str | None = None  # Game.id of the last pick
+        self._picked_at = -1e9  # monotonic time of the last press
+        self._gen = 0  # bumped per pick; a switch for an older one gives up
+        self._switch_lock = threading.Lock()  # one switch (power on, play) at a time
         # play() (a worker thread) and watching() (HA/render threads) share these three.
         self._play_lock = threading.Lock()
         self._started: Game | None = None  # the game play() last opened
@@ -315,37 +323,95 @@ class LiveSoccer:
     # -- actions ---------------------------------------------------------------
 
     def start(self) -> None:
-        """Power on if needed and play the first live game."""
-        self.refresh(max_age=float(self._cfg.get("cache_s", 60)))
-        if not self.games():
-            log("no live games")
-            return
-        if not ensure_on(self._call, self._state_of, self._cfg, sleep=self._sleep, clock=self._monotonic):
-            log("TV did not turn on")
-            return
-        select_atv_input(self._call, self._state_of, self._cfg)
-        self.play(0)
+        """The key: pick the first live game, or the next one while picking."""
+        self.press()
 
     def next(self) -> None:
         """The next live game, wrapping at the end."""
-        games = self.games()
-        if not games:
+        self.press(advance=True)
+
+    def press(self, advance: bool = False) -> None:
+        """Pick a game at once (the key shows it), then switch to the last pick
+        once presses settle. Blocks: run it off the device's reader thread."""
+        gen = self.select(advance)
+        if gen is None:  # nothing cached yet
+            self.refresh(max_age=float(self._cfg.get("cache_s", 60)))
+            gen = self.select(advance)
+        if gen is None:
             log("no live games")
             return
-        self.play((self._cursor + 1) % len(games))
+        self._sleep(float(self._cfg.get("switch_after_s", SWITCH_AFTER_S)))
+        self.switch(gen)
+
+    def select(self, advance: bool = False) -> int | None:
+        """Pick the first game, or the next (wrapping) while picking or with
+        `advance`; no I/O. The pick's generation, or None with no live games."""
+        games = self.games()
+        if not games:
+            return None
+        moving_on = advance or self.picking()
+        with self._pick_lock:
+            i = (self._index(games) + 1) % len(games) if moving_on else 0
+            self._cursor, self._picked = i, games[i].id
+            self._picked_at = self._monotonic()
+            self._gen += 1
+            gen = self._gen
+        log(f"picked {i + 1}/{len(games)}: {games[i].title}")
+        self._on_change()  # {soccer_pos} changed
+        return gen
+
+    def picking(self) -> bool:
+        """A pick is current: pressed within CYCLE_S, or its game started and on screen."""
+        if not self.games():
+            return False
+        if self._monotonic() - self._picked_at < CYCLE_S:
+            return True
+        return self.watching(self._state_of)
+
+    def switch(self, gen: int) -> None:
+        """Power on, select the input and play the pick, unless a newer pick came."""
+        with self._switch_lock:
+            if gen != self._gen:
+                return
+            games = self.games()
+            if not games:
+                log("no live games")
+                return
+            i = self._index(games)
+            if not ensure_on(self._call, self._state_of, self._cfg, sleep=self._sleep, clock=self._monotonic):
+                log("TV did not turn on")
+                return
+            if gen != self._gen:
+                return  # picked again while the TV came on
+            select_atv_input(self._call, self._state_of, self._cfg)
+            self._play(games, i, gen)
 
     def play(self, i: int) -> None:
-        """Open game i; one `select` if its app is up but not playing (profile picker, modal)."""
+        """Pick game i and open it now (no power-on)."""
         games = self.games()
         if not games:
             log("no live games")
             return
         i %= len(games)
+        with self._pick_lock:
+            self._cursor, self._picked = i, games[i].id
+            self._gen += 1
+            gen = self._gen
+        self._on_change()  # {soccer_pos} changed
+        self._play(games, i, gen)
+
+    def _index(self, games: list[Game]) -> int:
+        """The pick's position in `games`: its game's, else the old slot (clamped)."""
+        for i, game in enumerate(games):
+            if game.id == self._picked:
+                return i
+        return min(self._cursor, len(games) - 1)
+
+    def _play(self, games: list[Game], i: int, gen: int) -> None:
+        """Open game i; one `select` if its app is up but not playing (profile picker, modal)."""
         game = games[i]
-        self._cursor = i
         with self._play_lock:
             self._started, self._started_at, self._seen = game, self._monotonic(), False
-        self._on_change()  # {soccer_pos} changed
         log(f"playing {i + 1}/{len(games)}: {game.title} ({game.provider})")
         atv = self._cfg["atv"]
         self._call(
@@ -354,6 +420,8 @@ class LiveSoccer:
             {"entity_id": atv, "media_content_type": "url", "media_content_id": game.url},
         )
         self._sleep(float(self._cfg.get("select_after_s", 8)))
+        if gen != self._gen:
+            return  # picked again: that game's switch takes over
         st = self._state_of(atv) or {}
         if (st.get("a") or {}).get("app_id") == game.app and st.get("s") != "playing":
             log(f"{game.app} is {st.get('s')}; sending select")
@@ -384,6 +452,7 @@ class LiveSoccer:
 
     def vars(self) -> dict[str, str]:
         """Label placeholders: {soccer_count}, {soccer_pos}."""
-        n = len(self.games())
-        pos = min(self._cursor, n - 1) + 1 if n else 0
+        games = self.games()
+        n = len(games)
+        pos = self._index(games) + 1 if n else 0
         return {"soccer_count": str(n), "soccer_pos": f"{pos}/{n}"}

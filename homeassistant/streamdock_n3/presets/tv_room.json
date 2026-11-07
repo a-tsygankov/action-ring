@@ -31,7 +31,7 @@
     "scrub": "touch",
     "scrub_apps": { "com.google.ios.youtube": { "pause": false }, "com.disney.disneyplus": "seek" },
     "touch_release_after": 2.5,
-    "mrp_raw_log": false,
+    "mrp_raw_log": true,
     "seek_steps": [10, [30, 2], [90, 3]],
     "touch_steps": [12, [60, 2], [150, 3]],
     "nav_repeats": [1, 2, 3],
@@ -101,7 +101,10 @@
           "5": { "icon": "tubi", "action": { "launch": { "device": "atv", "app": "com.adrise.tubitv" } } },
           "6": {
             "icon": "soccer_live__none", "label": "",
-            "modes": [ { "when": "soccer_live", "icon": "soccer_live__live" } ],
+            "modes": [
+              { "when": "soccer_picking", "icon": "soccer_live__live", "label": "{soccer_pos}", "color": "#1d6b32" },
+              { "when": "soccer_live", "icon": "soccer_live__live", "label": "{soccer_count} LIVE" }
+            ],
             "action": { "soccer": "start" }
           }
         }
@@ -198,7 +201,10 @@
           },
           "2": {
             "icon": "soccer_live__none", "label": "",
-            "modes": [ { "when": "soccer_live", "icon": "soccer_live__live" } ],
+            "modes": [
+              { "when": "soccer_picking", "icon": "soccer_live__live", "label": "{soccer_pos}", "color": "#1d6b32" },
+              { "when": "soccer_live", "icon": "soccer_live__live", "label": "{soccer_count} LIVE" }
+            ],
             "action": { "soccer": "start" }
           },
           "3": {

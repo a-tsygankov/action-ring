@@ -61,10 +61,13 @@ Runs the upstream daemon unchanged and adds:
    atv_source, power_on_wait, token_page, cache_s, poll_s, idle_poll_s,
    select_after_s) polls the Apple TV app listing for live Paramount+ / MLS
    games.
-   {"soccer": "start"} powers on and plays the first, {"soccer": "next"}
-   the next one (wrapping). Condition "soccer_live" holds while any game is
-   live; labels get {soccer_count} and {soccer_pos}; context "live_game"
-   applies while a started game's app is in the foreground.
+   {"soccer": "start"} picks the first game at once, or the next one while
+   picking (pressed within a minute, or a started game on screen); {"soccer":
+   "next"} always the next (wrapping). Once presses settle it powers on and
+   plays the last pick. Conditions "soccer_live" (any game live) and
+   "soccer_picking"; labels get {soccer_count} and {soccer_pos} (a label on
+   an icon goes on a band, badge.py); context "live_game" applies while a
+   started game's app is in the foreground.
 
 9. Service logo (logo.py): a "tabs.logo" section flashes the logo of what is
    on screen (the app, the PS5 input, else the Apple TV) on key 6 of a
@@ -90,6 +93,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+import badge
 from context import AtvApp, foreground_layout
 from keyspec import Look, changed_keys, entities_of, icon_path, resolve_action, resolve_look
 from knob_accel import AppleTVKnobs
@@ -150,6 +154,7 @@ _conds: dict[str, Callable[[], bool]] = {
     "youtube_subtitles": lambda: _youtube is not None and _youtube.subtitles_on(),
     "youtube_chapters": lambda: _youtube is not None and _youtube.has_chapters(),
     "soccer_live": lambda: _soccer is not None and bool(_soccer.games()),
+    "soccer_picking": lambda: _soccer is not None and _soccer.picking(),
 }
 
 
@@ -366,9 +371,21 @@ def _action_entities(pages: dict[str, dict]) -> set[str]:
 
 
 def _image_for(key: int, look: Look) -> str:
-    """The icon file, or a generated text tile (cached by label and color)."""
+    """The icon file (with a label: on a bottom band), or a generated text
+    tile; generated images are cached by their inputs."""
     if look.icon and Path(look.icon).exists():
-        return look.icon
+        if not look.label:
+            return look.icon
+        band = icons.parse_color(look.color, (0, 0, 0)) if look.color else None
+        src = Path(look.icon)
+        digest = hashlib.sha1(f"{src.resolve()}\0{src.stat().st_mtime_ns}\0{look.label}\0{band}".encode()).hexdigest()[:10]
+        out = paths.generated_key_dir() / f"key-{key}-{digest}.jpg"
+        if not out.exists():
+            out.parent.mkdir(parents=True, exist_ok=True)
+            tmp = out.with_name(out.name + ".tmp")
+            badge.draw(look.icon, look.label, band, tmp)
+            os.replace(tmp, out)  # never leave a half-written tile to be reused
+        return str(out)
     # A missing icon file still names the key, e.g. "netflix".
     label = look.label or (Path(look.icon).stem if look.icon else "")
     color = icons.parse_color(look.color, icons.FALLBACK_COLORS[key - 1])
@@ -444,12 +461,16 @@ def _render() -> None:
 def _tick() -> None:
     global _logo_on
     seen = -1
+    picking = False
     while True:
         try:
             now = time.monotonic()
             _engine.tick(now)
             if _logo_clock is not None and _logo_clock.showing(now) != _logo_on:
                 _logo_on = not _logo_on
+                _signal()
+            if _soccer is not None and _soccer.picking() != picking:
+                picking = not picking  # the pick's minute ran out: no event says so
                 _signal()
             if _atv_app is not None and _atv_app.pending:
                 _update_context()  # the play time may have run out

@@ -835,6 +835,53 @@ announced by a TV toast via `system.notifications/createToast`):
   existing configs are untouched. `restore.sh` replaces the app folder on
   upload, which removes the old files from `/local_apps/`.
 
+### 2026-11-07 — Peacock pre-rolls at an episode start; soccer key picks at once
+
+- Symptom: a Peacock episode's opening ad played unmuted, and often the
+  show was then muted after it. The app log showed, ~31 s after each new
+  episode, `ad started` and `ad ended (clock running again)` in the same
+  millisecond, with `muted` logged after them. The raw MRP capture
+  (`mrp_raw_log` was on) and a replay through the detector pinned four
+  faults, each seen live:
+  1. The pre-roll's first clock (elapsed 0, rate 0) was compared with the
+     previous episode's clock (~2,550 s), counted as a scrub, and the start
+     was blocked for 3 s, covering the republish. Only the first episode
+     after an app restart was caught. Now a jump is measured against the
+     same content item's last clock (MRP `contentItem.identifier`), so a
+     title not seen before can't jump. Going back to the same episode
+     after another app still counts as a jump (22:29 on 11-05: rewind on
+     resume).
+  2. 03:44:37 on 11-07: the pre-roll clock came inside a `set_state`
+     playback queue, which the detector ignored. Clocks in `set_state`
+     queues now feed it too.
+  3. The start check paired a republish with a rate-0 clock *any* time
+     earlier, so the republish that *ends* a missed pre-roll started a 0 s
+     "ad". The republish must now come within 3 s of the rate-0 clock.
+  4. Mute and unmute ran on separate unordered threads; the unmute (nothing
+     to undo yet) could run first, and the mute then stuck on the show
+     (Pluto too). Each thread now applies the state wanted when it runs,
+     one at a time.
+  Replay of the 11-05..07 capture (`tools/fixtures/peacock_episodes_20261107.jsonl`,
+  sanitized; the sanitizer now tags clocks with an anonymous `item-N`)
+  catches all 7 episode starts with no 0 s windows; the 11-01 Peacock
+  fixture still matches. `test_ad_detect_episodes.py`. The Pluto fixture's
+  `--expect` predates the 40 s heartbeat (it ends one break 2 s early and
+  re-starts it); unchanged by this.
+- Soccer key: a press used to start a fetch + power-on + play of game 1
+  with nothing on the key until the game opened, and every press played
+  game 1 again. Now `{"soccer": "start"}` picks at once and the key shows
+  `1/8` (green band); presses within a minute, or while a started game is
+  on screen, move to `2/8`, `3/8`, … (wrapping); after presses settle for
+  1.5 s (`switch_after_s`) it powers on and plays only the last pick; a newer
+  pick cancels an older switch, including its 8 s `select` check. The pick
+  follows its game id across list refreshes. While games are live the key
+  shows `N LIVE`. A key with an icon and a label now draws the label on a
+  band across the icon's bottom (`badge.py`); no other key had both.
+  Condition `soccer_picking`; the ticker redraws when the pick's minute
+  runs out.
+- `mrp_raw_log` is on in the TV Room preset now (it was on live, off in the
+  repo), so a deploy keeps the capture used to check this. 0.5.0-21.
+
 ## Open items
 
 - [ ] Tune knob acceleration on the TV (`atv` section: step sizes, speed

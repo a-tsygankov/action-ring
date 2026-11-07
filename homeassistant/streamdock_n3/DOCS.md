@@ -217,12 +217,13 @@ Key actions, besides shell strings (`ha-call domain.service '<json>'`):
 | `{"launch": {"device": "lg", "app": "<webOS app id>"}}` | Powers on if needed, starts the app on the LG (`system.launcher/launch`) |
 | `{"next_playing": [entities]}` | Next track on the first of those speakers that is playing and leads its group |
 | `{"youtube": "play_pause" \| "next" \| "previous" \| "next_chapter" \| "forward" \| "subtitles"}` | Controls the linked YouTube app (see below); `forward` skips 10 s, `subtitles` toggles captions |
-| `{"soccer": "start" \| "next"}` | Plays the first live soccer game (powering on first), or the next one (see Live soccer) |
+| `{"soccer": "start" \| "next"}` | Picks the first live soccer game, or the next one while picking, and switches to it (powering on first); `next` always moves on (see Live soccer) |
 
 Named `when` conditions for modes: `youtube` (YouTube in the foreground on a
 screen), `youtube_playing`, `youtube_subtitles` (its live play and caption
 state), `youtube_chapters` (the playing video has chapters; rechecked on every
-video change), `soccer_live` (a live soccer game is listed).
+video change), `soccer_live` (a live soccer game is listed), `soccer_picking`
+(a game was picked in the last minute, or a started game is on screen).
 
 ### Key modes
 
@@ -246,18 +247,25 @@ the foreground, else to the Apple TV:
 ```
 
 `when` is a named condition (`"youtube"`, `"youtube_playing"`,
-`"youtube_subtitles"`, `"soccer_live"`, see above) or a list of conditions,
+`"youtube_subtitles"`, `"soccer_live"`, `"soccer_picking"`, see above) or a list of conditions,
 any of which may match:
 `{"entity": …, "attr": "source" | "app_id" | … | "state", "in": [values]}`.
-The LIVE key on `context:idle` lights up while a game is listed:
+The LIVE key on `context:idle` lights up with the number of listed games,
+and shows the pick (e.g. `2/8`, on green) as soon as it is pressed:
 
 ```json
 "2": {
   "icon": "soccer_live__none", "label": "",
-  "modes": [ { "when": "soccer_live", "icon": "soccer_live__live" } ],
+  "modes": [
+    { "when": "soccer_picking", "icon": "soccer_live__live", "label": "{soccer_pos}", "color": "#1d6b32" },
+    { "when": "soccer_live", "icon": "soccer_live__live", "label": "{soccer_count} LIVE" }
+  ],
   "action": { "soccer": "start" }
 }
 ```
+
+A key with both an icon and a label shows the label on a band across the
+bottom of the icon, in the key's `color` (black by default).
 
 Modes also work on a key with `state_entity`: while a mode is active its look
 wins, and when it ends the key returns to its live on/off look. A mode
@@ -341,20 +349,26 @@ listing needs two public web-page tokens; the app reads them from
 `token_page` once a day, or again when Apple rejects them. They are never
 saved.
 
-- `{"soccer": "start"}` fetches again if the list is older than `cache_s`,
-  powers the TV on through the Apple TV if needed, switches the LG to
-  `atv_source`, and opens the first game. The game opens from the same link
+- `{"soccer": "start"}` picks the first game, and the key shows `1/8` at
+  once. Pressing again within a minute (or while a started game is on
+  screen) picks the next one, `2/8`, wrapping after the last. Once the
+  presses settle for `switch_after_s` seconds (default 1.5) it powers the TV
+  on through the Apple TV if needed, switches the LG to `atv_source`, and
+  opens the last pick only; a newer pick cancels a switch still under way.
+  The pick follows its game when the list changes. With nothing listed yet,
+  a press fetches first. The game opens from the same link
   the Apple TV app uses (`pplus://…` for Paramount+, a
   `tv.apple.com/…/sporting-event/…` link for MLS). If that app is in front
   but not playing after `select_after_s` seconds (a profile picker or a
   "watch live" prompt), one `select` is sent.
-- `{"soccer": "next"}` opens the next game, starting over after the last.
+- `{"soccer": "next"}` always picks the next game (the NEXT key on
+  `context:live_game`).
 - The `soccer_live` condition lights the key while any game is live. Labels
   can show `{soccer_count}` (live games) and `{soccer_pos}` (e.g. `2/3`).
 - While a started game's app stays in front, the context page is
   `context:live_game`. It returns to normal once another app opens.
 
-The log shows `soccer: 3 live: …`, `soccer: playing 1/3: …` and fetch
+The log shows `soccer: 3 live: …`, `soccer: picked 2/3: …`, `soccer: playing 2/3: …` and fetch
 errors. After an error the last list is kept.
 
 ### Now-playing log (ad research)
