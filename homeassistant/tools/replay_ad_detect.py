@@ -73,12 +73,15 @@ def main() -> int:
             det.on_stream_state(r["bundle"], state, bool(r.get("supportedCommands")), now=now)
         elif r["msg"] == "set_state" and r["player"] == "MediaRemote-DefaultPlayer":
             fz.on_player_state(r["bundle"], state, bool(r.get("supportedCommands")), now=now)
+            for c in r.get("clocks", []):  # a new title's first clock can come in the queue
+                if "elapsedTime" in c and "playbackRate" in c:
+                    fz.on_clock(r["bundle"], c["elapsedTime"], c["playbackRate"], c.get("item"), now=now)
         elif r["msg"] == "update_content_item" and r["player"] == "MediaRemote-DefaultPlayer":
             for c in r.get("clocks", []):
                 if "elapsedTime" in c and "elapsedTimeTimestamp" in c:
                     det.on_show_clock(r["bundle"], c["elapsedTime"], c["elapsedTimeTimestamp"], now=now)
                 if "elapsedTime" in c and "playbackRate" in c:
-                    fz.on_clock(r["bundle"], c["elapsedTime"], c["playbackRate"], now=now)
+                    fz.on_clock(r["bundle"], c["elapsedTime"], c["playbackRate"], c.get("item"), now=now)
         det.tick(now=now)
         fz.tick(now=now)
         time.sleep(0.01)  # mute calls run on threads; keep their order

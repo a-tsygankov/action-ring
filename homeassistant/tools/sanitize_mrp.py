@@ -2,8 +2,10 @@
 
 Keeps only what ad analysis needs: time, message kind, app bundle, player
 kind, playback state, whether supported commands were published, and the
-clock fields of content items. Drops titles, content/profile identifiers,
-device identifiers and app blobs, so the result is safe for a public repo.
+clock fields of content items (each tagged with an anonymous "item-N", so a
+new title is told apart from a scrub). Drops titles, content/profile
+identifiers, device identifiers and app blobs, so the result is safe for a
+public repo.
 
     python homeassistant/tools/sanitize_mrp.py mrp_raw.log > fixture.jsonl
 """
@@ -26,6 +28,7 @@ def player_kind(identifier: str, seen: dict[str, str]) -> str:
 
 def sanitize(lines):
     seen: dict[str, str] = {}
+    item_ids: dict[str, str] = {}
     for line in lines:
         try:
             r = json.loads(line)
@@ -50,7 +53,10 @@ def sanitize(lines):
         for item in items or []:
             if isinstance(item, dict):
                 md = item.get("metadata") or {}
-                clocks.append({k: md[k] for k in CLOCK_FIELDS if k in md})
+                clock = {k: md[k] for k in CLOCK_FIELDS if k in md}
+                if item.get("identifier"):
+                    clock["item"] = item_ids.setdefault(item["identifier"], f"item-{len(item_ids) + 1}")
+                clocks.append(clock)
         if clocks:
             out["clocks"] = clocks
         yield out

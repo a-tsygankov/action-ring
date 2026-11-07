@@ -196,7 +196,8 @@ def test_power_on_deadline_uses_the_monotonic_clock():
                       sleep=t.sleep, monotonic=t.clock)
     live.start()
     # The full 25 s wait despite the jumps: 2 s remote settle plus 0.5 s polls.
-    assert t.sleeps[0] == 2 and len(t.sleeps) == 1 + 50
+    assert t.sleeps[0] == soccer.SWITCH_AFTER_S  # presses settle first
+    assert t.sleeps[1] == 2 and len(t.sleeps) == 2 + 50
 
 
 def test_start_without_live_games_does_nothing(capsys):
@@ -511,3 +512,107 @@ def test_poll_forever_survives_errors(monkeypatch):
 def test_constants():
     assert soccer.UTS_PARAMS == "caller=web&locale=en-US&pfm=web&sf=143441&v=100"
     assert soccer.QUERIES == ("Paramount+", "MLS")
+
+
+# -- the key: pick at once, cycle, switch to the last pick ---------------------
+
+
+def test_a_press_shows_the_pick_before_any_switching():
+    seen = []
+    live, rec, st, t = _live()
+    live._on_change = lambda: seen.append(live.vars()["soccer_pos"])
+    live.refresh()
+    assert live.select() is not None
+    assert seen[-1] == "1/3" and live.picking() and rec.calls == []
+
+
+def test_presses_cycle_through_the_list_and_wrap():
+    live, rec, st, t = _live()
+    live.refresh()
+    picks = []
+    for _ in range(4):
+        live.select()
+        picks.append(live.vars()["soccer_pos"])
+    assert picks == ["1/3", "2/3", "3/3", "1/3"]
+
+
+def test_the_cycle_restarts_after_a_quiet_minute():
+    live, rec, st, t = _live()
+    live.refresh()
+    live.select()
+    live.select()
+    t.now += soccer.CYCLE_S + 1
+    assert not live.picking()
+    live.select()
+    assert live.vars()["soccer_pos"] == "1/3"
+
+
+def test_while_a_started_game_is_on_screen_a_press_moves_on():
+    live, rec, st, t = _live()
+    live.press()
+    st[ATV] = {"s": "playing", "a": {"app_id": P_PLUS}}
+    t.now += soccer.CYCLE_S + 1
+    assert live.watching(st.get) and live.picking()
+    live.select()
+    assert live.vars()["soccer_pos"] == "2/3"
+
+
+def test_next_always_moves_on():
+    live, rec, st, t = _live()
+    live.refresh()
+    t.now += soccer.CYCLE_S + 1
+    live.select(advance=True)
+    assert live.vars()["soccer_pos"] == "2/3"
+
+
+def test_rapid_presses_switch_once_to_the_last_pick():
+    live, rec, st, t = _live()
+    live.refresh()
+    first = live.select()
+    second = live.select()
+    live.switch(first)  # superseded: nothing happens
+    assert rec.calls == []
+    live.switch(second)
+    played = [d["media_content_id"] for _, s, d in rec.calls if s == "play_media"]
+    assert played == [live.games()[1].url]
+
+
+def test_press_waits_for_the_presses_to_settle():
+    live, rec, st, t = _live()
+    live.press()
+    assert t.sleeps[0] == soccer.SWITCH_AFTER_S
+    assert [s for _, s, _ in rec.calls] == ["play_media"]
+
+
+def test_a_newer_pick_cancels_the_select_check():
+    live, rec, st, t = _live()
+    live.refresh()
+    st[ATV] = {"s": "idle", "a": {"app_id": P_PLUS}}  # a profile picker would get a select
+
+    def sleep(seconds):
+        t.sleep(seconds)
+        if seconds == CFG["select_after_s"]:
+            live.select()  # pressed again while the first game opens
+
+    live._sleep = sleep
+    live.switch(live.select())
+    assert ("remote", "send_command") not in rec.names()
+
+
+def test_the_pick_follows_its_game_when_the_list_changes():
+    live, rec, st, t = _live()
+    live.refresh()
+    live.select()
+    live.select()  # game 2 of 3
+    picked = live.games()[1]
+    live._games = [g for g in live._games if g is not live._games[0]]  # game 1 ended
+    assert live.vars()["soccer_pos"] == "1/2"
+    live.switch(live._gen)
+    assert rec.calls[-1][2]["media_content_id"] == picked.url
+
+
+def test_a_press_with_nothing_cached_fetches_first():
+    live, rec, st, t = _live()
+    live.press()
+    assert live.vars()["soccer_pos"] == "1/3"
+    assert [s for _, s, _ in rec.calls] == ["play_media"]
