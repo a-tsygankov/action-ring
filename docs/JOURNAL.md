@@ -907,6 +907,35 @@ announced by a TV toast via `system.notifications/createToast`):
   needed; the gap was a temporary tab staying up over it, fixed above.
   0.5.0-22.
 
+### 2026-11-07 — Peacock mid-roll missed after an app restart: clocks run from their stamps
+
+- Symptom: right after the 0.5.0-22 deploy (04:42:54), the 04:44:12–04:45:04
+  mid-roll played unmuted. On reconnect the Apple TV sends a state snapshot
+  whose clock is "0.5 s at 04:33:10" (rate 1): true, but 10 minutes old. The
+  jump check extrapolated it from its *arrival*, predicted ~79 s at 04:44:12,
+  saw 661 s, took the ad for a scrub and blocked its start.
+- Fix: a clock is extrapolated from its own `elapsedTimeTimestamp`
+  (0.5 + 661 = 661.5 s, the ad showed 661.1 s). Live clocks carry a stamp
+  within ~1 s of arrival, so nothing else changes. Fixture
+  `tools/fixtures/peacock_reconnect_20261107.jsonl` (what the restarted app
+  saw); `test_ad_detect_episodes.py`.
+- `replay_ad_detect.py` now keeps time running across midnight. Before, the
+  wrap gave a false jump that hid a stale scrub time; with it fixed, the
+  11-05..07 replay also has 00:06:25–00:07:56, a mid-roll the live app did
+  catch on 11-06. 0.5.0-23.
+
+### 2026-11-07 — The ad mute survives an app restart
+
+- Seen on the 0.5.0-23 deploy (04:50): the old app muted a Peacock mid-roll
+  at 04:50:36 and was replaced ~10 s later. The new app saw the ad still
+  running (the reconnect fix worked) but found the speaker muted, took it
+  for the user's mute, and would not unmute at the ad's end.
+- Each detector now keeps "the mute is ours" in `/data/ad_mute_frozen.json`
+  / `ad_mute_show_clock.json` (written on every change; ignored when older
+  than 10 min or unreadable). A new app inherits it: the ad's end unmutes as
+  usual, and if no ad shows up within 20 s the inherited mute is undone. A
+  user's mute is still left alone. `test_ad_detect_restart.py`. 0.5.0-24.
+
 ## Open items
 
 - [ ] Tune knob acceleration on the TV (`atv` section: step sizes, speed
