@@ -40,7 +40,7 @@ Runs the upstream daemon unchanged and adds:
 
 4. YouTube (yt_lounge.py): {"youtube": name} controls the video playing in a
    linked YouTube TV app: "next_chapter" jumps to the next chapter; "forward"
-   (+10 s), "next", "previous", "play_pause" and "subtitles" (toggle) go
+   (+10 s), "rewind" (-10 s), "next", "previous", "play_pause" and "subtitles" (toggle) go
    through the Lounge. Conditions "youtube_playing", "youtube_subtitles" and
    "youtube_chapters" (the current video has chapters) follow its live state.
 
@@ -111,7 +111,7 @@ TICK_SECONDS = 0.2
 SLOW_PASS_SECONDS = 0.5
 EMPTY_LOOK = Look(None, "", "#000000")  # a key the visible page leaves undefined
 ERROR_LOOK = Look(None, "?", "#5c3b00")  # a key whose spec failed to resolve
-YOUTUBE_COMMANDS = ("next_chapter", "forward", "next", "previous", "play_pause", "subtitles")
+YOUTUBE_COMMANDS = ("next_chapter", "forward", "rewind", "next", "previous", "play_pause", "subtitles")
 SOCCER_COMMANDS = ("start", "next")
 
 _ready = threading.Event()

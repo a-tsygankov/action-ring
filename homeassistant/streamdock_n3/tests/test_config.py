@@ -91,9 +91,52 @@ def action_entities(action) -> set[str]:
     return out
 
 
+EMPTY_KEYS = {"context:idle": {"4"}, "context:streaming": {"4"}, "context:lg_media": {"4"},
+              "context:lg_app": {"4"}}  # left blank on purpose (Night moved to tab 2A)
+
+
 def test_every_page_has_six_keys():
     for name, page in PAGES.items():
-        assert sorted(page["keys"]) == ["1", "2", "3", "4", "5", "6"], name
+        assert sorted({*page["keys"], *EMPTY_KEYS.get(name, ())}) == ["1", "2", "3", "4", "5", "6"], name
+        assert not set(page["keys"]) & EMPTY_KEYS.get(name, set()), name
+
+
+def _icons(spec):
+    return {spec.get("icon"), *(m.get("icon") for m in spec.get("modes", []))}
+
+
+def test_night_and_subtitles_only_on_tab_2a():
+    for name, page in PAGES.items():
+        for key, spec in page["keys"].items():
+            icons = _icons(spec)
+            if icons & {"night__off", "night__on", "subtitles__off", "subtitles__on"}:
+                assert name == "sonos", (name, key)
+    assert CONFIG["tabs"]["round"]["8"][0] == "sonos"  # 2A: round button 2, one click
+    sonos = PAGES["sonos"]["keys"]
+    assert sonos["1"]["icon"] == "night__off"
+    assert sonos["5"]["action"] == {"youtube": "subtitles"}
+    assert sonos["5"]["modes"] == [{"when": "youtube_subtitles", "icon": "subtitles__on"}]
+
+
+BACK_FWD = [("skip_back_10", "skip_fwd_10"), ("rewind__1x", "fast_forward__1x"), ("prev_video", "next_video")]
+
+
+def test_back_and_forward_keys_pair_on_one_row():
+    for name, page in PAGES.items():
+        if not name.startswith("context:"):
+            continue
+        icon = {k: spec.get("icon") for k, spec in page["keys"].items()}
+        for back, fwd in BACK_FWD:
+            at = [k for k, i in icon.items() if i == back]
+            if at:
+                assert at[0] in ("2", "4") and icon[str(int(at[0]) + 1)] == fwd, (name, back)
+            elif fwd in icon.values():
+                assert False, (name, fwd, "has no back key beside it")
+
+
+def test_open_tabs_close_after_5_s():
+    assert CONFIG["tabs"]["timeouts"]["open"] == 5
+    assert CONFIG["tabs"]["timeouts"]["after_press"] == 5
 
 
 def test_every_context_layout_has_a_page():
@@ -204,7 +247,7 @@ def test_soccer_keys():
         ],
         "action": {"soccer": "start"},
     }
-    assert PAGES["context:live_game"]["keys"]["2"] == {
+    assert PAGES["context:live_game"]["keys"]["4"] == {
         "label": "NEXT\\n{soccer_pos}",
         "color": "#1d6b32",
         "action": {"soccer": "next"},

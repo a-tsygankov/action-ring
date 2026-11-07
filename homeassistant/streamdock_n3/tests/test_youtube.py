@@ -235,3 +235,13 @@ def test_snapshot_lists_screens(yt):
     assert snap["a"] == {"connected": True, "video": "vid_a", "state": "Paused", "position": 0,
                          "subtitles": "en", "in_ad": False}
     assert snap["b"]["connected"] is False
+
+
+def test_rewind_seeks_ten_seconds_back_and_not_before_zero(yt):
+    a = yt.screens["a"]
+    a._set(42.0, None)
+    yt.command("rewind")
+    assert a.api.calls == [("seek_to", 32.0)]
+    a._set(4.0, None)
+    yt.command("rewind")
+    assert a.api.calls[-1] == ("seek_to", 0.0)

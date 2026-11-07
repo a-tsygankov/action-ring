@@ -2,7 +2,8 @@
 
 The dock shows either a context page ("context:<layout>", chosen from what the
 TV/room is doing) or a temporary page opened by a round button (a cycle of
-pages that closes on its own after a timeout). All time is passed in, so this
+pages that closes on its own after a timeout, or when the context layout
+changes). All time is passed in, so this
 is a pure, deterministic module: no clocks, no threads of its own, no device
 or Home Assistant. Callers (SDK input thread, a ticker, the HA state thread)
 share one engine; every public method takes the same internal lock.
@@ -114,4 +115,5 @@ class TabEngine:
                     and now - self._pending_since >= self._debounce_s):
                 self._layout = self._pending
                 self._pending = None
+                self._close()  # what is on screen changed: show its page
             self._bump_if_changed(before)

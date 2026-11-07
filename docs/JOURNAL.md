@@ -882,6 +882,31 @@ announced by a TV toast via `system.notifications/createToast`):
 - `mrp_raw_log` is on in the TV Room preset now (it was on live, off in the
   repo), so a deploy keeps the capture used to check this. 0.5.0-21.
 
+### 2026-11-07 — Key layout: Night and subtitles on tab 2A, back/forward pairs, 5 s tabs
+
+- Night sound left every context page (idle, streaming, LG media, LG app:
+  key 4 is now blank; live game: key 3). It stays on tab 2A (`sonos`, round
+  button 2 once), key 1. YouTube subtitles moved from the YouTube page to
+  tab 2A key 5, in place of the subwoofer toggle (removed from the dock).
+- Back/forward pairs sit side by side on one row, back on key 2 or 4:
+  streaming and live game ⟲10/⟳10 on 2+3 (live game: NEXT game moved to
+  key 4), LG ⏪/⏩ on 2+3 (unchanged), YouTube previous/next video on 2+3 and
+  −10 s/+10 s (next chapter) on 4+5. New `{"youtube": "rewind"}` (−10 s,
+  never before 0). `test_back_and_forward_keys_pair_on_one_row`,
+  `test_night_and_subtitles_only_on_tab_2a`.
+- Temporary tabs close after 5 s without a press (`open` 10 → 5;
+  `after_press` was already 5), and as soon as a new context layout is
+  adopted (TV off, another app or input; after the 1 s debounce).
+- When the default (`context:idle`) page shows, checked against the
+  now-playing log: the LG off/standby/unavailable; the LG on its
+  home/HDMI/live TV app; the Apple TV input with no app that counts. The
+  Apple TV asleep reports `off` with `app_id` None (seen 8 times 11-04..06),
+  so it is idle too. The TV app counts only for real content that has
+  played 10 s; opened or browsing (`idle`, no title) it is idle, while a
+  paused title keeps the streaming page (as asked). No rule change was
+  needed; the gap was a temporary tab staying up over it, fixed above.
+  0.5.0-22.
+
 ## Open items
 
 - [ ] Tune knob acceleration on the TV (`atv` section: step sizes, speed

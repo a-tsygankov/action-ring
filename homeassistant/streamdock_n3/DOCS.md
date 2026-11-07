@@ -150,7 +150,7 @@ before):
 
 ```json
 "tabs": {
-  "timeouts": { "open": 10, "after_press": 5, "context_debounce": 1 },
+  "timeouts": { "open": 5, "after_press": 5, "context_debounce": 1 },
   "round": { "7": ["apps", "apps_more"], "8": ["sonos"] },
   "context": { "lg": "media_player.lg_tv_2", "atv": "media_player.vugitv_4k_vugitv_4k",
                "atv_source": "Apple OTT",
@@ -198,7 +198,15 @@ before):
   next page in the cycle, and after the last one the cycle starts again. A
   page closes back to the context after `open` seconds, or `after_press`
   seconds after a key press on it; with `close_on_press` a key press closes
-  it at once.
+  it at once. A new context layout (the TV turned off, another app or
+  input) closes it too, once that layout has held `context_debounce` s.
+- **TV Room layout.** Keys run 1 2 3 on the top row, 4 5 6 below. Each
+  context page puts its back/forward pair side by side on one row (back on
+  key 2 or 4): ⟲10/⟳10 (Apple TV apps, a live game), ⏪/⏩ (LG), previous/
+  next video and −10 s/+10 s (YouTube). Night sound and subtitles are only
+  on tab 2A (`sonos`, round button 2 once): Night, Speech, Next track,
+  Mute, Subtitles (the linked YouTube's captions), Surround. Key 4 of the
+  idle, streaming and LG pages is left blank.
 - **Buttons:** map `button.1–6.press` to `{"tab_key": N}` (`{"key_action": N}`
   is an alias) and the tab round buttons to `{"tab_round": N}`. Other events
   keep their own actions (`button.9`, the knobs).
@@ -216,7 +224,7 @@ Key actions, besides shell strings (`ha-call domain.service '<json>'`):
 | `{"launch": {"device": "atv", "app": "<bundle id>"}}` | Powers the TV on if it is off (Apple TV wake, HDMI-CEC), switches the LG to `atv_source`, starts the app on the Apple TV |
 | `{"launch": {"device": "lg", "app": "<webOS app id>"}}` | Powers on if needed, starts the app on the LG (`system.launcher/launch`) |
 | `{"next_playing": [entities]}` | Next track on the first of those speakers that is playing and leads its group |
-| `{"youtube": "play_pause" \| "next" \| "previous" \| "next_chapter" \| "forward" \| "subtitles"}` | Controls the linked YouTube app (see below); `forward` skips 10 s, `subtitles` toggles captions |
+| `{"youtube": "play_pause" \| "next" \| "previous" \| "next_chapter" \| "forward" \| "rewind" \| "subtitles"}` | Controls the linked YouTube app (see below); `forward` / `rewind` skip 10 s, `subtitles` toggles captions |
 | `{"soccer": "start" \| "next"}` | Picks the first live soccer game, or the next one while picking, and switches to it (powering on first); `next` always moves on (see Live soccer) |
 
 Named `when` conditions for modes: `youtube` (YouTube in the foreground on a
@@ -303,9 +311,10 @@ it over YouTube's TV-link ("Lounge") protocol (`yt_lounge.py`, pyytlounge).
 That session provides the playing video, its position, play and ad state, and
 seek. `{"youtube": "next_chapter"}` reads the video's chapters from its public
 watch page (`yt_chapters.py`: YouTube's chapter markers, else description
-timestamps) and seeks to the next one. The YouTube page's key 2 shows
+timestamps) and seeks to the next one. The YouTube page's key 5 shows
 "next chapter" while the playing video has chapters and "+10 s"
-(`{"youtube": "forward"}`) otherwise; a new video shows "+10 s" until its
+(`{"youtube": "forward"}`) otherwise, beside "−10 s" (`{"youtube":
+"rewind"}`, not before the start) on key 4; a new video shows "+10 s" until its
 chapters have loaded. Ad starts and ends are logged
 (`youtube: lg: ad started (15s, skippable)`).
 
