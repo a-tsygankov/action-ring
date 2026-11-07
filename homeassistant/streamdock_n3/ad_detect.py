@@ -19,14 +19,19 @@ capture of a 2.5-minute break (docs/JOURNAL.md):
 
 AdDetector turns these into ad start/end and mutes the configured speaker for
 the break, undoing only its own mute (same rules as the HA pause-mute
-automation). Events come from the app's own MRP session (AirPlay pairing).
+automation). Whether the mute is its own is kept in a state file, so an app
+restart mid-ad still unmutes at the ad's end (or after RESTORE_GRACE_S when
+no ad resumes). Events come from the app's own MRP session (AirPlay pairing).
 """
 
 from __future__ import annotations
 
+import json
+import os
 import threading
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 DEFAULTS: dict[str, Any] = {
@@ -58,6 +63,8 @@ DEFAULTS: dict[str, Any] = {
 DEFAULT_PLAYER = "MediaRemote-DefaultPlayer"
 PLAYING = 1
 CLOCK_ITEMS = 20  # content items whose last clock FrozenClockDetector keeps
+RESTORE_GRACE_S = 20.0  # after a restart, an inherited mute waits this long for its ad
+RESTORE_MAX_AGE_S = 600.0  # a saved mute state older than this is not inherited
 
 Call = Callable[[str, str, dict[str, Any]], None]
 StateLookup = Callable[[str], "dict[str, Any] | None"]
@@ -68,7 +75,9 @@ def log(msg: str) -> None:
 
 
 class AdDetector:
-    def __init__(self, cfg: dict[str, Any], call: Call, state_of: StateLookup) -> None:
+    def __init__(self, cfg: dict[str, Any], call: Call, state_of: StateLookup,
+                 state_file: Path | None = None) -> None:
+        """`state_file` keeps "the speaker mute is ours" across app restarts."""
         self.cfg = {**DEFAULTS, **{k: v for k, v in cfg.items() if k in DEFAULTS}}
         self.apps = set(self.cfg["apps"])
         self.speaker: str = cfg["speaker"]  # media_player to mute (the Arc)
@@ -80,7 +89,41 @@ class AdDetector:
         self._state_of = state_of
         self._lock = threading.Lock()
         self._mute_lock = threading.Lock()  # one mute call at a time, in any order
+        self._state_file = state_file
         self.reset()
+        # A mute the previous app run left on: ours until an ad ends, or undone
+        # after RESTORE_GRACE_S if no ad shows up.
+        self._inherited_until: float | None = None
+        if self._load_muted():
+            self.muted_by_us = True
+            self._inherited_until = time.monotonic() + RESTORE_GRACE_S
+            log("the previous run's mute is ours")
+
+    def _load_muted(self) -> bool:
+        try:
+            saved = json.loads(self._state_file.read_text()) if self._state_file else {}
+            return bool(saved.get("muted_by_us")) and time.time() - float(saved["at"]) < RESTORE_MAX_AGE_S
+        except Exception:  # missing, unreadable or broken: nothing to inherit
+            return False
+
+    def _save_muted(self) -> None:
+        if self._state_file is None:
+            return
+        try:
+            tmp = self._state_file.with_name(self._state_file.name + ".tmp")
+            tmp.write_text(json.dumps({"muted_by_us": self.muted_by_us, "at": time.time()}))
+            os.replace(tmp, self._state_file)
+        except OSError as err:
+            log(f"saving the mute state failed: {err}")
+
+    def _check_inherited(self, now: float) -> None:
+        """Undo an inherited mute once the grace time has passed with no ad (lock held)."""
+        if self._inherited_until is None or now < self._inherited_until:
+            return
+        self._inherited_until = None
+        if not self.ad and self.muted_by_us:
+            log("no ad after the restart; undoing the inherited mute")
+            threading.Thread(target=self._sync_mute, daemon=True).start()
 
     def reset(self) -> None:
         self.clock: tuple[float, float] | None = None  # (elapsed, elapsedTimestamp)
@@ -137,6 +180,7 @@ class AdDetector:
         """Periodic check: heartbeat stopped, or the app left the foreground."""
         now = time.monotonic() if now is None else now
         with self._lock:
+            self._check_inherited(now)
             if not self.ad:
                 return
             if now - self.clock_seen > self._heartbeat_wait():
@@ -181,9 +225,11 @@ class AdDetector:
                 self._call("media_player", "volume_mute",
                            {"entity_id": self.speaker, "is_volume_muted": True})
                 self.muted_by_us = True
+                self._save_muted()
                 log("muted")
             elif self.muted_by_us:
                 self.muted_by_us = False
+                self._save_muted()
                 if muted:  # the user may have unmuted already
                     self._call("media_player", "volume_mute",
                                {"entity_id": self.speaker, "is_volume_muted": False})
@@ -197,8 +243,9 @@ class FrozenClockDetector(AdDetector):
     clock (Peacock). Feed on_player_state / on_clock from the app's
     MediaRemote-DefaultPlayer; same mute rules and transitions as AdDetector."""
 
-    def __init__(self, cfg: dict[str, Any], call: Call, state_of: StateLookup) -> None:
-        super().__init__(cfg, call, state_of)
+    def __init__(self, cfg: dict[str, Any], call: Call, state_of: StateLookup,
+                 state_file: Path | None = None) -> None:
+        super().__init__(cfg, call, state_of, state_file)
         self.apps = set(self.cfg["frozen_apps"])
 
     def reset(self) -> None:
@@ -207,8 +254,8 @@ class FrozenClockDetector(AdDetector):
         self.cmds_at = -1e9  # last supportedCommands republish
         self.frozen_at: float | None = None  # last rate-0 clock while the clock is stopped
         self.jump_at = -1e9  # last clock jump (scrub)
-        # (elapsed, rate, at) of the last clock per content item (None: unknown)
-        self.clocks: dict[str | None, tuple[float, float, float]] = {}
+        # (elapsed, rate, at, stamp) of the last clock per content item (None: unknown)
+        self.clocks: dict[str | None, tuple[float, float, float, float | None]] = {}
         self.ad_since = 0.0
 
     def on_player_state(self, bundle: str, state: int | None, commands: bool,
@@ -226,19 +273,22 @@ class FrozenClockDetector(AdDetector):
                 self._maybe_start(now)
 
     def on_clock(self, bundle: str, elapsed: float, rate: float, item: str | None = None,
-                 now: float | None = None) -> None:
+                 now: float | None = None, stamp: float | None = None) -> None:
+        """`stamp`: the clock's elapsedTimeTimestamp (elapsed was `elapsed` then)."""
         if bundle not in self.apps:
             return
         now = time.monotonic() if now is None else now
         with self._lock:
             # A jump is against the same item's last clock: a title not seen
-            # before (an episode's pre-roll) cannot jump.
+            # before (an episode's pre-roll) cannot jump. Clocks run from their
+            # own stamps: a reconnect's snapshot can be minutes old.
             prev = self.clocks.pop(item, None)
             if prev is not None:
-                e0, r0, t0 = prev
-                if abs(elapsed - (e0 + r0 * (now - t0))) > self.cfg["frozen_jump"]:
+                e0, r0, t0, s0 = prev
+                dt = stamp - s0 if stamp is not None and s0 is not None else now - t0
+                if abs(elapsed - (e0 + r0 * dt)) > self.cfg["frozen_jump"]:
                     self.jump_at = now
-            self.clocks[item] = (elapsed, rate, now)
+            self.clocks[item] = (elapsed, rate, now, stamp)
             while len(self.clocks) > CLOCK_ITEMS:
                 del self.clocks[next(iter(self.clocks))]  # the least recently seen
             if rate > 0:
@@ -264,6 +314,7 @@ class FrozenClockDetector(AdDetector):
     def tick(self, now: float | None = None) -> None:
         now = time.monotonic() if now is None else now
         with self._lock:
+            self._check_inherited(now)
             if not self.ad:
                 return
             if now - self.ad_since > self.cfg["frozen_timeout"]:
@@ -286,7 +337,8 @@ def _handlers(detector: AdDetector, frozen: "FrozenClockDetector | None"):
         for item in items:
             md = item.metadata
             if md.HasField("elapsedTime") and md.HasField("playbackRate"):
-                frozen.on_clock(bundle, md.elapsedTime, md.playbackRate, item.identifier or None)
+                stamp = md.elapsedTimeTimestamp if md.HasField("elapsedTimeTimestamp") else None
+                frozen.on_clock(bundle, md.elapsedTime, md.playbackRate, item.identifier or None, stamp=stamp)
 
     async def on_set_state(message) -> None:
         inner = protobuf.extract_inner(message)

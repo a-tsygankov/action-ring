@@ -404,6 +404,9 @@ PIN on the TV), it has its own media-remote (MRP) session:
   "media_player.vugitv_4k_vugitv_4k", "apps": ["tv.pluto.ios"]}` mutes the
   speaker during detected ad breaks (`ad_detect.py`) and unmutes after,
   undoing only its own mute. Log lines: `ad-detect: HH:MM:SS ad started (…)`.
+  Its own mute is remembered across app restarts (`/data/ad_mute_*.json`):
+  after a restart mid-ad it still unmutes at the ad's end, or after 20 s if
+  no ad resumes.
   With `"lg"` and `"atv_source"` it mutes only while the TV shows the Apple TV
   input, so another input (a game console) keeps its sound.
 - `"mrp_raw_log": true` in the `atv` section writes every raw now-playing

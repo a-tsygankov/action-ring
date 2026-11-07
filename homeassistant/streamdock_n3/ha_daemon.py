@@ -601,8 +601,11 @@ def main() -> int:
 
             frozen = None
             if ad_cfg.get("frozen_apps"):
-                frozen = ad_detect.FrozenClockDetector(ad_cfg, CoreAPI().call, state_of)
-            ad_detect.install(ad_detect.AdDetector(ad_cfg, CoreAPI().call, state_of), frozen)
+                frozen = ad_detect.FrozenClockDetector(ad_cfg, CoreAPI().call, state_of,
+                                                       state_file=Path("/data/ad_mute_frozen.json"))
+            show_clock = ad_detect.AdDetector(ad_cfg, CoreAPI().call, state_of,
+                                              state_file=Path("/data/ad_mute_show_clock.json"))
+            ad_detect.install(show_clock, frozen)
             entities |= {e for e in (ad_cfg.get("speaker"), ad_cfg.get("media_player")) if e}
         except Exception as err:
             print(f"ad-detect: disabled ({err!r})", flush=True)

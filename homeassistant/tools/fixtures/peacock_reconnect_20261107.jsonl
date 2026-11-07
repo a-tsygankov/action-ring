@@ -1,0 +1,5 @@
+{"t": "04:42:54", "msg": "set_state", "bundle": "com.peacocktv.peacock", "player": "MediaRemote-DefaultPlayer", "playbackState": "Playing", "supportedCommands": true, "clocks": [{"elapsedTime": 0.500040164, "elapsedTimeTimestamp": 815736790.671078, "duration": 2584.8, "playbackRate": 1.0, "item": "item-1"}]}
+{"t": "04:44:12", "msg": "set_state", "bundle": "com.peacocktv.peacock", "player": "MediaRemote-DefaultPlayer", "supportedCommands": true}
+{"t": "04:44:12", "msg": "update_content_item", "bundle": "com.peacocktv.peacock", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 661.076999307, "elapsedTimeTimestamp": 815737451.395798, "duration": 2584.8, "playbackRate": 0.0, "item": "item-1"}]}
+{"t": "04:45:04", "msg": "set_state", "bundle": "com.peacocktv.peacock", "player": "MediaRemote-DefaultPlayer", "supportedCommands": true}
+{"t": "04:45:04", "msg": "update_content_item", "bundle": "com.peacocktv.peacock", "player": "MediaRemote-DefaultPlayer", "clocks": [{"elapsedTime": 661.666738318, "elapsedTimeTimestamp": 815737503.778087, "duration": 2584.8, "playbackRate": 1.0, "item": "item-1"}]}

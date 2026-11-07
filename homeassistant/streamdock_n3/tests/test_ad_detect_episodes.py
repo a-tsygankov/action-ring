@@ -141,3 +141,32 @@ def test_the_capture_replays_with_every_pre_roll_caught():
     assert not [w for w in windows if w[0] == w[1]], windows  # no zero-length "ads"
     for pre_roll in ("20:29:03", "21:17:47", "22:16:19", "23:34:18", "00:24:49", "02:25:39", "03:44:37"):
         assert any(s == pre_roll for s, _ in windows), (pre_roll, windows)
+
+
+def test_after_a_reconnect_the_snapshot_clock_is_extrapolated_from_its_own_stamp():
+    # 04:42:54 on 11-07: the app restarted mid-episode; the Apple TV's state
+    # snapshot carried "0.5 s at 04:33:10" (rate 1), true but 10 min old.
+    calls = []
+    d = detector(calls)
+    d.on_player_state(APP, PLAYING, True, now=0.0)
+    d.on_clock(APP, 0.5, 1.0, "ep", now=0.0, stamp=1000.0)
+    d.on_player_state(APP, None, True, now=78.0)  # 04:44:12: a mid-roll
+    d.on_clock(APP, 661.08, 0.0, "ep", now=78.0, stamp=1660.7)
+    assert d.ad and calls[-1] == ("mute", True)
+
+
+def test_a_scrub_is_still_a_jump_by_the_stamps():
+    d = detector([])
+    d.on_player_state(APP, PLAYING, False, now=0.0)
+    d.on_clock(APP, 100.0, 1.0, "ep", now=0.0, stamp=5000.0)
+    d.on_player_state(APP, None, True, now=50.0)
+    d.on_clock(APP, 900.0, 0.0, "ep", now=50.0, stamp=5050.0)
+    assert not d.ad
+
+
+def test_the_reconnect_capture_replays_with_the_mid_roll_caught():
+    fixture = TOOLS / "fixtures" / "peacock_reconnect_20261107.jsonl"
+    out = subprocess.run([sys.executable, str(TOOLS / "replay_ad_detect.py"), str(fixture),
+                          "--frozen-app", APP, "--expect", "04:44:12-04:45:04"],
+                         capture_output=True, text=True)
+    assert out.returncode == 0, out.stdout
