@@ -270,7 +270,7 @@ def test_service_keys_resolve():
     for page, key, slot in slots:
         svc, _, name = slot["service_key"].partition(".")
         assert svc in CONFIG["services"], (page, key)
-        assert SoccerService().key(name, slot.get("args", {})) is not None, (page, key)
+        assert SERVICES[svc].key(name, slot.get("args", {})) is not None, (page, key)
 
 
 def test_every_soccer_action_is_known():
