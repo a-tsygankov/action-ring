@@ -7,7 +7,8 @@ sessions never share an identity) and offers blocking touch calls to the knob
 engine.
 
 Optionally it is also paired for AirPlay: with AirPlay credentials pyatv
-opens the media-remote (MRP) tunnel, which mrp_raw.py taps for diagnostics.
+opens the media-remote (MRP) tunnel, the app's own MRP session. ad_detect.py
+reads it to mute Pluto and Peacock ad breaks; mrp_raw.py can log it raw.
 
 Pairing is driven through files in the app's config share (/config here,
 /addon_configs/local_streamdock_n3 outside):

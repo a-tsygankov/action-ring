@@ -5,7 +5,8 @@ rolled-back steps are left out; only what is live (and the lessons that shaped
 it) is recorded. Newest entries go at the bottom of **Log**; **System state**
 always reflects the latest.
 
-To restore onto a fresh device, see [Restore](#restore).
+To restore onto a fresh device, see [Restore](#restore). To swap in a new
+Apple TV box, see [Replacing the Apple TV](#replacing-the-apple-tv).
 
 Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Home_Assistant_Developer_Handoff.md)
 (converted from the original `.docx`).
@@ -157,6 +158,87 @@ these; all but the manual ones are now handled by the scripts:
 Alternative for a like-for-like replacement: a full HA backup
 (**Settings → System → Backups**) also carries integration pairings, which the
 script cannot.
+
+## Replacing the Apple TV
+
+A new box (another unit, same Apple ID) needs no code change as long as it
+ends up with the same entity IDs in HA. Everything below is tied to the
+physical box and is redone; nothing carries over from the old one.
+
+| Tied to the box | Where | If not redone |
+|---|---|---|
+| HA Apple TV integration | HA config entry (holds the box's IP) | No control of the new box |
+| `media_player.vugitv_4k_vugitv_4k`, `remote.vugitv_4k_vugitv_4k` | `presets/tv_room.json` (~25), `displaypad/presets/default.json`, both HA scripts, `streaming_pause_mute` | Every Apple TV control fails |
+| App's Companion pairing | `atv_companion.json` (old IP + old keys) | Knob scrubbing falls back to 10 s seek steps |
+| App's AirPlay pairing | `airplay_credentials` in the same file | Pluto / Peacock ad muting stops |
+| YouTube link, screen `atv` | `yt_lounge.json` | Next chapter stops on the Apple TV |
+| LG input `Apple OTT` | 5× in `tv_room.json`, the automation, the displaypad preset | Context tabs, soccer key, ad muting, pause mute |
+| HDMI-CEC from the box | tvOS setting | Key 3 / Round 3 can't power the LG on |
+
+### On the new box
+
+- [ ] Set up from the iPhone (Apple ID, Wi-Fi, Home carry over; most
+      settings and apps don't).
+- [ ] **Settings → General → Name:** `vugiTV 4K`, before HA sees it.
+- [ ] **Settings → Remotes and Devices → Control TVs and Receivers:** on.
+- [ ] **Settings → AirPlay and Home → Allow Access:** at least "Anyone on
+      the same network", or pairing PINs may not show.
+- [ ] Install the apps the tuning covers: YouTube, Pluto TV, Peacock,
+      Disney+, Max, Netflix (the Apple TV app is built in).
+- [ ] Plug it into the **same LG HDMI port**; a DHCP reservation is worth
+      it (the box gets a new IP).
+
+### Home Assistant
+
+- [ ] **Delete the old Apple TV entry first** (Settings → Devices &
+      services → Apple TV → ⋮ → Delete). Otherwise the new box's entities
+      get a `_2` suffix.
+- [ ] Add the Apple TV integration for the new box (PINs on the TV).
+- [ ] Entity IDs are exactly `media_player.vugitv_4k_vugitv_4k` and
+      `remote.vugitv_4k_vugitv_4k`; rename in Settings → Entities if not (a
+      fresh add on a current HA may name them differently, e.g.
+      `media_player.vugitv_4k`). `restore.sh arpi` lists any mapped entity
+      that is missing.
+- [ ] The LG's `source_list` (`media_player.lg_tv_2` attributes) still
+      names the box's input `Apple OTT`; if the LG renamed it, update `atv_source` everywhere.
+
+### App pairings (from the PC; the dock must be plugged in)
+
+`pair.sh` and `restore.sh` take the address from the HA entry that owns
+`atv.media_player` in the app config, so the old box can't be picked even if
+it is still in HA. `ATV_ADDRESS=<ip>` overrides.
+
+```bash
+ssh homeassistant sudo rm /app_configs/local_streamdock_n3/atv_companion.json
+bash homeassistant/pair.sh atv            # Companion: knob preview scrubbing
+bash homeassistant/pair.sh atv airplay    # AirPlay: Pluto / Peacock ad muting
+bash homeassistant/pair.sh youtube atv    # YouTube > Settings > Link with TV code
+bash homeassistant/pair.sh status         # warns if still paired with another address
+```
+
+Remove `atv_companion.json` first: `restore.sh` skips pairing while it
+exists, and the app keeps connecting to the address stored in it.
+
+### Retest on the TV
+
+- [ ] Key 3 both ways (LG off + box asleep; box wakes the LG over CEC),
+      Round 1–3, keys 5 and 6, both knobs in menus.
+- [ ] Knob scrubbing with previews in the Apple TV app, Max, Netflix;
+      YouTube (scrubs without pausing) and Disney+ (`seek`). The touch window
+      (`touch_min_x` 300 / `touch_max_x` 800) and steps were measured on the old box.
+- [ ] Ad muting on a Pluto TV channel and a Peacock episode (pre-roll and
+      mid-roll). `mrp_raw_log` is on, so `mrp_raw.log` shows what the new box
+      sends if a rule misses.
+- [ ] Next chapter in YouTube; the soccer key; the tabs following the app.
+- [ ] If pairing fails outright, check pyatv's releases for the new box /
+      tvOS before anything else: the app pins `pyatv==0.18.0` and
+      `srptools==1.0.1`.
+
+### The old box
+
+- [ ] Gone from HA (above). If it stays on the network in another room,
+      don't re-add it under the `vugitv_4k` name.
+- [ ] Before giving it away: Settings → System → Reset.
 
 ## Log
 
@@ -935,6 +1017,21 @@ announced by a TV toast via `system.notifications/createToast`):
   than 10 min or unreadable). A new app inherits it: the ad's end unmutes as
   usual, and if no ad shows up within 20 s the inherited mute is undone. A
   user's mute is still left alone. `test_ad_detect_restart.py`. 0.5.0-24.
+
+### 2026-11-13 — Replacing the Apple TV: checklist, pick the right HA entry
+
+- New section [Replacing the Apple TV](#replacing-the-apple-tv): what is
+  tied to the box (HA entry, entity IDs, the app's Companion and AirPlay
+  pairings, the YouTube link, the LG input name, CEC) and the steps in order.
+- `pair.sh` and `restore.sh` took the address of the *first* `apple_tv`
+  entry in HA. With the old and new box both in HA (mid-swap, or a box in
+  another room) that could pair the app with the wrong one. They now use the
+  entry that owns `atv.media_player` from the app config (`atv_address` in
+  `ssh_ha.sh`; the only entry when the config has none); `ATV_ADDRESS`
+  overrides. `pair.sh status` warns when `atv_companion.json` holds another
+  address than that entry (a replaced box, or a new IP).
+- The AirPlay pairing is no longer described as "diagnostics": ad muting
+  (Pluto, Peacock) runs on that MRP session.
 
 ## Open items
 
