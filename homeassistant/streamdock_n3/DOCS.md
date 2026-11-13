@@ -296,6 +296,45 @@ without `action` leaves the key's press unchanged. The power key on
 }
 ```
 
+### Dynamic keys
+
+A key can take turns between functions on a timer, to fit more on a page:
+e.g. 5 s thumbs up, then 5 s thumbs down, and again. Give it a `dynamic`
+section with two or more `phases`; each phase is laid over the key's own
+spec, so it can set `icon`, `label`, `color`, `action`, `modes` or
+`state_entity`, and fields it leaves out come from the key:
+
+```json
+"4": {
+  "dynamic": {
+    "hold_s": 5, "warn_s": 1, "warn": "countdown", "grace_s": 0.25,
+    "phases": [
+      { "icon": "thumb_up",   "action": "ha-call …like…" },
+      { "icon": "thumb_down", "action": "ha-call …dislike…", "hold_s": 3 }
+    ]
+  }
+}
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `hold_s` | 5 | Seconds each phase shows; a phase's own `hold_s` overrides it |
+| `warn_s` | 1 | Seconds before a change that the warning shows (0: none) |
+| `warn` | `countdown` | `countdown`: 3-2-1 in the top-right corner; `bar`: a bar along the bottom (above a label band) that shrinks to nothing; `dots`: three dots along the top that go out one by one |
+| `warn_color` | `#ffb300` | Colour of the warning |
+| `grace_s` | 0.25 | A press this soon after a change still does the old phase's function |
+
+- The cycle starts on the first phase whenever the page is shown (a context
+  page adopted, a tab opened or closed back to it).
+- A page may hold several dynamic keys; each keeps its own phases and holds.
+- A press does what the key *showed*: the phase last drawn on the dock (a
+  slow redraw never runs the next function early), or the one before it
+  within `grace_s` of the swap, since the finger was already on its way.
+  The log shows `dynamic: key N pressed in phase P`.
+- While a dynamic key is on screen the renderer wakes for each warning
+  frame (3 a second for `countdown` and `dots`, 5 for `bar`); frames are
+  cached images and are not logged.
+
 ### YouTube: next chapter and ads
 
 The top-level `youtube` section lists screens, i.e. the YouTube app on each

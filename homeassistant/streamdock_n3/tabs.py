@@ -33,15 +33,17 @@ class TabEngine:
         self._temp: str | None = None          # open temporary page, if any
         self._deadline = 0.0                   # when the temporary page closes
         self.version = 0                       # bumps whenever `visible` changes
+        self._shown_at = 0.0                   # when `visible` last changed
 
     # -- internals (call with the lock held) --------------------------------
 
     def _visible(self) -> str:
         return self._temp if self._temp is not None else f"context:{self._layout}"
 
-    def _bump_if_changed(self, before: str) -> None:
+    def _bump_if_changed(self, before: str, now: float) -> None:
         if self._visible() != before:
             self.version += 1
+            self._shown_at = now
 
     def _close(self) -> None:
         self._temp = None
@@ -53,9 +55,20 @@ class TabEngine:
         with self._lock:
             return self._visible()
 
+    @property
+    def shown_at(self) -> float:
+        """When the visible page was shown (the clock of its dynamic keys)."""
+        with self._lock:
+            return self._shown_at
+
     def keys(self) -> dict[str, dict]:
         with self._lock:
             return dict(self._pages.get(self._visible(), {}).get("keys", {}))
+
+    def page(self) -> tuple[dict[str, dict], float]:
+        """The visible page's keys and when it was shown, as one snapshot."""
+        with self._lock:
+            return dict(self._pages.get(self._visible(), {}).get("keys", {})), self._shown_at
 
     def round_press(self, button: int, now: float) -> bool:
         """False if `button` is not a tab button; otherwise open/advance its cycle."""
@@ -69,7 +82,7 @@ class TabEngine:
             else:
                 self._temp = cycle[0]
             self._deadline = now + self._open_s
-            self._bump_if_changed(before)
+            self._bump_if_changed(before, now)
             return True
 
     def key_press(self, key: int, now: float) -> dict | None:
@@ -88,7 +101,7 @@ class TabEngine:
                     self._close()
                 else:
                     self._deadline = now + self._after_press_s
-                self._bump_if_changed(before)
+                self._bump_if_changed(before, now)
             return spec
 
     def set_context(self, layout: str, now: float) -> None:
@@ -104,7 +117,7 @@ class TabEngine:
             elif layout != self._pending:
                 self._pending = layout
                 self._pending_since = now
-            self._bump_if_changed(before)
+            self._bump_if_changed(before, now)
 
     def tick(self, now: float) -> None:
         with self._lock:
@@ -116,4 +129,4 @@ class TabEngine:
                 self._layout = self._pending
                 self._pending = None
                 self._close()  # what is on screen changed: show its page
-            self._bump_if_changed(before)
+            self._bump_if_changed(before, now)

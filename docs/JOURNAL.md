@@ -1055,3 +1055,25 @@ announced by a TV toast via `system.notifications/createToast`):
       in the repo.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.
+
+### 2026-11-13 — Dynamic keys: one key, functions in turn, with a warning
+
+- Asked for: a key that changes its image and function on a timer (e.g.
+  YouTube on the Apple TV: 5 s thumbs up / 5 s thumbs down), with a 1 s
+  warning before each change so the wrong function isn't pressed; several
+  such keys per context page.
+- `dynamic.py` (pure timing; Pillow overlay) and a `"dynamic"` section on
+  any key spec: `phases` laid over the key, `hold_s` per key or phase,
+  `warn_s`, `warn` = `countdown` (3-2-1, top-right) | `bar` (bottom,
+  shrinking; sits above a label band) | `dots` (top, going out),
+  `warn_color`, `grace_s`. DOCS.md "Dynamic keys".
+- The clock runs from when the page was shown (`TabEngine.shown_at`), so
+  a page opens on phase 1. The renderer now sleeps until the next frame of
+  a dynamic key on screen instead of only waiting for a signal; frame-only
+  passes don't log.
+- A press resolves to the phase the renderer last *drew* (not the clock),
+  or the previous one within `grace_s` (0.25 s) of the swap.
+- Entities in phases are subscribed; the preset checks cover phases.
+- Not in the preset yet: there is no like/dislike action for YouTube on
+  the Apple TV (the Lounge API has none). Tests: `test_dynamic.py`,
+  `test_dynamic_render.py` (daemon with the device stubbed). 0.5.0-25.

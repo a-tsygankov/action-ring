@@ -10,6 +10,7 @@ import json
 import re
 from pathlib import Path
 
+from dynamic import phase_specs
 from keyspec import ICON_DIR, entities_of, icon_path
 
 APP_DIR = Path(__file__).resolve().parent.parent
@@ -63,12 +64,14 @@ def key_specs():
 
 
 def looks(spec: dict):
-    """The spec itself, its state variants and its modes: everything that can set an icon."""
-    yield spec
-    for name in ("on", "off", "unavailable"):
-        if isinstance(spec.get(name), dict):
-            yield spec[name]
-    yield from spec.get("modes") or []
+    """The spec itself, its state variants and its modes, and those of each
+    dynamic phase: everything that can set an icon."""
+    for part in phase_specs(spec):
+        yield part
+        for name in ("on", "off", "unavailable"):
+            if isinstance(part.get(name), dict):
+                yield part[name]
+        yield from part.get("modes") or []
 
 
 def all_actions():
@@ -178,7 +181,7 @@ def test_entities_are_known():
 
 def test_named_conditions_are_known():
     for page, key, spec in key_specs():
-        for mode in spec.get("modes") or []:
+        for mode in (m for part in phase_specs(spec) for m in part.get("modes") or []):
             if isinstance(mode["when"], str):
                 assert mode["when"] in NAMED_CONDITIONS, (page, key)
 
