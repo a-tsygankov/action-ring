@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#282a2e"/><stop offset="1" stop-color="#15171b"/></linearGradient>
+    <radialGradient id="knob" cx=".34" cy=".24" r=".86"><stop stop-color="#56616a"/><stop offset=".58" stop-color="#343c44"/><stop offset="1" stop-color="#20262c"/></radialGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff0b0"/><stop offset="1" stop-color="#ff9b55"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="171" fill="#101215" stroke="#3b4248" stroke-width="8"/>
+  <circle cx="256" cy="256" r="147" fill="none" stroke="#727a80" stroke-width="5" stroke-dasharray="4 17" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="119" fill="url(#knob)" stroke="#69747b" stroke-width="4"/>
+  <circle cx="256" cy="256" r="91" fill="#22282e" stroke="#101418" stroke-width="5"/>
+  <path d="M256 139v44" stroke="url(#mark)" stroke-width="17" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="17" fill="#ffb366"/>
+  <path d="M166 328a104 104 0 0 0 180 0" fill="none" stroke="#53d9c3" stroke-width="8" stroke-linecap="round" opacity=".9"/>
+</svg>
