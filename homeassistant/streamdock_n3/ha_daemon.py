@@ -60,17 +60,12 @@ Runs the upstream daemon unchanged and adds:
    {"next_playing": [entities]} skips to the next track on the first playing
    speaker that leads its group.
 
-8. Live soccer (soccer.py): a "soccer" config section (atv, atv_remote, lg,
-   atv_source, power_on_wait, token_page, cache_s, poll_s, idle_poll_s,
-   select_after_s) polls the Apple TV app listing for live Paramount+ / MLS
-   games.
-   {"soccer": "start"} picks the first game at once, or the next one while
-   picking (pressed within a minute, or a started game on screen); {"soccer":
-   "next"} always the next (wrapping). Once presses settle it powers on and
-   plays the last pick. Conditions "soccer_live" (any game live) and
-   "soccer_picking"; labels get {soccer_count} and {soccer_pos} (a label on
-   an icon goes on a band, badge.py); context "live_game" applies while a
-   started game's app is in the foreground.
+8. Live soccer is a service (services/soccer/, item 13): "services.soccer"
+   polls the Apple TV app listing for live Paramount+ / MLS games; its keys
+   {"service_key": "soccer.live"} / "soccer.next", actions {"service":
+   "soccer", "do": "start" | "next"}, conditions "soccer.live" /
+   "soccer.picking", labels {soccer_count} / {soccer_pos}, and context
+   "live_game" while a started game's app is in the foreground.
 
 9. Service logo (logo.py): a "tabs.logo" section flashes the logo of what is
    on screen (the app, the PS5 input, else the Apple TV) on key 6 of a
@@ -146,7 +141,6 @@ EMPTY_LOOK = Look(None, "", "#000000")  # a key the visible page leaves undefine
 ERROR_LOOK = Look(None, "?", "#5c3b00")  # a key whose spec failed to resolve
 YOUTUBE_COMMANDS = ("next_chapter", "forward", "rewind", "next", "previous", "play_pause", "subtitles",
                     "like", "dislike")
-SOCCER_COMMANDS = ("start", "next")
 
 _ready = threading.Event()
 _device = None
@@ -156,7 +150,6 @@ _youtube: Any = None  # yt_lounge.YouTubeScreens
 _rating: Any = None  # yt_rating.YouTubeRating; with youtube "rating": true
 _toaster: Any = None  # toast.Toaster; with a "toast" config section
 _np_log: Any = None  # np_log.NowPlayingLog
-_soccer: Any = None  # soccer.LiveSoccer; set in main() with a "soccer" config
 _host: ServiceHost | None = None  # set in main(); without a "services" section it has none
 # Handles services may borrow (ctx.shared); filled in main() as they are made.
 # Never empty, so the services' contexts keep this very dict (they read it per call).
@@ -198,20 +191,12 @@ _conds: dict[str, Callable[[], bool]] = {
     "youtube_chapters": lambda: _youtube is not None and _youtube.has_chapters(),
     "youtube_liked": lambda: _rating is not None and _rating.liked(),
     "youtube_disliked": lambda: _rating is not None and _rating.disliked(),
-    "soccer_live": lambda: _soccer is not None and bool(_soccer.games()),
-    "soccer_picking": lambda: _soccer is not None and _soccer.picking(),
 }
-
-
-def _watching_game() -> bool:
-    """Whether the Apple TV is showing a live soccer game (context "live_game")."""
-    return _soccer is not None and _soccer.watching(state_of)
 
 
 def _vars() -> dict[str, str]:
     """Values for {name} placeholders in key labels."""
-    soccer = _soccer.vars() if _soccer is not None else {}
-    return {**soccer, **_host.vars()} if _host is not None else soccer
+    return _host.vars() if _host is not None else {}
 
 
 def _resolve_slot(spec: dict | None) -> dict | None:
@@ -290,15 +275,6 @@ def _run_actions(actions: Any, *, dry_run: bool) -> None:
             run = _youtube.next_chapter
         else:
             run = lambda: _youtube.command(command)  # noqa: E731
-        threading.Thread(target=_safe, args=(run,), daemon=True).start()
-        return
-    if isinstance(actions, dict) and "soccer" in actions:
-        command = actions["soccer"]
-        if dry_run or _soccer is None or command not in SOCCER_COMMANDS:
-            print(f"soccer: ignoring {command!r}", flush=True)
-            return
-        # Fetching, powering on and the select check take seconds.
-        run = _soccer.start if command == "start" else _soccer.next
         threading.Thread(target=_safe, args=(run,), daemon=True).start()
         return
     if isinstance(actions, dict) and "service" in actions:
@@ -650,16 +626,12 @@ def _render() -> None:
 def _tick() -> None:
     global _logo_on
     seen = -1
-    picking = False
     while True:
         try:
             now = time.monotonic()
             _engine.tick(now)
             if _logo_clock is not None and _logo_clock.showing(now) != _logo_on:
                 _logo_on = not _logo_on
-                _signal()
-            if _soccer is not None and _soccer.picking() != picking:
-                picking = not picking  # the pick's minute ran out: no event says so
                 _signal()
             if _host is not None:
                 _host.tick(now)  # due ctx.redraw_in() deadlines, hung work, breaker resets
@@ -682,7 +654,7 @@ def _update_context() -> None:
         if _ctx_cfg is not None:
             now = time.monotonic()
             _atv_now = _atv_app.update(state_of, now) if _atv_app is not None else None
-            layout = foreground_layout(state_of, _ctx_cfg, _watching_game(), _atv_now)
+            layout = foreground_layout(state_of, _ctx_cfg, _atv_now)
             if _host is not None:
                 layout = _host.context(layout)  # services in config order; the first override wins
             _engine.set_context(layout, now)
@@ -744,7 +716,7 @@ def _watch(entities: list[str]) -> None:
 
 
 def main() -> int:
-    global _knobs, _youtube, _rating, _toaster, _np_log, _engine, _ctx_cfg, _launch_cfg, _core, _soccer
+    global _knobs, _youtube, _rating, _toaster, _np_log, _engine, _ctx_cfg, _launch_cfg, _core
     global _atv_app, _logo_cfg, _logo_icons, _logo_clock, _host
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", type=Path)
@@ -785,14 +757,6 @@ def main() -> int:
         _launch_cfg = tabs_cfg["launch"]
         entities |= {e for e in (_launch_cfg.get("lg"),) if e}
     entities |= _action_entities(pages)
-    soccer_cfg = config.get("soccer")
-    if isinstance(soccer_cfg, dict):
-        from soccer import LiveSoccer
-
-        _soccer = LiveSoccer(_core.call, state_of, soccer_cfg, on_change=_signal,
-                             notify=notifier("soccer"))
-        entities |= {e for e in (soccer_cfg.get("lg"), soccer_cfg.get("atv")) if e}
-        threading.Thread(target=_soccer.poll_forever, daemon=True).start()
     np_entities = (config.get("now_playing_log") or {}).get("entities") or []
     if np_entities:
         from np_log import NowPlayingLog

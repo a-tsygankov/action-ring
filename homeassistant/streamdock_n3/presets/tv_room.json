@@ -47,18 +47,21 @@
     "fast_interval": 0.08,
     "nav_delay": 0.05
   },
-  "soccer": {
-    "atv": "media_player.vugitv_4k_vugitv_4k",
-    "atv_remote": "remote.vugitv_4k_vugitv_4k",
-    "lg": "media_player.lg_tv_2",
-    "atv_source": "Apple OTT",
-    "power_on_wait": 25,
-    "token_page": "https://tv.apple.com/us/channel/mls/tvs.sbd.7000",
-    "cache_s": 60,
-    "poll_s": 180,
-    "idle_poll_s": 1800,
-    "select_after_s": 8
+  "services": {
+    "soccer": {
+      "atv": "media_player.vugitv_4k_vugitv_4k",
+      "atv_remote": "remote.vugitv_4k_vugitv_4k",
+      "lg": "media_player.lg_tv_2",
+      "atv_source": "Apple OTT",
+      "power_on_wait": 25,
+      "token_page": "https://tv.apple.com/us/channel/mls/tvs.sbd.7000",
+      "cache_s": 60,
+      "poll_s": 180,
+      "idle_poll_s": 1800,
+      "select_after_s": 8
+    }
   },
+  "metrics": { "log_every_s": 600 },
   "tabs": {
     "timeouts": { "open": 5, "after_press": 5, "context_debounce": 1 },
     "round": { "7": ["apps", "apps_more"], "8": ["sonos"] },
@@ -107,14 +110,7 @@
           "3": { "icon": "paramount_plus", "action": { "launch": { "device": "atv", "app": "com.cbsvideo.app" } } },
           "4": { "icon": "pluto_tv", "action": { "launch": { "device": "atv", "app": "tv.pluto.ios" } } },
           "5": { "icon": "tubi", "action": { "launch": { "device": "atv", "app": "com.adrise.tubitv" } } },
-          "6": {
-            "icon": "soccer_live__none", "label": "",
-            "modes": [
-              { "when": "soccer_picking", "icon": "soccer_live__live", "label": "{soccer_pos}", "color": "#1d6b32" },
-              { "when": "soccer_live", "icon": "soccer_live__live", "label": "{soccer_count} LIVE" }
-            ],
-            "action": { "soccer": "start" }
-          }
+          "6": { "service_key": "soccer.live" }
         }
       },
       "sonos": {
@@ -204,14 +200,7 @@
             ],
             "action": "ha-call script.turn_on '{\"entity_id\":\"script.tv_room_power_toggle\"}'"
           },
-          "2": {
-            "icon": "soccer_live__none", "label": "",
-            "modes": [
-              { "when": "soccer_picking", "icon": "soccer_live__live", "label": "{soccer_pos}", "color": "#1d6b32" },
-              { "when": "soccer_live", "icon": "soccer_live__live", "label": "{soccer_count} LIVE" }
-            ],
-            "action": { "soccer": "start" }
-          },
+          "2": { "service_key": "soccer.live" },
           "3": {
             "icon": "apple_tv_input",
             "action": "ha-call media_player.select_source '{\"entity_id\":\"media_player.lg_tv_2\",\"source\":\"Apple OTT\"}'"
@@ -386,7 +375,7 @@
             "icon": "skip_fwd_10",
             "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"skip_forward\"}'"
           },
-          "4": { "label": "NEXT\\n{soccer_pos}", "color": "#1d6b32", "action": { "soccer": "next" } },
+          "4": { "service_key": "soccer.next" },
           "5": {
             "icon": "home",
             "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"home\"}'"

@@ -12,11 +12,13 @@ from pathlib import Path
 
 from dynamic import phase_specs
 from keyspec import ICON_DIR, entities_of, icon_path
+from services.soccer.service import SoccerService
 
 APP_DIR = Path(__file__).resolve().parent.parent
 CONFIG = json.loads((APP_DIR / "presets" / "tv_room.json").read_text(encoding="utf-8"))
 TABS = CONFIG["tabs"]
 PAGES = TABS["pages"]
+SERVICES = {"soccer": SoccerService()}  # key() needs no start()
 
 ATV = "media_player.vugitv_4k_vugitv_4k"
 LG = "media_player.lg_tv_2"
@@ -40,7 +42,7 @@ KNOWN_ENTITIES = {
 }
 CONTEXT_LAYOUTS = ("idle", "streaming", "youtube", "lg_media", "lg_app", "live_game")
 NAMED_CONDITIONS = {"youtube", "youtube_playing", "youtube_subtitles", "youtube_chapters", "youtube_liked",
-                    "youtube_disliked", "soccer_live", "soccer_picking"}
+                    "youtube_disliked", "soccer.live", "soccer.picking"}
 # (device, app) per launch key, from the Global Constraints bundle ids.
 LAUNCH_IDS = {
     ("apps", "1"): ("atv", "com.netflix.Netflix"),
@@ -57,11 +59,19 @@ LAUNCH_IDS = {
 }
 
 
+def service_key(slot: dict) -> dict | None:
+    """What a {"service_key": "<service>.<key>"} slot shows (as ServiceHost.key_spec:
+    the slot's other fields on top), or None."""
+    svc, _, key = slot["service_key"].partition(".")
+    spec = SERVICES[svc].key(key, slot.get("args", {}))
+    return None if spec is None else {**spec, **{k: v for k, v in slot.items() if k not in ("service_key", "args")}}
+
+
 def key_specs():
-    """(page, key, spec) for every key on every page."""
+    """(page, key, spec) for every key on every page; a service key slot as the spec its service gives."""
     for page_name, page in PAGES.items():
         for key, spec in page["keys"].items():
-            yield page_name, key, spec
+            yield page_name, key, service_key(spec) if "service_key" in spec else spec
 
 
 def looks(spec: dict):
@@ -179,7 +189,7 @@ def test_entities_are_known():
     launch = TABS["launch"]
     used |= {launch["lg"], launch["atv"], launch["atv_remote"]}
     used |= {TABS["context"]["lg"], TABS["context"]["atv"]}
-    soccer = CONFIG["soccer"]
+    soccer = CONFIG["services"]["soccer"]
     used |= {soccer["lg"], soccer["atv"], soccer["atv_remote"]}
     assert used - KNOWN_ENTITIES == set()
     assert "script.tv_room_power_toggle" in used  # the shell-string parser saw entities
@@ -232,7 +242,7 @@ def test_round_keys_are_digits_and_pages_exist():
 
 
 def test_soccer_config_complete():
-    assert CONFIG["soccer"] == {
+    assert CONFIG["services"]["soccer"] == {
         "atv": ATV,
         "atv_remote": "remote.vugitv_4k_vugitv_4k",
         "lg": LG,
@@ -247,25 +257,26 @@ def test_soccer_config_complete():
 
 
 def test_soccer_keys():
-    assert PAGES["context:idle"]["keys"]["2"] == {
-        "icon": "soccer_live__none",
-        "label": "",
-        "modes": [
-            {"when": "soccer_picking", "icon": "soccer_live__live", "label": "{soccer_pos}", "color": "#1d6b32"},
-            {"when": "soccer_live", "icon": "soccer_live__live", "label": "{soccer_count} LIVE"},
-        ],
-        "action": {"soccer": "start"},
-    }
-    assert PAGES["context:live_game"]["keys"]["4"] == {
-        "label": "NEXT\\n{soccer_pos}",
-        "color": "#1d6b32",
-        "action": {"soccer": "next"},
-    }
+    assert PAGES["context:idle"]["keys"]["2"] == {"service_key": "soccer.live"}
+    assert PAGES["apps_more"]["keys"]["6"] == {"service_key": "soccer.live"}
+    assert PAGES["context:live_game"]["keys"]["4"] == {"service_key": "soccer.next"}
+    assert "soccer" not in CONFIG  # the service's section lives under "services"
+
+
+def test_service_keys_resolve():
+    slots = [(page, key, spec) for page, p in PAGES.items() for key, spec in p["keys"].items()
+             if "service_key" in spec]
+    assert len(slots) == 3
+    for page, key, slot in slots:
+        svc, _, name = slot["service_key"].partition(".")
+        assert svc in CONFIG["services"], (page, key)
+        assert SoccerService().key(name, slot.get("args", {})) is not None, (page, key)
 
 
 def test_every_soccer_action_is_known():
-    soccer = [a["soccer"] for a in all_actions() if isinstance(a, dict) and "soccer" in a]
+    soccer = [a["do"] for a in all_actions() if isinstance(a, dict) and a.get("service") == "soccer"]
     assert set(soccer) == {"next", "start"}  # "start" sits on the context page and on apps_more
+    assert set(soccer) <= set(SoccerService().actions())
 
 
 def test_dockerfile_copies_every_module():

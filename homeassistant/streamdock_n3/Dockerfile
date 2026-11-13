@@ -35,7 +35,7 @@ RUN pip install --no-cache-dir pyytlounge==3.5.0
 
 COPY presets/default.json /opt/streamdock/default.json
 COPY ha-call /usr/local/bin/ha-call
-COPY ha_daemon.py keyspec.py tabs.py context.py media_actions.py soccer.py knob_accel.py atv_touch.py yt_lounge.py yt_rating.py yt_chapters.py np_log.py mrp_raw.py ad_detect.py probe.py logo.py badge.py dynamic.py toast.py /opt/streamdock/
+COPY ha_daemon.py keyspec.py tabs.py context.py media_actions.py knob_accel.py atv_touch.py yt_lounge.py yt_rating.py yt_chapters.py np_log.py mrp_raw.py ad_detect.py probe.py logo.py badge.py dynamic.py toast.py /opt/streamdock/
 # Services (each services/<name>.py with its icons): new ones need no Dockerfile edit.
 COPY services /opt/streamdock/services
 COPY run.sh /run.sh

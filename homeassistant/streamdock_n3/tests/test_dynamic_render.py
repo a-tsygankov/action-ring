@@ -221,7 +221,7 @@ def test_toast_action_fills_placeholders(daemon):
     hd = daemon.hd
     shown = []
     hd._toaster = SimpleNamespace(show=shown.append)
-    hd._soccer = SimpleNamespace(vars=lambda: {"soccer_pos": "2/8"})
+    hd._host = SimpleNamespace(vars=lambda: {"soccer_pos": "2/8"})  # a service's label vars
     hd._run_actions({"toast": "Game {soccer_pos}"}, dry_run=False)
     hd._run_actions({"toast": "dry"}, dry_run=True)
     assert shown == ["Game 2/8"]

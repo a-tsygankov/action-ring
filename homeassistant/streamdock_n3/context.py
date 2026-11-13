@@ -69,9 +69,9 @@ def _attrs(state_of: StateLookup, entity: str | None) -> dict:
     return ((state_of(entity) or {}).get("a") or {}) if entity else {}
 
 
-def foreground_layout(state_of: StateLookup, cfg: dict, watching_game: bool = False,
-                      atv_app: str | None | object = _RAW) -> str:
-    """One of idle | streaming | youtube | lg_media | lg_app | live_game.
+def foreground_layout(state_of: StateLookup, cfg: dict, atv_app: str | None | object = _RAW) -> str:
+    """One of idle | streaming | youtube | lg_media | lg_app (a service may
+    turn it into another, e.g. soccer's live_game).
 
     atv_app: the Apple TV app that counts (AtvApp.update); by default the
     entity's raw app_id.
@@ -89,7 +89,7 @@ def foreground_layout(state_of: StateLookup, cfg: dict, watching_game: bool = Fa
             return "idle"  # Apple TV on its home screen / asleep
         if app in (yt.get("atv") or []):
             return "youtube"
-        return "live_game" if watching_game else "streaming"
+        return "streaming"
 
     app = lg_attrs.get("app_id")
     if source == "YouTube" or (app and app in (yt.get("lg") or [])):
