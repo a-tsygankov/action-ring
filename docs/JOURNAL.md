@@ -1130,8 +1130,10 @@ announced by a TV toast via `system.notifications/createToast`):
 - The first `getRating` failed with HTTP 403 "YouTube Data API v3 has not
   been used in project ... or it is disabled": the sign-in works without
   the API, the calls don't. Enabled YouTube Data API v3 in the project
-  (APIs & Services). After the 60 s back-off no further 403. A press of
-  the like key on a real video is still to be checked.
+  (APIs & Services). After the 60 s back-off no further 403.
+- Checked on the TV: key 3 in phase 1 (like) on a playing video logged
+  `like`, again `none` (unlike), again `like`; on the next video `like`.
+  No errors.
 
 ## Open items
 
