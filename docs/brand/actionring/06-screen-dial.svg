@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#172b43"/><stop offset="1" stop-color="#111722"/></linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#3c8fb6"/><stop offset=".52" stop-color="#5754ab"/><stop offset="1" stop-color="#292f67"/></linearGradient>
+    <linearGradient id="dial" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#91f0d8"/><stop offset="1" stop-color="#29acb3"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="80" y="93" width="352" height="247" rx="38" fill="#0b1018" stroke="#5f7186" stroke-width="10"/>
+  <rect x="100" y="113" width="312" height="207" rx="24" fill="url(#screen)"/>
+  <path d="M221 164v105l88-53z" fill="#f5fbff" opacity=".95"/>
+  <path d="M120 277c57-46 101-46 153 0s93 40 124-2v25H120z" fill="#6ed8cf" opacity=".55"/>
+  <path d="M194 352h124M226 340v31m60-31v31" fill="none" stroke="#73869a" stroke-width="11" stroke-linecap="round"/>
+  <circle cx="367" cy="366" r="64" fill="#18222d" stroke="#647689" stroke-width="9"/>
+  <circle cx="367" cy="366" r="42" fill="none" stroke="url(#dial)" stroke-width="13" stroke-dasharray="196 68" transform="rotate(-75 367 366)" stroke-linecap="round"/>
+  <circle cx="367" cy="366" r="9" fill="#ffd27b"/>
+  <path d="M95 383h169" stroke="#2b4054" stroke-width="6" stroke-linecap="round"/>
+</svg>
