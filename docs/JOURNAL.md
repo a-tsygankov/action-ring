@@ -1132,3 +1132,17 @@ announced by a TV toast via `system.notifications/createToast`):
 - Untested on the TV: a toast over the Apple TV HDMI input (expected to
   work, as with any webOS toast) and over the PS5 in Game mode (ads only
   mute on the Apple TV input anyway). 0.5.0-27.
+
+### 2026-11-13 — Key screens are 64×64; why the icons are 112×112
+
+- From the vendored SDK (upstream streamdock-n3 at the pinned revision):
+  `StreamDockN3.key_image_format()` is 64×64 JPEG rotated −90°, and
+  `set_key_image` saves it with Pillow defaults (q75, 4:2:0). The
+  "112 * 112" comment above `set_key_image` is copied from the N4 driver
+  (N4 keys are 112×112); upstream's own text tiles are 64×64. Our icons
+  followed the comment (2026-10-23) and `build_icons.py` kept 112.
+- Not changed: the downscale is harmless. If keys look soft on the dock,
+  patch the JPEG save first (`quality=95, subsampling=0`), then consider
+  drawing at 64 natively. DOCS.md "Key images" has the details and palette.
+- Google Cloud console values for the like/dislike OAuth app (branding,
+  audience, no scopes, TV client) are in DOCS.md "Like / dislike".
