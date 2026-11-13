@@ -9,7 +9,7 @@ Repo `a-tsygankov/action-ring`, branch **`claude/dynamic-button-countdown-9zn5qa
 | `468ebf4` | yes | YouTube page: key 2 next ⇄ previous, key 3 like ⇄ dislike (YouTube Data API) |
 | `ce99530` | yes | TV toasts (webOS createToast on the LG): rating, soccer, ad, sign-in |
 | `2bf741a` | yes | Docs: key screens are 64×64, Google console values, no text on tvOS |
-| `2427e98` | **no, local only** | `streaming_pause_mute` automation toasts "Paused: sound muted" / "Sound on" (Tubi). The user interrupted the push: ask before pushing |
+| `2427e98` | yes | `streaming_pause_mute` automation toasts "Paused: sound muted" / "Sound on" (Tubi) |
 
 App version in `homeassistant/streamdock_n3/config.yaml`: `0.5.0-27`.
 
