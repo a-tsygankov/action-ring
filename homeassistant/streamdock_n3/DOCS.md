@@ -128,8 +128,11 @@ paired, or whenever the connection is down, scrubbing falls back to
 
 Pairing: from the repo root on the PC run `bash homeassistant/pair.sh atv`.
 It asks the Apple TV for a PIN, prompts for it and waits until the touch
-connection is up. `restore.sh` runs this step itself when the app isn't paired
-yet. To pair by hand from the SSH app:
+connection is up. The Apple TV is the one whose HA entry owns `atv.media_player`
+(not merely the first Apple TV in HA); `ATV_ADDRESS=<ip>` overrides. A new box
+needs a fresh pairing (remove `atv_companion.json` first; see "Replacing the
+Apple TV" in `docs/JOURNAL.md`). `restore.sh` runs this step itself when the
+app isn't paired yet. To pair by hand from the SSH app:
 
 ```bash
 echo '{"address": "<Apple TV IP>"}' > /app_configs/local_streamdock_n3/atv_pair_request.json

@@ -4,8 +4,10 @@
 #   homeassistant/pair.sh atv [airplay]          Apple TV touch control (preview
 #                                                scrubbing); asks for the PIN the
 #                                                TV shows. "airplay" adds the
-#                                                AirPlay pairing (media-protocol
-#                                                diagnostics, mrp_raw.log)
+#                                                AirPlay pairing: the app's own
+#                                                media-protocol session, which ad
+#                                                muting (Pluto, Peacock) and
+#                                                mrp_raw.log need
 #   homeassistant/pair.sh youtube <screen> [code]
 #                                                Link a TV's YouTube app (screen
 #                                                as in config "youtube.screens",
@@ -13,8 +15,10 @@
 #                                                > Settings > Link with TV code
 #   homeassistant/pair.sh status                 What is paired / linked
 #
-# HA_HOST overrides the SSH host (default: homeassistant). Credentials and
-# tokens stay on the Pi (app config folder), never in this repo.
+# HA_HOST overrides the SSH host (default: homeassistant). The Apple TV is
+# the one whose HA entry owns the app's "atv.media_player" entity (not just
+# the first Apple TV in HA); ATV_ADDRESS overrides it. Credentials and tokens
+# stay on the Pi (app config folder), never in this repo.
 set -euo pipefail
 
 HOST="${HA_HOST:-homeassistant}"
@@ -25,6 +29,7 @@ DIR=/app_configs/$SLUG
 . "$(cd "$(dirname "$0")" && pwd)/ssh_ha.sh"
 die() { echo "ERROR: $*" >&2; exit 1; }
 mtime() { ssh_ha "stat -c %Y $1 2>/dev/null || echo 0"; }
+atv_entity() { ssh_ha "jq -r '.atv.media_player // \"the Apple TV media player\"' $DIR/config.json"; }
 last_log() { ssh_ha "ha apps logs $SLUG --lines 1000 2>&1 | grep '$1' | tail -${2:-1}"; }
 
 # Poll (2 s) until the remote shell test $1 succeeds; give up after $2 tries.
@@ -42,8 +47,11 @@ ssh_ha 'ha apps info '"$SLUG"' | grep -q "^state: started"' \
 pair_atv() {
     local protocol=${1:-companion} addr before pin
     case "$protocol" in companion|airplay) ;; *) die "protocol: companion or airplay" ;; esac
-    addr=$(ssh_ha 'jq -r "[.data.entries[] | select(.domain==\"apple_tv\")][0].data.address // empty" /homeassistant/.storage/core.config_entries')
-    [ -n "$addr" ] || die "no Apple TV integration in Home Assistant; add it first"
+    addr=$(atv_address "$DIR/config.json")
+    [ -n "$addr" ] || die "no Apple TV entry in Home Assistant owns $(atv_entity); add the
+Apple TV integration, or rename the new box's entities to match. Apple TV entries:
+$(atv_entries)
+(or set ATV_ADDRESS=<ip>)"
     before=$(mtime "$DIR/atv_companion.json")
 
     echo "Turn the TV on. Asking the Apple TV for a PIN..."
@@ -88,16 +96,24 @@ pair_youtube() {
 }
 
 status() {
+    local paired addr
     echo "Apple TV touch:"
     if ssh_ha "test -f $DIR/atv_companion.json"; then
         echo "  paired; $(last_log 'atv-touch:' | sed 's/^atv-touch: //')"
+        # A replaced box (or a new IP) leaves credentials for another address.
+        paired=$(ssh_ha "jq -r '.address // empty' $DIR/atv_companion.json")
+        addr=$(atv_address "$DIR/config.json")
+        if [ -n "$addr" ] && [ "$paired" != "$addr" ]; then
+            echo "  WARNING: paired with $paired, but HA's $(atv_entity) is at $addr;"
+            echo "  re-pair: remove $DIR/atv_companion.json, then pair.sh atv (and atv airplay)"
+        fi
     else
         echo "  not paired (pair.sh atv)"
     fi
     if ssh_ha "jq -e '.airplay_credentials' $DIR/atv_companion.json >/dev/null 2>&1"; then
-        echo "  AirPlay (media-protocol diagnostics): paired"
+        echo "  AirPlay (media-protocol session for ad muting): paired"
     else
-        echo "  AirPlay (media-protocol diagnostics): not paired (pair.sh atv airplay)"
+        echo "  AirPlay (media-protocol session for ad muting): not paired (pair.sh atv airplay)"
     fi
     echo "YouTube:"
     local linked screens
@@ -117,5 +133,5 @@ case "${1:-}" in
     atv) shift; pair_atv "$@" ;;
     youtube) shift; pair_youtube "$@" ;;
     status) status ;;
-    *) sed -n '2,15p' "$0"; exit 2 ;;
+    *) sed -n '2,21p' "$0"; exit 2 ;;
 esac

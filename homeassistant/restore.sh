@@ -218,9 +218,11 @@ if ! grep -qE '"scrub": *"touch"' "$HERE/$APP/presets/tv_room.json"; then
 elif ssh_ha "test -f $CONF_DIR/atv_companion.json"; then
     echo "already paired"
 else
-    addr=$(ssh_ha 'jq -r "[.data.entries[] | select(.domain==\"apple_tv\")][0].data.address // empty" /homeassistant/.storage/core.config_entries')
+    # The entry that owns the mapped media player, not the first Apple TV.
+    addr=$(atv_address "$CONF_DIR/config.json")
     if [ -z "$addr" ]; then
-        warn "no Apple TV integration in HA yet; pair later (see DOCS.md > Preview scrubbing)"
+        warn "no Apple TV entry in HA owns the mapped media player yet; pair later (see DOCS.md > Preview scrubbing). Apple TV entries:"
+        atv_entries >&2
     elif [ ! -t 0 ]; then
         warn "not interactive; pair later with: bash homeassistant/pair.sh atv"
     else

@@ -41,6 +41,34 @@ ha_link_paths() {
         done'
 }
 
+# The address of the Apple TV the app drives: HA's apple_tv config entry that
+# owns the app's media player ("atv.media_player" in the app's config.json,
+# e.g. media_player.vugitv_4k_vugitv_4k). Keyed on the entity, not on the
+# entry order, so a second Apple TV in HA (an old box during a replacement,
+# another room) is never picked by mistake. With no "atv.media_player" in the
+# config, the only apple_tv entry. Empty when none matches. ATV_ADDRESS
+# overrides the lookup.
+atv_address() {  # <app config.json on the host>
+    if [ -n "${ATV_ADDRESS:-}" ]; then
+        echo "$ATV_ADDRESS"
+        return
+    fi
+    ssh_ha 'st=/homeassistant/.storage
+        e=$(jq -r ".atv.media_player // empty" '"$1"' 2>/dev/null)
+        if [ -n "$e" ]; then
+            id=$(jq -r --arg e "$e" "first(.data.entities[] | select(.entity_id == \$e) | .config_entry_id) // empty" $st/core.entity_registry)
+            [ -n "$id" ] || exit 0
+            jq -r --arg id "$id" "first(.data.entries[] | select(.entry_id == \$id and .domain == \"apple_tv\") | .data.address) // empty" $st/core.config_entries
+        else
+            jq -r "[.data.entries[] | select(.domain == \"apple_tv\")] | if length == 1 then .[0].data.address else empty end" $st/core.config_entries
+        fi'
+}
+
+# Every apple_tv config entry as "<title> <address>", for error messages.
+atv_entries() {
+    ssh_ha 'jq -r ".data.entries[] | select(.domain == \"apple_tv\") | \"  \\(.title) \\(.data.address)\"" /homeassistant/.storage/core.config_entries'
+}
+
 # POST a JSON body to the Supervisor API with the token of the SSH app (HAOS)
 # or of the CLI container (Supervised).
 ha_api_post() {  # <path> <json>
