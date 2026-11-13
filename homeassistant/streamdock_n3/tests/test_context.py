@@ -51,19 +51,6 @@ def test_unknown_atv_app_gets_streaming():
     assert foreground_layout(st("on", "Apple OTT", "com.webos.app.hdmi4", "com.plexapp.plex").get, CFG) == "streaming"
 
 
-def test_live_game_only_on_atv_input():
-    assert foreground_layout(st("on", "Apple OTT", None, "com.cbsvideo.app").get, CFG, watching_game=True) == "live_game"
-    assert foreground_layout(st("on", "HDMI 1", "com.webos.app.hdmi1").get, CFG, watching_game=True) == "idle"
-
-
-def test_atv_youtube_beats_live_game():
-    assert layout(st("on", "Apple OTT", None, "com.google.ios.youtube"), watching_game=True) == "youtube"
-
-
-def test_atv_empty_app_beats_live_game():
-    assert layout(st("on", "Apple OTT", None, ""), watching_game=True) == "idle"
-
-
 def test_lg_youtube_by_source():
     assert foreground_layout(st("on", "YouTube", None).get, CFG) == "youtube"
 

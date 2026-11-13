@@ -17,5 +17,6 @@ each key and knob to a Home Assistant action.
 | [docs/JOURNAL.md](docs/JOURNAL.md) | Current system state, control mappings, decisions, gotchas, open items |
 | [homeassistant/restore.sh](homeassistant/restore.sh) | Rebuild the setup on a Home Assistant OS device (`bash homeassistant/restore.sh`) |
 | [homeassistant/streamdock_n3/DOCS.md](homeassistant/streamdock_n3/DOCS.md) | App configuration: mappings, `ha-call`, live key state, devices |
+| [homeassistant/streamdock_n3/services/README.md](homeassistant/streamdock_n3/services/README.md) | For people and AI agents: how to add a service (contract, `ctx`, rules, template, tests, metrics) |
 | [docs/AD_DETECTION_GUIDE.md](docs/AD_DETECTION_GUIDE.md) | For AI agents: how ad breaks are detected per app, and how to analyze and add a new app |
 | [docs/ActionRing_Home_Assistant_Developer_Handoff.md](docs/ActionRing_Home_Assistant_Developer_Handoff.md) | Original design handoff |

@@ -85,6 +85,17 @@ class TabEngine:
             self._bump_if_changed(before, now)
             return True
 
+    def show(self, page: str, now: float) -> bool:
+        """Open `page` as the temporary page (like a round press); False if unknown."""
+        with self._lock:
+            if page not in self._pages:
+                return False
+            before = self._visible()
+            self._temp = page
+            self._deadline = now + self._open_s
+            self._bump_if_changed(before, now)
+            return True
+
     def key_press(self, key: int, now: float) -> dict | None:
         """Spec of `key` on the visible page (None if undefined).
 

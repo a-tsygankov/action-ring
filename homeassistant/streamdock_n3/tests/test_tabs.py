@@ -123,3 +123,10 @@ def test_other_round_while_open_starts_its_own_cycle():
     e = eng(); e.round_press(7, 1.0); e.round_press(7, 1.1); e.round_press(8, 1.2)
     assert e.visible == "sonos"; e.round_press(7, 1.3)
     assert e.visible == "apps"
+
+
+def test_tabs_show_opens_known_page_only():
+    e = TabEngine({"x.p": {"keys": {}}, "context:idle": {"keys": {}}}, {})
+    assert e.show("x.p", 0.0) is True and e.visible == "x.p"
+    assert e.show("nope", 0.0) is False
+    e.tick(10.1); assert e.visible == "context:idle"

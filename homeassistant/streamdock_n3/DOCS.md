@@ -247,14 +247,18 @@ Key actions, besides shell strings (`ha-call domain.service '<json>'`):
 | `{"youtube": "play_pause" \| "next" \| "previous" \| "next_chapter" \| "forward" \| "rewind" \| "subtitles"}` | Controls the linked YouTube app (see below); `forward` / `rewind` skip 10 s, `subtitles` toggles captions |
 | `{"toast": "text"}` | Shows `text` on the TV for a few seconds, over any input (see TV toasts); `{name}` placeholders work |
 | `{"youtube": "like" \| "dislike"}` | Rates the playing video as the signed-in Google account; again on a rated video clears it (see Like / dislike) |
-| `{"soccer": "start" \| "next"}` | Picks the first live soccer game, or the next one while picking, and switches to it (powering on first); `next` always moves on (see Live soccer) |
+| `{"service": "<name>", "do": "<action>", "args": {…}}` | Runs a service action on its own thread (see Services). Live soccer: `{"service": "soccer", "do": "start" \| "next"}` picks the first live game, or the next one while picking, and switches to it (powering on first); `next` always moves on (see Live soccer) |
 
 Named `when` conditions for modes: `youtube` (YouTube in the foreground on a
 screen), `youtube_playing`, `youtube_subtitles` (its live play and caption
 state), `youtube_chapters` (the playing video has chapters; rechecked on every
 video change), `youtube_liked`, `youtube_disliked` (the playing video's rating
-by the signed-in account), `soccer_live` (a live soccer game is listed), `soccer_picking`
+by the signed-in account), `soccer.live` (a live soccer game is listed), `soccer.picking`
 (a game was picked in the last minute, or a started game is on screen).
+Services add conditions named `<service>.<name>`.
+
+A key slot can also take its whole spec from a service:
+`{"service_key": "soccer.live"}` (see Services).
 
 ### Key modes
 
@@ -278,7 +282,7 @@ the foreground, else to the Apple TV:
 ```
 
 `when` is a named condition (`"youtube"`, `"youtube_playing"`,
-`"youtube_subtitles"`, `"soccer_live"`, `"soccer_picking"`, see above) or a list of conditions,
+`"youtube_subtitles"`, `"soccer.live"`, `"soccer.picking"`, see above) or a list of conditions,
 any of which may match:
 `{"entity": …, "attr": "source" | "app_id" | … | "state", "in": [values]}`.
 The LIVE key on `context:idle` lights up with the number of listed games,
@@ -288,10 +292,10 @@ and shows the pick (e.g. `2/8`, on green) as soon as it is pressed:
 "2": {
   "icon": "soccer_live__none", "label": "",
   "modes": [
-    { "when": "soccer_picking", "icon": "soccer_live__live", "label": "{soccer_pos}", "color": "#1d6b32" },
-    { "when": "soccer_live", "icon": "soccer_live__live", "label": "{soccer_count} LIVE" }
+    { "when": "soccer.picking", "icon": "soccer_live__live", "label": "{soccer_pos}", "color": "#1d6b32" },
+    { "when": "soccer.live", "icon": "soccer_live__live", "label": "{soccer_count} LIVE" }
   ],
-  "action": { "soccer": "start" }
+  "action": { "service": "soccer", "do": "start" }
 }
 ```
 
@@ -496,17 +500,82 @@ presses stop. Nothing is sent while the TV is off. A key can show its own
 text with `{"toast": "text"}`. Toasts are plain text, cut to 120
 characters; webOS sets their place, look and length on screen.
 
-### Live soccer
+### Services
 
-The top-level `soccer` section turns on a live-soccer key for Paramount+ and
-MLS (Apple TV) games (`soccer.py`):
+A service is a plug-in feature (live soccer is the first) that ships in the
+image under `services/<name>/`. [services/README.md](services/README.md)
+explains how to write one. The `services` section of `config.json` turns
+services on; each section is passed to its service as its config, and
+`"enabled": false` keeps it but does not load it. A service that is not listed
+is never loaded.
 
 ```json
-"soccer": { "atv": "media_player.vugitv_4k_vugitv_4k", "atv_remote": "remote.vugitv_4k_vugitv_4k",
-            "lg": "media_player.lg_tv_2", "atv_source": "Apple OTT", "power_on_wait": 25,
-            "token_page": "https://tv.apple.com/us/channel/mls/tvs.sbd.7000",
-            "cache_s": 60, "poll_s": 180, "idle_poll_s": 1800, "select_after_s": 8 }
+"services": { "soccer": { "atv": "media_player.…", "poll_s": 180 } },
+"metrics": { "log_every_s": 600, "slow_ms": { "job": 2000, "key": 20 } }
 ```
+
+- **`service_key`** puts a service's key on a slot:
+  `"6": { "service_key": "soccer.live" }`, optionally with `"args": {…}`. The
+  slot's other fields (`label`, `color`, `icon`, …) are written on top of
+  what the service gives, so a preset can relabel it. A key the service
+  cannot produce right now shows `?`.
+- **`{"service": "<name>", "do": "<action>", "args": {…}}`** is the key
+  action that runs a service action (on its own thread, so it may wait for
+  the TV).
+- **Pages.** A service page is named `<service>.<page>` and goes in the
+  `tabs.round` cycles like any page.
+- **Conditions** are `<service>.<name>` (`soccer.live`, `soccer.picking`) and
+  label variables start with `<service>_` (`{soccer_count}`).
+- **Toasts.** A service's toasts show only when its name is in
+  `toast.events`.
+- **`/config/secrets.json`** holds API keys and tokens, per service:
+  `{"<service>": {"api_key": "…"}}`. It exists only on the device, is never
+  in the repo, and `restore.sh` neither creates nor overwrites it; a service
+  reads it with `ctx.secret(name)`.
+
+A service that fails to load or start is skipped with
+`services: <name> disabled (…)` in the log. Service keys, conditions and
+variables must not block: if a service's render-path calls fail or overrun 3
+times within a minute, its keys show `?` and its conditions read false for 5
+minutes (`services: <name> render calls off for 5 min (…)`).
+
+#### Metrics
+
+The services host measures every service operation (jobs, actions, keys, HTTP
+and Home Assistant calls) and the daemon's own render pass, image generation
+and HA events. Even with no services configured, the host writes a
+`metrics:` summary to the log and rewrites `/config/metrics.json` (on the host:
+`/app_configs/local_streamdock_n3/metrics.json`) every `metrics.log_every_s`
+seconds (default 600):
+
+```
+metrics: soccer cpu 0.42s (0.07%) wall 3.1s · 4 jobs, 0 err · http 8 req 1.2 MB p95 0.9s · keys 410 p95 1ms
+metrics: app cpu 5.1% rss 120 MB threads 38
+```
+
+An operation that passes its `metrics.slow_ms` budget (milliseconds per kind:
+`job` 2000, `action` 3000, `http` 5000, `key` 20, `context` 5, `on_state` 20,
+`cond` 5, `vars` 5) logs `metrics: SLOW <service> <op> …`, at most once a
+minute per operation. From the PC, `bash homeassistant/tools/metrics.sh [--by
+cpu|wall|http|errors] [--window interval|total] [host]` prints the snapshot as
+a table ranked by that column.
+
+### Live soccer
+
+The `services.soccer` section turns on a live-soccer key for Paramount+ and
+MLS (Apple TV) games (`services/soccer/`):
+
+```json
+"services": { "soccer": {
+  "atv": "media_player.vugitv_4k_vugitv_4k", "atv_remote": "remote.vugitv_4k_vugitv_4k",
+  "lg": "media_player.lg_tv_2", "atv_source": "Apple OTT", "power_on_wait": 25,
+  "token_page": "https://tv.apple.com/us/channel/mls/tvs.sbd.7000",
+  "cache_s": 60, "poll_s": 180, "idle_poll_s": 1800, "select_after_s": 8 } }
+```
+
+The LIVE key is `{"service_key": "soccer.live"}` and the NEXT key on
+`context:live_game` is `{"service_key": "soccer.next"}`; add `soccer` to
+`toast.events` to see the picks.
 
 The list comes from the Apple TV app's own listing (the UTS API behind
 tv.apple.com): two searches, `Paramount+` and `MLS`. They run every
@@ -523,7 +592,7 @@ listing needs two public web-page tokens; the app reads them from
 `token_page` once a day, or again when Apple rejects them. They are never
 saved.
 
-- `{"soccer": "start"}` picks the first game, and the key shows `1/8` at
+- `{"service": "soccer", "do": "start"}` picks the first game, and the key shows `1/8` at
   once. Pressing again within a minute (or while a started game is on
   screen) picks the next one, `2/8`, wrapping after the last. Once the
   presses settle for `switch_after_s` seconds (default 1.5) it powers the TV
@@ -535,9 +604,9 @@ saved.
   `tv.apple.com/…/sporting-event/…` link for MLS). If that app is in front
   but not playing after `select_after_s` seconds (a profile picker or a
   "watch live" prompt), one `select` is sent.
-- `{"soccer": "next"}` always picks the next game (the NEXT key on
+- `{"service": "soccer", "do": "next"}` always picks the next game (the NEXT key on
   `context:live_game`).
-- The `soccer_live` condition lights the key while any game is live. Labels
+- The `soccer.live` condition lights the key while any game is live. Labels
   can show `{soccer_count}` (live games) and `{soccer_pos}` (e.g. `2/3`).
 - While a started game's app stays in front, the context page is
   `context:live_game`. It returns to normal once another app opens.

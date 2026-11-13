@@ -1,0 +1,8 @@
+# Build context = this folder (restore.sh uploads it as /local_apps/streamdock_n3).
+# Keep tests and caches out of the image. Nothing the Dockerfile COPYs is listed
+# here; services/testing.py stays (tiny, stdlib only).
+tests
+services/**/tests
+**/__pycache__
+.pytest_cache
+conftest.py

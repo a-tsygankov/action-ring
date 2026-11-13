@@ -4,9 +4,9 @@ import json
 import urllib.error
 from pathlib import Path
 
-import pytest
-import soccer
-from soccer import Game, LiveSoccer, next_start, order, parse_games, parse_tokens, poll_interval
+from services.soccer import listing as soccer
+from services.soccer.listing import Game, next_start, order, parse_games, parse_tokens, poll_interval
+from services.soccer.live import LiveSoccer
 
 FIXTURES = Path(__file__).parent / "fixtures"
 # Fixed "now" for the fixtures (2026-10-24 14:33:20Z): see test_parse_games_*.
@@ -379,34 +379,27 @@ def test_retry_interval():
     assert soccer.retry_interval(10_000, 180, 1800) == 1800
 
 
-def _poll(live, t, sleeps):
-    """Run poll_forever until it has slept `sleeps` times."""
-    real = t.sleep
-
-    def sleep(seconds):
-        real(seconds)
-        if len(t.sleeps) == sleeps:
-            raise SystemExit
-
-    live._sleep = sleep
-    with pytest.raises(SystemExit):
-        live.poll_forever()
+def _poll(live, times):
+    """Run poll_once `times` times; the waits it returned."""
+    return [live.poll_once() for _ in range(times)]
 
 
 def test_failed_first_fetch_retries_after_poll_s():
     fetch = FakeFetch()
     fetch.fail = OSError("offline at boot")
     live, rec, st, t = _live(fetch=fetch)
-    _poll(live, t, 1)
-    assert t.sleeps == [180]  # not idle_poll_s
+    assert _poll(live, 1) == [180]  # not idle_poll_s
 
 
 def test_poll_backs_off_on_consecutive_errors():
     fetch = FakeFetch()
     fetch.fail = OSError("API broken")
     live, rec, st, t = _live(fetch=fetch)
-    _poll(live, t, 6)
-    assert t.sleeps == [180, 360, 720, 1440, 1800, 1800]
+    waits = []
+    for _ in range(6):
+        waits.append(live.poll_once())
+        t.sleep(waits[-1])  # the scheduler waits this long before the next run
+    assert waits == [180, 360, 720, 1440, 1800, 1800]
 
 
 def test_poll_backoff_resets_after_a_good_fetch():
@@ -421,9 +414,12 @@ def test_poll_backoff_resets_after_a_good_fetch():
 
     t = FakeTime()
     live = LiveSoccer(Recorder(), {}.get, CFG, fetch=flaky, clock=t.clock, sleep=t.sleep, monotonic=t.clock)
-    _poll(live, t, 4)
+    waits = []
+    for _ in range(4):
+        waits.append(live.poll_once())
+        t.sleep(waits[-1])  # the scheduler waits this long before the next run
     # fail, fail, ok (games live: poll_s), fail again: back to the first step
-    assert t.sleeps == [180, 360, 180, 180]
+    assert waits == [180, 360, 180, 180]
 
 
 def test_refresh_respects_max_age():
@@ -490,7 +486,7 @@ def test_on_change_after_refresh_and_play():
     assert seen == [1, 1]
 
 
-def test_poll_forever_survives_errors(monkeypatch):
+def test_poll_once_survives_errors(monkeypatch):
     t = FakeTime()
     live = LiveSoccer(Recorder(), {}.get, CFG, fetch=FakeFetch(), clock=t.clock, sleep=t.sleep)
     calls = []
@@ -499,14 +495,10 @@ def test_poll_forever_survives_errors(monkeypatch):
         calls.append(max_age)
         if len(calls) == 1:
             raise RuntimeError("unexpected")
-        if len(calls) == 3:
-            raise SystemExit  # stop the loop for the test
 
     monkeypatch.setattr(live, "refresh", boom)
-    with pytest.raises(SystemExit):
-        live.poll_forever()
-    assert len(calls) == 3
-    assert t.sleeps == [180, 180]  # nothing fetched yet: retry after poll_s
+    assert [live.poll_once(), live.poll_once()] == [180, 180]  # nothing fetched yet: retry after poll_s
+    assert len(calls) == 2
 
 
 def test_constants():

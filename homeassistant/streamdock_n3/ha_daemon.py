@@ -60,17 +60,12 @@ Runs the upstream daemon unchanged and adds:
    {"next_playing": [entities]} skips to the next track on the first playing
    speaker that leads its group.
 
-8. Live soccer (soccer.py): a "soccer" config section (atv, atv_remote, lg,
-   atv_source, power_on_wait, token_page, cache_s, poll_s, idle_poll_s,
-   select_after_s) polls the Apple TV app listing for live Paramount+ / MLS
-   games.
-   {"soccer": "start"} picks the first game at once, or the next one while
-   picking (pressed within a minute, or a started game on screen); {"soccer":
-   "next"} always the next (wrapping). Once presses settle it powers on and
-   plays the last pick. Conditions "soccer_live" (any game live) and
-   "soccer_picking"; labels get {soccer_count} and {soccer_pos} (a label on
-   an icon goes on a band, badge.py); context "live_game" applies while a
-   started game's app is in the foreground.
+8. Live soccer is a service (services/soccer/, item 13): "services.soccer"
+   polls the Apple TV app listing for live Paramount+ / MLS games; its keys
+   {"service_key": "soccer.live"} / "soccer.next", actions {"service":
+   "soccer", "do": "start" | "next"}, conditions "soccer.live" /
+   "soccer.picking", labels {soccer_count} / {soccer_pos}, and context
+   "live_game" while a started game's app is in the foreground.
 
 9. Service logo (logo.py): a "tabs.logo" section flashes the logo of what is
    on screen (the app, the PS5 input, else the Apple TV) on key 6 of a
@@ -95,11 +90,24 @@ Runs the upstream daemon unchanged and adds:
    to probe_request.json (homeassistant/tools/probe.sh) runs raw MRP,
    Companion, HA, Lounge and webOS commands and logs each result as
    "probe: …", for the live test session.
+
+13. Services (services/): a "services" config section loads plug-in
+   services (packages services/<name>/, each its own section; "enabled": false
+   skips one) through one ServiceHost (services/host.py). A key slot
+   {"service_key": "<service>.<key>", "args": {...}, ...} shows the key the
+   service gives, with the slot's other fields on top; one that can't be
+   produced shows "?". {"service": <name>, "do": <action>, "args": {...}}
+   runs a service action on a worker thread. Service pages ("<service>.<page>")
+   join the tab pages, conditions are "<service>.<cond>", label variables
+   "{<service>_...}", and a service may override the context layout. The host
+   times every service operation (and the daemon's own render pass, image
+   generation and HA events) and logs a summary (metrics.py).
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import http.client
 import json
@@ -118,6 +126,7 @@ from keyspec import Look, changed_keys, entities_of, format_label, icon_path, re
 from knob_accel import AppleTVKnobs
 from logo import LogoClock, app_icons, logo_for
 from media_actions import launch, next_playing
+from services.host import ServiceHost, ServiceUnavailable
 from streamdock_n3 import config as configmod
 from streamdock_n3 import daemon, icons, paths
 from tabs import TabEngine
@@ -132,7 +141,6 @@ EMPTY_LOOK = Look(None, "", "#000000")  # a key the visible page leaves undefine
 ERROR_LOOK = Look(None, "?", "#5c3b00")  # a key whose spec failed to resolve
 YOUTUBE_COMMANDS = ("next_chapter", "forward", "rewind", "next", "previous", "play_pause", "subtitles",
                     "like", "dislike")
-SOCCER_COMMANDS = ("start", "next")
 
 _ready = threading.Event()
 _device = None
@@ -142,7 +150,10 @@ _youtube: Any = None  # yt_lounge.YouTubeScreens
 _rating: Any = None  # yt_rating.YouTubeRating; with youtube "rating": true
 _toaster: Any = None  # toast.Toaster; with a "toast" config section
 _np_log: Any = None  # np_log.NowPlayingLog
-_soccer: Any = None  # soccer.LiveSoccer; set in main() with a "soccer" config
+_host: ServiceHost | None = None  # set in main(); without a "services" section it has none
+# Handles services may borrow (ctx.shared); filled in main() as they are made.
+# The services' contexts keep this very dict and read it per call.
+_shared: dict[str, Any] = {"atv_touch": None, "youtube": None}
 _engine = TabEngine({}, {})  # replaced in main() before the device starts
 _ctx_cfg: dict | None = None  # config "tabs.context"; None = no context detection
 _atv_app: AtvApp | None = None  # with _ctx_cfg; under _ctx_lock
@@ -180,19 +191,28 @@ _conds: dict[str, Callable[[], bool]] = {
     "youtube_chapters": lambda: _youtube is not None and _youtube.has_chapters(),
     "youtube_liked": lambda: _rating is not None and _rating.liked(),
     "youtube_disliked": lambda: _rating is not None and _rating.disliked(),
-    "soccer_live": lambda: _soccer is not None and bool(_soccer.games()),
-    "soccer_picking": lambda: _soccer is not None and _soccer.picking(),
 }
-
-
-def _watching_game() -> bool:
-    """Whether the Apple TV is showing a live soccer game (context "live_game")."""
-    return _soccer is not None and _soccer.watching(state_of)
 
 
 def _vars() -> dict[str, str]:
     """Values for {name} placeholders in key labels."""
-    return _soccer.vars() if _soccer is not None else {}
+    return _host.vars() if _host is not None else {}
+
+
+def _resolve_slot(spec: dict | None) -> dict | None:
+    """A {"service_key": ...} slot as the service's key spec (the slot's own
+    fields on top; None: the service shows nothing there); any other spec as
+    is. Raises ServiceUnavailable when the key can't be produced."""
+    if not isinstance(spec, dict) or "service_key" not in spec:
+        return spec
+    if _host is None:
+        raise ServiceUnavailable("no services")
+    return _host.key_spec(spec)
+
+
+def _measure(op: str) -> contextlib.AbstractContextManager:
+    """Time a piece of the daemon's own work as a host operation (metrics)."""
+    return _host.measure_host(op) if _host is not None else contextlib.nullcontext()
 
 
 def _signal() -> None:
@@ -223,7 +243,7 @@ def _run_actions(actions: Any, *, dry_run: bool) -> None:
             key = int(actions.get("tab_key", actions.get("key_action")))
             now = time.monotonic()
             shown_at = _engine.shown_at  # of the page pressed on (the press may close it)
-            spec = _engine.key_press(key, now)
+            spec = _resolve_slot(_engine.key_press(key, now))  # a service key: no I/O, measured
             if spec:
                 spec = _pressed_phase(key, spec, shown_at, now)
                 _run_actions(resolve_action(spec, state_of, _conds), dry_run=dry_run)
@@ -257,14 +277,15 @@ def _run_actions(actions: Any, *, dry_run: bool) -> None:
             run = lambda: _youtube.command(command)  # noqa: E731
         threading.Thread(target=_safe, args=(run,), daemon=True).start()
         return
-    if isinstance(actions, dict) and "soccer" in actions:
-        command = actions["soccer"]
-        if dry_run or _soccer is None or command not in SOCCER_COMMANDS:
-            print(f"soccer: ignoring {command!r}", flush=True)
-            return
-        # Fetching, powering on and the select check take seconds.
-        run = _soccer.start if command == "start" else _soccer.next
-        threading.Thread(target=_safe, args=(run,), daemon=True).start()
+    if isinstance(actions, dict) and "service" in actions:
+        svc, name, args = actions["service"], actions.get("do"), actions.get("args")
+        if dry_run:
+            print(f"service (dry run): {svc}.{name} {args or {}}", flush=True)
+        elif _host is None:
+            print(f"service: no services; ignoring {svc}.{name}", flush=True)
+        else:
+            # The host runs the action on a thread of its own (it may block).
+            _host.run_action(str(svc), str(name), args if isinstance(args, dict) else None)
         return
     if isinstance(actions, dict) and "toast" in actions:
         text = format_label(str(actions["toast"]), _vars())
@@ -394,16 +415,23 @@ def _key_specs(keys: Any) -> dict[str, dict]:
 
 def _make_engine(config: dict[str, Any]) -> tuple[TabEngine, dict[str, dict], dict | None]:
     """The tab engine, its pages, and the context config (None: no detection)."""
+    # Service pages ("<service>.<page>"), placed by the preset's round cycles
+    # or opened by the service (ctx.show_page).
+    service_pages = {
+        name: {**page, "keys": _key_specs(page.get("keys"))}
+        for name, page in (_host.pages() if _host is not None else {}).items()
+        if isinstance(page, dict)
+    }
     tabs = config.get("tabs")
     if not isinstance(tabs, dict):
         # No tabs: the config's own keys are the one page, shown for good.
-        pages = {"context:idle": {"keys": config["keys"]}}
+        pages = {**service_pages, "context:idle": {"keys": config["keys"]}}
         return TabEngine(pages, {}), pages, None
-    pages = {
+    pages = {**service_pages, **{
         name: {**page, "keys": _key_specs(page.get("keys"))}
         for name, page in (tabs.get("pages") or {}).items()
         if isinstance(page, dict)
-    }
+    }}
     rounds = {int(k): list(v) for k, v in (tabs.get("round") or {}).items()}
     t = tabs.get("timeouts") or {}
     engine = TabEngine(
@@ -489,11 +517,16 @@ def _look_for(key: int, spec: dict | None, label_vars: dict[str, str]) -> Look:
     try:
         return resolve_look(spec, state_of, _conds, label_vars)
     except Exception as err:  # one bad spec must not blank the other keys
-        msg = f"key {key}: {type(err).__name__}: {err}"
-        if msg not in _render_errors:
-            _render_errors.add(msg)
-            print(f"render: {msg}", flush=True)
-        return ERROR_LOOK
+        return _error_look(key, err)
+
+
+def _error_look(key: int, err: Exception) -> Look:
+    """ERROR_LOOK for a key whose spec failed; each distinct error is logged once."""
+    msg = f"key {key}: {type(err).__name__}: {err}"
+    if msg not in _render_errors:
+        _render_errors.add(msg)
+        print(f"render: {msg}", flush=True)
+    return ERROR_LOOK
 
 
 def _logo_look() -> tuple[int, Look] | None:
@@ -519,7 +552,11 @@ def _render_pass() -> float | None:
     with _on_screen_lock:
         anims = dict(_press_anims)
     for k in range(1, 7):
-        spec = keys.get(str(k))
+        try:
+            spec = _resolve_slot(keys.get(str(k)))  # a service key: its spec, before anything reads it
+        except Exception as err:  # unavailable (or tripped) service: "?" on this key only
+            looks[k] = _error_look(k, err)
+            continue
         running = dynamic.anim_frame(anims.get(k), shown_at, now) if spec is not None else None
         if running is not None and dynamic.config(spec) is not None:
             # A press animation: the pressed phase stays on the key until it ends.
@@ -543,7 +580,10 @@ def _render_pass() -> float | None:
     todo = changed_keys(_drawn, looks)
     if todo:
         started = time.monotonic()
-        images = {k: _image_for(k, looks[k]) for k in todo}
+        images: dict[int, str] = {}
+        for k in todo:
+            with _measure("image_gen"):
+                images[k] = _image_for(k, looks[k])
         with _draw_lock:
             for k in todo:
                 _device.set_key_image(k, images[k])
@@ -575,7 +615,8 @@ def _render() -> None:
         _wake.wait(None if due is None else max(0.01, due - time.monotonic() + 0.005))
         _wake.clear()  # a signal from here on schedules exactly one more pass
         try:
-            due = _render_pass()
+            with _measure("render_pass"):
+                due = _render_pass()
         except Exception as err:  # keys not drawn stay out of _drawn and retry
             print(f"render: {type(err).__name__}: {err}", flush=True)
             if due is not None:
@@ -585,7 +626,6 @@ def _render() -> None:
 def _tick() -> None:
     global _logo_on
     seen = -1
-    picking = False
     while True:
         try:
             now = time.monotonic()
@@ -593,9 +633,8 @@ def _tick() -> None:
             if _logo_clock is not None and _logo_clock.showing(now) != _logo_on:
                 _logo_on = not _logo_on
                 _signal()
-            if _soccer is not None and _soccer.picking() != picking:
-                picking = not picking  # the pick's minute ran out: no event says so
-                _signal()
+            if _host is not None:
+                _host.tick(now)  # due ctx.redraw_in() deadlines, hung work, breaker resets
             if _atv_app is not None and _atv_app.pending:
                 _update_context()  # the play time may have run out
             version = _engine.version  # unlocked read: only a "something changed" hint
@@ -615,7 +654,9 @@ def _update_context() -> None:
         if _ctx_cfg is not None:
             now = time.monotonic()
             _atv_now = _atv_app.update(state_of, now) if _atv_app is not None else None
-            layout = foreground_layout(state_of, _ctx_cfg, _watching_game(), _atv_now)
+            layout = foreground_layout(state_of, _ctx_cfg, _atv_now)
+            if _host is not None:
+                layout = _host.context(layout)  # services in config order; the first override wins
             _engine.set_context(layout, now)
     _signal()
 
@@ -654,7 +695,11 @@ def _watch(entities: list[str]) -> None:
                                 cur["a"].pop(name, None)
                         for entity_id in event.get("r", []):
                             _states.pop(entity_id, None)
-                    _update_context()
+                    changed = set(event.get("a", {})) | set(event.get("c", {})) | set(event.get("r", []))
+                    with _measure("ha_event"):
+                        if _host is not None:
+                            _host.on_state(changed)  # each service sees only its own entities
+                        _update_context()
                     if _np_log is not None:
                         for entity_id in {*event.get("a", {}), *event.get("c", {})}:
                             _np_log.update(entity_id, state_of(entity_id))
@@ -670,21 +715,22 @@ def _watch(entities: list[str]) -> None:
         time.sleep(RETRY_SECONDS)
 
 
+def _warn_legacy_config(config: dict[str, Any]) -> None:
+    """One line for a config section that is no longer read where it is."""
+    if "soccer" in config:
+        print('soccer: top-level "soccer" config is ignored; it moved to services.soccer', flush=True)
+
+
 def main() -> int:
-    global _knobs, _youtube, _rating, _toaster, _np_log, _engine, _ctx_cfg, _launch_cfg, _core, _soccer
-    global _atv_app, _logo_cfg, _logo_icons, _logo_clock
+    global _knobs, _youtube, _rating, _toaster, _np_log, _engine, _ctx_cfg, _launch_cfg, _core
+    global _atv_app, _logo_cfg, _logo_icons, _logo_clock, _host
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", type=Path)
     args, _ = parser.parse_known_args()
     config = configmod.normalize(configmod.load(args.config or configmod.ensure_config()))
+    _warn_legacy_config(config)
 
-    _engine, pages, _ctx_cfg = _make_engine(config)
-    entities: set[str] = {
-        e for page in pages.values() for spec in page["keys"].values() for e in entities_of(spec)
-    }
-    if _ctx_cfg is not None:
-        entities |= {e for e in (_ctx_cfg.get("lg"), _ctx_cfg.get("atv")) if e}
-        _atv_app = AtvApp(_ctx_cfg)
+    entities: set[str] = set()
     _core = CoreAPI()
     toast_cfg = config.get("toast")
     if isinstance(toast_cfg, dict) and toast_cfg.get("lg"):
@@ -692,6 +738,19 @@ def main() -> int:
 
         _toaster = Toaster(CoreAPI().call, state_of, toast_cfg)
         entities.add(toast_cfg["lg"])
+    # Services load before the engine is built (their pages join it) and start
+    # just before the HA watcher. show_page reads _engine when called.
+    _host = ServiceHost.load(
+        config, call=_core.call, call_response=_core.call_response, state_of=state_of,
+        toaster=_toaster, signal=_signal, context_signal=_update_context,
+        show_page=lambda p: _engine.show(p, time.monotonic()), shared=_shared)
+    _engine, pages, _ctx_cfg = _make_engine(config)
+    entities |= {
+        e for page in pages.values() for spec in page["keys"].values() for e in entities_of(spec)
+    }
+    if _ctx_cfg is not None:
+        entities |= {e for e in (_ctx_cfg.get("lg"), _ctx_cfg.get("atv")) if e}
+        _atv_app = AtvApp(_ctx_cfg)
 
     def notifier(event: str) -> Callable[..., None] | None:
         return _toaster.notifier(event) if _toaster is not None else None
@@ -705,14 +764,6 @@ def main() -> int:
         _launch_cfg = tabs_cfg["launch"]
         entities |= {e for e in (_launch_cfg.get("lg"),) if e}
     entities |= _action_entities(pages)
-    soccer_cfg = config.get("soccer")
-    if isinstance(soccer_cfg, dict):
-        from soccer import LiveSoccer
-
-        _soccer = LiveSoccer(_core.call, state_of, soccer_cfg, on_change=_signal,
-                             notify=notifier("soccer"))
-        entities |= {e for e in (soccer_cfg.get("lg"), soccer_cfg.get("atv")) if e}
-        threading.Thread(target=_soccer.poll_forever, daemon=True).start()
     np_entities = (config.get("now_playing_log") or {}).get("entities") or []
     if np_entities:
         from np_log import NowPlayingLog
@@ -725,6 +776,7 @@ def main() -> int:
             from yt_lounge import YouTubeScreens
 
             _youtube = YouTubeScreens(yt, state_of, on_change=_signal)
+            _shared["youtube"] = _youtube
             entities |= _youtube.entities()
             if yt.get("rating"):
                 from yt_rating import YouTubeRating
@@ -756,8 +808,8 @@ def main() -> int:
         except Exception as err:
             print(f"ad-detect: disabled ({err!r})", flush=True)
     atv = config.get("atv")
+    touch = None  # the Companion connection; None without an "atv" section
     if isinstance(atv, dict) and atv.get("remote") and atv.get("media_player"):
-        touch = None
         if atv.get("mrp_raw_log"):  # diagnostics: dump raw MRP now-playing messages
             try:
                 import mrp_raw
@@ -769,6 +821,7 @@ def main() -> int:
             from atv_touch import AppleTVTouch
 
             touch = AppleTVTouch()
+            _shared["atv_touch"] = touch
         except Exception as err:
             print(f"atv-touch: disabled ({err!r}); scrubbing uses seek", flush=True)
         _knobs = AppleTVKnobs(atv, CoreAPI().call, state_of, touch)
@@ -787,6 +840,12 @@ def main() -> int:
                 ProbeRunner(touch, probe_call, _youtube, state_of).start()
             except Exception as err:
                 print(f"probe: disabled ({err!r})", flush=True)
+    # Start services before the watcher: the first HA event already reaches
+    # them. Their entities and conditions are read once started (start() may
+    # disable one, and a service's entities may come from its config).
+    _host.start()
+    entities |= _host.entities()
+    _conds.update(_host.conditions())  # "<service>.<cond>"
     if entities:
         threading.Thread(target=_watch, args=(sorted(entities),), daemon=True).start()
     threading.Thread(target=_render, daemon=True).start()
