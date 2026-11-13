@@ -11,7 +11,7 @@ Apple TV box, see [Replacing the Apple TV](#replacing-the-apple-tv).
 Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Home_Assistant_Developer_Handoff.md)
 (converted from the original `.docx`).
 
-## System state (2026-11-01)
+## System state (2026-11-13)
 
 | Item | Value |
 |---|---|
@@ -19,7 +19,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Home Assistant | Supervised, Core 2026.10.4; data folder `/var/lib/homeassistant` |
 | SSH | Host sshd as `andrey` (passwordless sudo); from the PC: `ssh homeassistant` (= `ssh arpi`). Scripts go through `homeassistant/ssh_ha.sh` |
 | Dock | ActionRing N3, USB `5548:1001` "HOTSPOTEKUSB HID DEMO", serial `C511D3781A4C` |
-| Dock software | Local app `local_streamdock_n3` v0.4.0-21, upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
+| Dock software | Local app `local_streamdock_n3` v0.6.0-1 (pluggable services host, soccer as a service), upstream [asad-albadi/streamdock-n3](https://github.com/asad-albadi/streamdock-n3) @ `67f670a` |
 | HA config added | `script.tv_room_mute_toggle`, `script.tv_room_power_toggle`, `automation.streaming_pause_mute` |
 | Integrations used | Sonos, LG webOS, Apple TV (all paired in HA UI) |
 | MCP for Claude | None since 2026-11-01 (the `home-assistant` server pointed at the old Pi and was removed). Re-add per Restore > Prerequisites 6 with a token from arpi if wanted |
@@ -29,13 +29,14 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Path | Purpose |
 |---|---|
 | `homeassistant/streamdock_n3/` | The HA app (Dockerfile, `config.yaml`, `run.sh` watchdog, `ha_daemon.py` live key state + HA calls, `knob_accel.py` Apple TV knob engine, `atv_touch.py` Companion touch connection, `yt_lounge.py` + `yt_chapters.py` YouTube link and chapters, `yt_rating.py` like/dislike, `dynamic.py` keys that take turns, `np_log.py` now-playing log, `ha-call`, `patch_ids.py`, `DOCS.md`) |
+| `homeassistant/streamdock_n3/services/` | Pluggable services: contract, `ctx`, scheduler, host, metrics (`README.md` = how to add one); `soccer/` is the live-soccer service |
 | `homeassistant/streamdock_n3/presets/tv_room.json` | Live dock mappings (source of truth) |
 | `homeassistant/streamdock_n3/icons/` | Key images, deployed to `/app_configs/local_streamdock_n3/icons/` (`/config/icons/` in the app) |
 | `homeassistant/ha-config/scripts/*.yaml` | HA scripts, one top-level key per file |
 | `homeassistant/ha-config/automations/*.yaml` | HA automations, one `- id:` entry per file |
 | `homeassistant/restore.sh` | Restore everything above onto a HAOS device |
 | `homeassistant/pair.sh` | Pair the Apple TV (`atv` touch, `atv airplay` media protocol), link YouTube apps, sign in for YouTube like/dislike (`youtube-rating`); `status` |
-| `homeassistant/tools/` | Ad research: `mrp_summary.py`, `replay_ad_detect.py`, `sanitize_mrp.py`, sanitized `fixtures/`; live tests: `probe.sh` + `probes/*.json` |
+| `homeassistant/tools/` | Ad research: `mrp_summary.py`, `replay_ad_detect.py`, `sanitize_mrp.py`, sanitized `fixtures/`; live tests: `probe.sh` + `probes/*.json`; `metrics.sh` prints the app's per-operation metrics table |
 | `docs/AD_DETECTION_GUIDE.md` | Guide for AI agents: analyze a new app and add its ad rule |
 
 ### Control mappings (TV Room)
@@ -1244,7 +1245,46 @@ announced by a TV toast via `system.notifications/createToast`):
   toast `events` (`Ad: sound muted` / `Ad over: sound on`; the option stays).
   Rating, soccer and sign-in toasts are kept. 0.5.0-32.
 
+### 2026-11-13 — Pluggable services; live soccer is the first one (0.6.0-1)
+
+- New features now go in `services/<name>/` (a package) plus preset lines,
+  without touching `ha_daemon.py`. The host runs each service's jobs (3
+  workers), gives every press its own thread, and catches failures: a
+  service that fails at startup is disabled with one log line; render-path
+  calls (keys, conditions, vars, context) that run slow or raise 3 times in
+  60 s are switched off for 5 min (its keys show `?`). How to write one:
+  `homeassistant/streamdock_n3/services/README.md`.
+- The preset places service keys (`{"service_key": "soccer.live"}`) and
+  pages; actions are `{"service": "soccer", "do": "start"}`; conditions are
+  namespaced (`soccer.live`, `soccer.picking`). The top-level `"soccer"`
+  config moved to `services.soccer`; a leftover one logs a line.
+- Live soccer moved from `soccer.py` to `services/soccer/` unchanged in
+  behaviour (same key looks, picks, toasts, `live_game` page).
+- Metrics: every operation is timed (count, wall p50/p95/max, CPU, HTTP
+  bytes). A `metrics: SLOW …` line when one goes over budget, a ranked
+  summary every 10 min in the log and in `/config/metrics.json`
+  (`/app_configs/local_streamdock_n3/metrics.json` on the host);
+  `bash homeassistant/tools/metrics.sh` prints the table on the PC. The
+  summary appears even with no services (host ops are measured).
+- Checked on arpi: soccer tokens refreshed and the list polled; apps page
+  1B key 6 shows the soccer ball; a press with no live games toasts "No live
+  soccer games". First 40 min with Tubi playing: app CPU 1.7-2.6 %, RSS
+  ~90 MB, 19 threads; the dock redraws about once a second during playback
+  (`host render_pass`, ~4 s CPU in 40 min); soccer's own cost is small (a
+  refresh ~0.7 s wall, 0.1-0.4 s CPU). Only the first refresh (with the
+  token page) went over its 2 s budget. `services/**/tests` stay out of the
+  image (`.dockerignore`).
+
 ## Open items
+
+- [ ] Services: watch for `render calls off` / `SLOW soccer cond:` lines
+      over a few evenings (the breaker counts wall time, so lock waits
+      could trip it); if they show, strike on CPU instead.
+- [ ] `metrics.sh`: p95 is a histogram bucket's upper bound and can read
+      above max (seen 2.62 vs 2.28 s); clamp quantiles to the max.
+- [ ] Before the next service (bets, scene jumps): a canned
+      `call_response` in `fake_context`; stop a disabled service's
+      long-running job; guard a malformed `metrics` section at startup.
 
 - [ ] YouTube (Apple TV): a slow first scrub still opens no scrubber; fast
       turns open it after ~1 s. The log ties every opening to the finger
