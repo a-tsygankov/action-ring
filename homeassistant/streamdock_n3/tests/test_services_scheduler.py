@@ -146,3 +146,25 @@ def test_start_runs_job_on_a_worker_and_stop_ends_workers():
     assert ran.wait(2.0)
     s.stop()
     assert not any(t.is_alive() for t in s._threads)
+
+
+def test_worker_reschedules_from_finish_time_not_start():
+    clock = [0.0]
+    s = Scheduler(Metrics(), monotonic=lambda: clock[0], spawn=lambda fn: fn())
+    ran = []
+
+    def slow():
+        ran.append(1)
+        clock[0] += 3.0 if len(ran) == 1 else 70.0   # takes 3 s, then fails after a 70 s timeout
+        return 1.0 if len(ran) == 1 else boom()
+
+    s.add_job("a", JobSpec("p", slow, 0, False))
+    with s._cond:
+        job = s._take(clock[0])
+    s._run_job(job)                      # the worker path: no explicit now
+    assert s.next_due() == 4.0           # finish (3.0) + 1.0, not start (0) + 1.0
+    clock[0] = 4.0
+    with s._cond:
+        job = s._take(clock[0])
+    s._run_job(job)
+    assert s.next_due() == 74.0 + 60.0   # 4 + 70 = 74, then the 60 s retry   # retry delay counts from the failure

@@ -113,10 +113,12 @@ class Scheduler:
             self._run_job(job, now)
             ran += 1
 
-    def _run_job(self, job: _Job, now: float) -> float | None:
+    def _run_job(self, job: _Job, now: float | None = None) -> float | None:
         """Run a job that is marked running, record the outcome, reschedule it.
 
-        Returns the delay until its next run, or None for a one-shot.
+        The next run is due `delay` after the job finishes: `now` if given (tests
+        with a frozen clock), else the clock read at finish time.  Returns the
+        delay until the next run, or None for a one-shot.
         """
         spec, svc, op = job.spec, job.service, f"job:{job.spec.name}"
         failed: Exception | None = None
@@ -146,7 +148,8 @@ class Scheduler:
                 elif job.streak == STREAK_LOG_AT:
                     line = f"services: {svc} {op} failing ({job.streak} in a row): {what}"
             if delay is not None and not spec.long_running:
-                heapq.heappush(self._heap, (now + delay, next(self._seq), job))
+                base = self._monotonic() if now is None else now
+                heapq.heappush(self._heap, (base + delay, next(self._seq), job))
                 self._cond.notify()
         if line:
             self._log(line)
@@ -163,13 +166,13 @@ class Scheduler:
                     if job is not None:
                         break
                     self._cond.wait(self._heap[0][0] - now if self._heap else None)
-            self._run_job(job, now)
+            self._run_job(job)
 
     def _long_loop(self, job: _Job) -> None:
         if self._stopped.wait(job.spec.first_in):
             return
         while not self._stopped.is_set():
-            delay = self._run_job(job, self._monotonic())
+            delay = self._run_job(job)
             if delay is None or self._stopped.wait(delay):
                 return
 
