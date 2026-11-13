@@ -1114,6 +1114,25 @@ announced by a TV toast via `system.notifications/createToast`):
   video. Tests: `test_yt_rating.py` (fake Google), the YouTube page through
   the daemon in `test_dynamic_render.py`, preset checks. 0.5.0-26.
 
+### 2026-11-13 — Like/dislike live on arpi: signed in, Data API enabled
+
+- Merged with main as #31 (plus: `pair.sh` checks the client JSON with the
+  Pi's `jq`, since Git Bash on the PC has none; tests portable to Windows;
+  `*.local.json` ignored). Deployed with `restore.sh`: 0.5.0-26 running,
+  dock connected, Apple TV and YouTube (atv) pairings kept.
+- `pair.sh youtube-rating homeassistant/client.local.json` (client
+  `action-ring-tv` from project `action-ring-home`, kept next to the repo,
+  not committed). The device code went in at google.com/device; the
+  personal account (the one YouTube on the Apple TV uses, not the brand
+  account) chose "Advanced > Go to action-ring-home-client" on the
+  unverified-app screen and allowed "Manage your YouTube account".
+  `pair.sh status`: like / dislike: signed in.
+- The first `getRating` failed with HTTP 403 "YouTube Data API v3 has not
+  been used in project ... or it is disabled": the sign-in works without
+  the API, the calls don't. Enabled YouTube Data API v3 in the project
+  (APIs & Services). After the 60 s back-off no further 403. A press of
+  the like key on a real video is still to be checked.
+
 ## Open items
 
 - [ ] Google OAuth client `action-ring-tv` is used by `yt_rating.py`
