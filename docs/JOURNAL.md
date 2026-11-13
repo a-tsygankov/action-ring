@@ -1239,6 +1239,10 @@ announced by a TV toast via `system.notifications/createToast`):
 - Test toast: `webostv.command` `system.notifications/createToast` sent
   from inside the app container (its token can call HA services; the
   `hassio_cli` container's gets 401) returned 200 and showed on the TV.
+- Then: mute toasts were too noisy. Removed from `streaming_pause_mute`
+  (`Paused: sound muted` / `Sound on`), and `ad` dropped from the preset's
+  toast `events` (`Ad: sound muted` / `Ad over: sound on`; the option stays).
+  Rating, soccer and sign-in toasts are kept. 0.5.0-32.
 
 ## Open items
 
