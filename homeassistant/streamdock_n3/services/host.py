@@ -31,6 +31,13 @@ class ServiceUnavailable(Exception):
     """A requested service key cannot be produced right now."""
 
 
+def _checked(value, ok: Callable[[object], bool], what: str):
+    """Raise TypeError (so the guarded call counts a strike) on a malformed return."""
+    if not ok(value):
+        raise TypeError(f"returned {type(value).__name__}, expected {what}")
+    return value
+
+
 class ServiceHost:
     def __init__(self, services: list[Service], contexts: dict[str, ServiceContext],
                  metrics: Metrics, scheduler: Scheduler, *, signal: Callable[[], None],
@@ -197,7 +204,9 @@ class ServiceHost:
         out: dict[str, str] = {}
         for n, s in self._services.items():
             try:
-                got = self._render(n, "vars", s.vars)
+                got = self._render(n, "vars", lambda: _checked(
+                    s.vars(), lambda v: isinstance(v, dict) and all(isinstance(k, str) for k in v),
+                    "dict[str, str]"))
             except Exception:
                 continue
             for k, v in got.items():
@@ -215,7 +224,8 @@ class ServiceHost:
             svc = self._services.get(svc_name)
             if svc is None or not key:
                 raise ServiceUnavailable("unknown service or key")
-            spec = self._render(svc_name, f"key:{key}", lambda: svc.key(key, slot.get("args", {})))
+            spec = self._render(svc_name, f"key:{key}", lambda: _checked(
+                svc.key(key, slot.get("args", {})), lambda v: v is None or isinstance(v, dict), "dict or None"))
         except Exception as e:
             reason = str(e) if isinstance(e, ServiceUnavailable) else f"{type(e).__name__}: {e}"
             self._log_once(f"services: key {sk}: {reason}")
@@ -227,7 +237,8 @@ class ServiceHost:
     def context(self, layout: str) -> str:
         for n, s in self._services.items():
             try:
-                got = self._render(n, "context", lambda: s.context(layout))
+                got = self._render(n, "context", lambda: _checked(
+                    s.context(layout), lambda v: v is None or isinstance(v, str), "str or None"))
             except Exception:
                 continue
             if got is not None:

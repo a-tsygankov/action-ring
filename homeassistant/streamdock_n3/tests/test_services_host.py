@@ -56,6 +56,19 @@ class Slow(Service):
         return True
 
 
+class Sloppy(Service):
+    name = "sloppy"
+
+    def vars(self):
+        return None
+
+    def key(self, name, args):
+        return ["not", "a", "dict"]
+
+    def context(self, layout):
+        return 5
+
+
 class Bad(Service):
     name = "bad"
 
@@ -68,7 +81,7 @@ def host(tmp_path):
     made = []
 
     def make(sections, **kw):
-        mods = {f"services.{c.name}": types.SimpleNamespace(SERVICE=c) for c in (Demo, Slow, Bad)}
+        mods = {f"services.{c.name}": types.SimpleNamespace(SERVICE=c) for c in (Demo, Slow, Bad, Sloppy)}
         kw.setdefault("signal", lambda: None)
         kw.setdefault("spawn", lambda fn: fn())
         cfg = {"services": sections, "metrics": kw.pop("metrics", {})}
@@ -205,3 +218,24 @@ def test_measure_host_records_under_host(host, tmp_path):
     with h.measure_host("render"):
         pass
     assert "render" in h._metrics.snapshot({}, {})["services"]["host"]["ops"]
+
+
+def test_malformed_vars_return_counts_strikes(host, capsys):
+    h = host({"sloppy": {}}); h.start()
+    assert [h.vars() for _ in range(4)] == [{}] * 4
+    assert "services: sloppy render calls off for 5 min (vars TypeError" in capsys.readouterr().out
+    assert h._is_open("sloppy")
+
+
+def test_malformed_key_return_is_service_unavailable_and_strikes(host):
+    h = host({"sloppy": {}}); h.start()
+    for _ in range(3):
+        with pytest.raises(ServiceUnavailable):
+            h.key_spec({"service_key": "sloppy.k"})
+    assert h._is_open("sloppy")
+
+
+def test_malformed_context_return_is_skipped_and_strikes(host):
+    h = host({"sloppy": {}}); h.start()
+    assert [h.context("idle") for _ in range(3)] == ["idle"] * 3
+    assert h._is_open("sloppy")
