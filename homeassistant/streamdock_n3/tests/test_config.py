@@ -276,6 +276,11 @@ def test_dockerfile_copies_every_module():
         assert module.name in copied, f"{module.name} missing from the Dockerfile COPY lines"
 
 
+def test_dockerfile_copies_the_services_package():
+    lines = (APP_DIR / "Dockerfile").read_text().splitlines()
+    assert "COPY services /opt/streamdock/services" in lines  # next to ha_daemon.py, importable as "services"
+
+
 def test_youtube_page_has_dynamic_next_previous_and_like_dislike():
     keys = PAGES["context:youtube"]["keys"]
     assert [(p["icon"], p["action"]) for p in phase_specs(keys["2"])] == [
