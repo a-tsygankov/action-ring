@@ -162,3 +162,15 @@ def test_youtube_page_next_previous_and_like_dislike(daemon):
     assert hd._drawn[2].icon.endswith("/prev_video.png")
     assert hd._drawn[3].icon.endswith("/thumb_down__off.png")
     assert press(2, 105.5) == ["previous"] and press(3, 105.5) == ["dislike"]
+
+
+def test_toast_action_fills_placeholders(daemon):
+    hd = daemon.hd
+    shown = []
+    hd._toaster = SimpleNamespace(show=shown.append)
+    hd._soccer = SimpleNamespace(vars=lambda: {"soccer_pos": "2/8"})
+    hd._run_actions({"toast": "Game {soccer_pos}"}, dry_run=False)
+    hd._run_actions({"toast": "dry"}, dry_run=True)
+    assert shown == ["Game 2/8"]
+    hd._toaster = None
+    hd._run_actions({"toast": "nowhere"}, dry_run=False)  # no config: logged, no error

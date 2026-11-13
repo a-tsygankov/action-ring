@@ -206,7 +206,10 @@ class LiveSoccer:
         sleep: Callable[[float], None] = time.sleep,
         on_change: Callable[[], None] | None = None,
         monotonic: Callable[[], float] = time.monotonic,
+        notify: Callable[..., None] | None = None,
     ):
+        """`notify(message, channel=...)` shows a short message to the viewer (a TV toast)."""
+        self._toast = notify or (lambda message, channel=None: None)
         self._call = call
         self._state_of = state_of
         self._cfg = cfg
@@ -339,6 +342,7 @@ class LiveSoccer:
             gen = self.select(advance)
         if gen is None:
             log("no live games")
+            self._toast("No live soccer games", channel="soccer")
             return
         self._sleep(float(self._cfg.get("switch_after_s", SWITCH_AFTER_S)))
         self.switch(gen)
@@ -357,6 +361,7 @@ class LiveSoccer:
             self._gen += 1
             gen = self._gen
         log(f"picked {i + 1}/{len(games)}: {games[i].title}")
+        self._toast(f"{i + 1}/{len(games)} {games[i].title}", channel="soccer")
         self._on_change()  # {soccer_pos} changed
         return gen
 

@@ -78,6 +78,11 @@ def _format(label: str, vars: Mapping[str, str]) -> str:
         return label  # malformed braces, positional fields or bad lookups: show the raw text
 
 
+def format_label(label: str, vars: Mapping[str, str]) -> str:
+    """`label` with its {name} placeholders filled; unknown names stay as written."""
+    return _format(label, vars)
+
+
 def resolve_look(
     spec: dict,
     state_of: StateLookup,
