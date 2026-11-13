@@ -1192,6 +1192,44 @@ announced by a TV toast via `system.notifications/createToast`):
   at 08:13 HA core exited with 137 during an app rebuild (not an OOM kill,
   per Docker) and came back by itself at 08:18.
 
+### 2026-11-13 — TV toasts: rating, soccer picks, ad muting, sign-in code
+
+- Asked: can the Pi put text on the Apple TV? Not on tvOS (no outside
+  overlay or notification; AirPlaying a picture would take over the
+  screen, and the Companion keyboard only types into an open text field).
+  The LG can: webOS `system.notifications/createToast` over any input,
+  already used to announce probe steps (2026-10-27).
+- `toast.py` + config `toast` (`lg`, `events`, `settle_s`) + key action
+  `{"toast": "text"}` (label placeholders filled). Wired: rating results,
+  each soccer pick (merged: only the last of a run of presses, 0.6 s after
+  they stop; webOS would queue one toast per press), ad mute / unmute (only
+  when ad muting changes the sound itself), and the Google sign-in code
+  (repeated every minute while waiting, then done / failed / expired).
+  Skipped while the LG is off.
+- Untested on the TV: a toast over the Apple TV HDMI input (expected to
+  work, as with any webOS toast) and over the PS5 in Game mode (ads only
+  mute on the Apple TV input anyway). Merged after the 8 s keys and the
+  knob fix, as 0.5.0-31.
+
+### 2026-11-13 — Key screens are 64×64; why the icons are 112×112
+
+- From the vendored SDK (upstream streamdock-n3 at the pinned revision):
+  `StreamDockN3.key_image_format()` is 64×64 JPEG rotated −90°, and
+  `set_key_image` saves it with Pillow defaults (q75, 4:2:0). The
+  "112 * 112" comment above `set_key_image` is copied from the N4 driver
+  (N4 keys are 112×112); upstream's own text tiles are 64×64. Our icons
+  followed the comment (2026-10-23) and `build_icons.py` kept 112.
+- Not changed: the downscale is harmless. If keys look soft on the dock,
+  patch the JPEG save first (`quality=95, subsampling=0`), then consider
+  drawing at 64 natively. DOCS.md "Key images" has the details and palette.
+- Google Cloud console values for the like/dislike OAuth app (branding,
+  audience, no scopes, TV client) are in DOCS.md "Like / dislike".
+- Tubi showed no toast: its breaks are muted by the HA automation
+  `streaming_pause_mute` (any app paused), not by ad detection (Pluto,
+  Peacock). The automation now toasts `Paused: sound muted` and `Sound on`
+  itself (`webostv.command`, `continue_on_error`). Deploy with
+  `restore.sh --replace-ha-config`, or the Pi keeps its older copy.
+
 ## Open items
 
 - [ ] YouTube (Apple TV): a slow first scrub still opens no scrubber; fast

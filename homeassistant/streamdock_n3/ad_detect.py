@@ -75,6 +75,10 @@ def log(msg: str) -> None:
 
 
 class AdDetector:
+    # Shows a short message to the viewer (a TV toast) when this mutes or
+    # unmutes; set by the daemon.
+    notify: Callable[[str], None] = staticmethod(lambda message: None)
+
     def __init__(self, cfg: dict[str, Any], call: Call, state_of: StateLookup,
                  state_file: Path | None = None) -> None:
         """`state_file` keeps "the speaker mute is ours" across app restarts."""
@@ -227,6 +231,7 @@ class AdDetector:
                 self.muted_by_us = True
                 self._save_muted()
                 log("muted")
+                self.notify("Ad: sound muted")
             elif self.muted_by_us:
                 self.muted_by_us = False
                 self._save_muted()
@@ -234,6 +239,7 @@ class AdDetector:
                     self._call("media_player", "volume_mute",
                                {"entity_id": self.speaker, "is_volume_muted": False})
                     log("unmuted")
+                    self.notify("Ad over: sound on")
         except Exception as err:
             log(f"mute {'on' if on else 'off'} failed: {err}")
 

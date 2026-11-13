@@ -245,6 +245,7 @@ Key actions, besides shell strings (`ha-call domain.service '<json>'`):
 | `{"launch": {"device": "lg", "app": "<webOS app id>"}}` | Powers on if needed, starts the app on the LG (`system.launcher/launch`) |
 | `{"next_playing": [entities]}` | Next track on the first of those speakers that is playing and leads its group |
 | `{"youtube": "play_pause" \| "next" \| "previous" \| "next_chapter" \| "forward" \| "rewind" \| "subtitles"}` | Controls the linked YouTube app (see below); `forward` / `rewind` skip 10 s, `subtitles` toggles captions |
+| `{"toast": "text"}` | Shows `text` on the TV for a few seconds, over any input (see TV toasts); `{name}` placeholders work |
 | `{"youtube": "like" \| "dislike"}` | Rates the playing video as the signed-in Google account; again on a rated video clears it (see Like / dislike) |
 | `{"soccer": "start" \| "next"}` | Picks the first live soccer game, or the next one while picking, and switches to it (powering on first); `next` always moves on (see Live soccer) |
 
@@ -422,13 +423,28 @@ One-time setup in the Google Cloud console (console.cloud.google.com):
 
 1. Create a project (e.g. `action-ring`).
 2. **APIs & Services → Library → YouTube Data API v3 → Enable.**
-3. **Google Auth Platform → Branding:** app name, your e-mail. **Audience:**
-   External, then **Publish app** (In production). Left in *Testing*, the
-   sign-in expires after 7 days. The app is not verified by Google, which is
-   fine for your own account: the sign-in shows a warning, pick
-   **Advanced → Go to …**.
-4. **Clients → Create client → TVs and Limited Input devices**, then
-   download its JSON.
+3. **Google Auth Platform → Branding:**
+
+   | Field | Value |
+   |---|---|
+   | App name | `ActionRing TV Remote` (no "YouTube" or "Google": Google rejects its trademarks in app names) |
+   | User support email | your Gmail |
+   | App logo | **none**: a logo makes Google require verification first |
+   | Home page, privacy policy, terms of service | empty (only needed to submit for verification) |
+   | Authorized domains | empty (the device sign-in has no redirect) |
+   | Developer contact email | your Gmail |
+
+   Accepting the Google API Services User Data Policy checkbox is yours to
+   do. Save.
+4. **Audience:** External, then **Publish app** (In production); if it
+   offers verification, don't submit. No test users needed. Left in
+   *Testing*, the sign-in expires after 7 days. Unverified is fine for your
+   own account (up to 100 users): the sign-in shows a warning, pick
+   **Advanced → Go to ActionRing TV Remote**.
+5. **Data Access:** add no scopes; the app asks for the YouTube scope at
+   sign-in, and declaring it here only adds verification prompts.
+6. **Clients → Create client → TVs and Limited Input devices** (name e.g.
+   `ActionRing N3`), then download its JSON.
 
 Then, from the PC:
 
@@ -440,11 +456,46 @@ It copies the client to `yt_oauth_client.json` in the app's config folder,
 starts the sign-in and prints e.g. `youtube-rating: sign-in: open
 https://www.google.com/device and enter ABCD-EFGH`. Open that on a phone,
 sign in with the account that is signed in to YouTube on the TV, enter the
-code and allow access. The refresh token is saved to `yt_oauth.json`
+code and allow access. With TV toasts on, the code also shows on the TV, again
+every minute until you sign in. The refresh token is saved to `yt_oauth.json`
 (secret; not in the repo). By hand: put the client JSON in
 `yt_oauth_client.json` and create an empty `yt_rate_auth` there; the log shows
 the code. If the sign-in is revoked, the log says so; sign in again the same
 way. `pair.sh status` shows whether ratings are signed in.
+
+### TV toasts
+
+The Apple TV can't show text sent from outside: tvOS has no overlay or
+notification for other devices, AirPlaying a picture with the text would
+replace what is playing, and the Apple TV keyboard (pyatv `text_set`) only
+types into a text field that is already open. The LG can: a webOS toast
+is a small box in the corner for a few seconds, over any input (the Apple TV
+included), while the picture keeps playing (`toast.py`, HA
+`webostv.command` → `system.notifications/createToast`). A `toast` section
+turns it on:
+
+```json
+"toast": { "lg": "media_player.lg_tv_2",
+           "events": ["rating", "soccer", "ad", "sign_in"], "settle_s": 0.6 }
+```
+
+| Event | Toasts |
+|---|---|
+| `rating` | `Liked`, `Like removed`, `Disliked`, `Dislike removed`, `Rating failed`, `Like/dislike: not signed in`, `Like/dislike: no YouTube video` |
+| `soccer` | Each pick, e.g. `2/8 Columbus Crew vs. Toronto FC`; `No live soccer games` |
+| `ad` | `Ad: sound muted`, `Ad over: sound on` (only when ad muting itself mutes or unmutes) |
+| `sign_in` | The Google sign-in code for like/dislike, every minute until you sign in; then done / failed / expired |
+
+Tubi (and any app that pauses for its ads) is muted by the Home Assistant
+automation `streaming_pause_mute`, not by the app's ad detection; that
+automation toasts `Paused: sound muted` and `Sound on` itself (an existing
+automation is only updated with `restore.sh --replace-ha-config`).
+
+`events` lists which of these show (all when left out). Soccer picks are
+merged: a run of presses shows only the last pick, `settle_s` after the
+presses stop. Nothing is sent while the TV is off. A key can show its own
+text with `{"toast": "text"}`. Toasts are plain text, cut to 120
+characters; webOS sets their place, look and length on screen.
 
 ### Live soccer
 
@@ -569,9 +620,38 @@ commands (a `webos` step or an `ha` `webostv.command`) containing `turnoff`,
 ### Key images
 
 Set `"icon": "/config/icons/<file>.png"` on a key to show an image instead of
-a generated label (112×112 works best). Put the files in
+a generated label (the repo's icons are 112×112, see below). Put the files in
 `/addon_configs/local_streamdock_n3/icons/`; the repo copy lives in
 `icons/` and `restore.sh` deploys it. No rebuild is needed, just restart the app.
+
+**What a key actually shows.** Each of the six LCD keys is **64×64 pixels**;
+the round buttons have no screen. The SDK's `StreamDockN3.set_key_image`
+takes any image file, rotates it −90°, resizes it to 64×64
+(`key_image_format()`) and sends it as a JPEG saved with Pillow's defaults:
+**quality 75, 4:2:0 chroma subsampling**, so colour detail is about 32×32.
+Images go out as 24-bit RGB; the panel's own colour depth is not known
+(small LCDs are often 16-bit, which would band gradients).
+
+- Design for 64 px: strokes under ~2 px at 112 px blur or vanish, and thin
+  coloured lines or small coloured text smear more than white on dark.
+- **Why 112×112:** inherited, not a hardware size. The vendor SDK's N3
+  driver carries the comment "Set device key icon image 112 * 112", copied
+  from the StreamDock N4 driver (whose keys are 112×112); the N3's real
+  format is 64×64, and the upstream daemon draws its own text tiles at
+  64×64. The first icons here followed the comment and `build_icons.py`
+  keeps `SIZE = 112`. It does no harm (the downscale smooths edges), but
+  nothing lines up with real pixels.
+- If keys look soft, the bigger win is patching the SDK's JPEG save to
+  `quality=95, subsampling=0` (as `patch_ids.py` patches it at build);
+  drawing at 64×64 natively would come after.
+- `tools/icons/build_icons.py` renders `out/contact_device.png`, every icon
+  as the device shows it (rotate, 64×64, JPEG q75 4:2:0, enlarged ×2).
+- Palette (`build_icons.py`): background `#262626`, glyphs `#ffffff`, off
+  `#8c8c8c`, unknown `#5c3b00`; on-states Night `#3b5bdb`, Speech
+  `#2b8a3e`, TV `#a3302c`, muted `#c77c02`, subtitles `#0c8599`, rated
+  (like/dislike) `#1971c2`; dynamic-key warnings `#ffb300`.
+- Dynamic-key warnings at 64 px: the countdown circle is ~23 px (digit
+  ~17 px), the bar ~6 px tall, the dots ~8 px across.
 
 ### Live state on keys
 

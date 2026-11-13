@@ -215,3 +215,15 @@ def test_a_press_during_the_shake_means_the_shaken_phase(daemon):
     render_at(daemon, 105.05)  # the clock says dislike; the screen still shakes like
     assert hd._drawn[4].anim is not None and hd._drawn[4].icon.endswith("/home.png")
     assert press_at(daemon, 105.1) == ["like"]
+
+
+def test_toast_action_fills_placeholders(daemon):
+    hd = daemon.hd
+    shown = []
+    hd._toaster = SimpleNamespace(show=shown.append)
+    hd._soccer = SimpleNamespace(vars=lambda: {"soccer_pos": "2/8"})
+    hd._run_actions({"toast": "Game {soccer_pos}"}, dry_run=False)
+    hd._run_actions({"toast": "dry"}, dry_run=True)
+    assert shown == ["Game 2/8"]
+    hd._toaster = None
+    hd._run_actions({"toast": "nowhere"}, dry_run=False)  # no config: logged, no error
