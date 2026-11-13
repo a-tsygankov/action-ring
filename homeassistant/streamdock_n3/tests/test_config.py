@@ -271,6 +271,8 @@ def test_every_soccer_action_is_known():
 def test_dockerfile_copies_every_module():
     copied = " ".join(l for l in (APP_DIR / "Dockerfile").read_text().splitlines() if l.startswith("COPY"))
     for module in APP_DIR.glob("*.py"):
+        if module.name == "conftest.py":  # test-only, not shipped
+            continue
         assert module.name in copied, f"{module.name} missing from the Dockerfile COPY lines"
 
 
