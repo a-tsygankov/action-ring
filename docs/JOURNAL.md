@@ -1036,7 +1036,34 @@ announced by a TV toast via `system.notifications/createToast`):
 - The AirPlay pairing is no longer described as "diagnostics": ad muting
   (Pluto, Peacock) runs on that MRP session.
 
+### 2026-11-13 — Google OAuth app published; home and privacy pages on GitHub Pages
+
+- Google Cloud project `action-ring-home`, Google Auth Platform: app name
+  `action-ring-home-client`, user type External, one client
+  `action-ring-tv` (TV and Limited Input). No scopes on Data Access yet.
+- Publishing was blocked ("complete your configuration on the Branding
+  page") until Branding had a home page, a privacy policy link and an
+  authorized domain. Added:
+  - Authorized domain `a-tsygankov.github.io`
+  - Home page <https://a-tsygankov.github.io/action-ring/>
+  - Privacy policy <https://a-tsygankov.github.io/action-ring/privacy.html>
+- The pages live on the orphan branch `gh-pages` (only `index.html`,
+  `privacy.html`, `.nojekyll`); GitHub Pages serves that branch, so `docs/`
+  is not published. Edit the pages there.
+- Publishing status moved from Testing to **In production**: refresh tokens
+  no longer expire after 7 days. Unverified, so sign-in shows Google's
+  "unverified app" screen and the lifetime cap is 100 accounts. No logo on
+  purpose: a logo triggers brand verification. "Back to testing" on the
+  Audience page undoes it.
+- The privacy policy is written for any scope (data stays on the HA device,
+  not shared or sold, Limited Use). Recheck it when scopes are added.
+
 ## Open items
+
+- [ ] Google OAuth client `action-ring-tv`: no scopes configured and no code
+      uses it yet. When scopes are added, check the privacy policy on the
+      `gh-pages` branch still describes what is done with the data; a
+      sensitive or restricted scope needs verification.
 
 - [ ] Tune knob acceleration on the TV (`atv` section: step sizes, speed
       thresholds) and note which apps support seek vs. fall back to skips.
