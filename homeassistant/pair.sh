@@ -106,7 +106,8 @@ pair_youtube_rating() {
     local client=${1:-} before line
     if [ -n "$client" ]; then
         [ -f "$client" ] || die "no such file: $client"
-        jq -e '(.installed // .web // .) | .client_id and .client_secret' "$client" >/dev/null \
+        # jq on the Pi: the PC (Git Bash) usually has none.
+        ssh_ha "jq -e '(.installed // .web // .) | .client_id and .client_secret' >/dev/null" < "$client" \
             || die "$client has no client_id / client_secret"
         ssh_ha "umask 077; cat > $DIR/yt_oauth_client.json" < "$client"
     fi

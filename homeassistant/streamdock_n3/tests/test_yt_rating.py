@@ -1,6 +1,7 @@
 """yt_rating: like/dislike through the YouTube Data API, with a fake Google."""
 
 import json
+import os
 import stat
 import urllib.parse
 
@@ -177,7 +178,8 @@ def test_device_sign_in(env, capsys):
     assert g.calls[1][2]["grant_type"] == "urn:ietf:params:oauth:grant-type:device_code"
     saved = tmp / "yt_oauth.json"
     assert json.loads(saved.read_text()) == {"refresh_token": "new-rt"}
-    assert stat.S_IMODE(saved.stat().st_mode) == 0o600
+    if os.name == "posix":  # Windows has no owner-only mode bits
+        assert stat.S_IMODE(saved.stat().st_mode) == 0o600
     assert r.rating() == "none"
     assert sum(c[1].endswith("/token") for c in g.calls) == 3  # the access token came with the sign-in
 

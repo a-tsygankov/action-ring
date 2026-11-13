@@ -17,8 +17,8 @@ SPEC = {
     "dynamic": {
         "hold_s": 5,
         "phases": [
-            {"icon": str(ICONS / "home.png"), "action": "like"},
-            {"icon": str(ICONS / "back.png"), "action": "dislike"},
+            {"icon": (ICONS / "home.png").as_posix(), "action": "like"},
+            {"icon": (ICONS / "back.png").as_posix(), "action": "dislike"},
         ],
     },
 }
@@ -88,7 +88,7 @@ def press_at(d, t):
 def test_frames_drawn_and_presses_follow_the_screen(daemon, capsys):
     due, drawn = render_at(daemon, 100.0)
     assert due == pytest.approx(104.0)  # the warning starts 1 s before the switch
-    assert len(drawn) == 6 and (4, str(ICONS / "home.png")) in drawn
+    assert len(drawn) == 6 and (4, (ICONS / "home.png").as_posix()) in drawn
 
     due, drawn = render_at(daemon, 104.01)
     assert [k for k, _ in drawn] == [4]  # only the dynamic key: its "3"
@@ -99,7 +99,7 @@ def test_frames_drawn_and_presses_follow_the_screen(daemon, capsys):
     render_at(daemon, 104.34)
     render_at(daemon, 104.67)
     due, drawn = render_at(daemon, 105.01)
-    assert drawn == [(4, str(ICONS / "back.png"))]
+    assert drawn == [(4, (ICONS / "back.png").as_posix())]
     assert due == pytest.approx(109.0)
     assert press_at(daemon, 105.1) == ["like"]  # within grace of the swap
     assert press_at(daemon, 105.4) == ["dislike"]

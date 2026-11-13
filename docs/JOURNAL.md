@@ -1058,34 +1058,6 @@ announced by a TV toast via `system.notifications/createToast`):
 - The privacy policy is written for any scope (data stays on the HA device,
   not shared or sold, Limited Use). Recheck it when scopes are added.
 
-## Open items
-
-- [ ] Google OAuth client `action-ring-tv`: no scopes configured and no code
-      uses it yet. When scopes are added, check the privacy policy on the
-      `gh-pages` branch still describes what is done with the data; a
-      sensitive or restricted scope needs verification.
-
-- [ ] Tune knob acceleration on the TV (`atv` section: step sizes, speed
-      thresholds) and note which apps support seek vs. fall back to skips.
-- [ ] Preview scrubbing: tune `touch_steps` / `touch_release_after` with use;
-      note which apps' players respond to touch scrubbing.
-- [ ] `arpi` is live (11-01): integrations, Apple TV touch + AirPlay,
-      YouTube (Apple TV) all paired; old Pi powered off. Left: `pair.sh
-      youtube lg` if the LG's YouTube app is used; if the old Pi comes back,
-      stop its app (boot auto) and its `streaming_pause_mute`.
-- [ ] LG Media Player keys: subtitles on/off/next via the `CC` panel,
-      audio track via playback bar `⋯` -> Options -> Audio Track, knob
-      scrubbing (find what seeks). See the 10-27 entry.
-- [ ] YouTube paused, then the TV app with nothing playing: the YouTube
-      page stays (no signal). Check the `youtube: event` lines
-      (`debug_events`, enabled on the Pi only) for one.
-- [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
-      chapter there (Apple TV done).
-- [ ] Decide whether to track the HA-created script `netflix_on_apple_tv`
-      in the repo.
-- [ ] Govee not integrated in HA; lighting controls pending.
-- [ ] Only one Apple TV in HA; the handoff mentions two generations.
-
 ### 2026-11-13 — Dynamic keys: one key, functions in turn, with a warning
 
 - Asked for: a key that changes its image and function on a timer (e.g.
@@ -1141,3 +1113,32 @@ announced by a TV toast via `system.notifications/createToast`):
   sandbox): needs a sign-in on the Pi, then a like/unlike/dislike on a real
   video. Tests: `test_yt_rating.py` (fake Google), the YouTube page through
   the daemon in `test_dynamic_render.py`, preset checks. 0.5.0-26.
+
+## Open items
+
+- [ ] Google OAuth client `action-ring-tv` is used by `yt_rating.py`
+      (scope `youtube`, sensitive). Unverified, so sign-in shows the
+      "unverified app" screen; fine for this one household. If the scopes
+      change, check the privacy policy on the `gh-pages` branch still
+      describes what is done with the data.
+
+- [ ] Tune knob acceleration on the TV (`atv` section: step sizes, speed
+      thresholds) and note which apps support seek vs. fall back to skips.
+- [ ] Preview scrubbing: tune `touch_steps` / `touch_release_after` with use;
+      note which apps' players respond to touch scrubbing.
+- [ ] `arpi` is live (11-01): integrations, Apple TV touch + AirPlay,
+      YouTube (Apple TV) all paired; old Pi powered off. Left: `pair.sh
+      youtube lg` if the LG's YouTube app is used; if the old Pi comes back,
+      stop its app (boot auto) and its `streaming_pause_mute`.
+- [ ] LG Media Player keys: subtitles on/off/next via the `CC` panel,
+      audio track via playback bar `⋯` -> Options -> Audio Track, knob
+      scrubbing (find what seeks). See the 10-27 entry.
+- [ ] YouTube paused, then the TV app with nothing playing: the YouTube
+      page stays (no signal). Check the `youtube: event` lines
+      (`debug_events`, enabled on the Pi only) for one.
+- [ ] Link the LG's YouTube app (`pair.sh youtube lg`) and confirm next
+      chapter there (Apple TV done).
+- [ ] Decide whether to track the HA-created script `netflix_on_apple_tv`
+      in the repo.
+- [ ] Govee not integrated in HA; lighting controls pending.
+- [ ] Only one Apple TV in HA; the handoff mentions two generations.
