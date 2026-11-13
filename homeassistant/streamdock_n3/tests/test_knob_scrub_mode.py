@@ -89,3 +89,69 @@ def test_youtube_is_not_paused_before_the_first_touch():
     other._call = lambda *a: calls.append(a)
     other._finger_drag(-12)
     assert calls == [("media_player", "media_pause", {"entity_id": "media_player.atv"})]
+
+
+YT = "com.google.ios.youtube"
+YT_CFG = {"scrub_apps": {YT: {"pause": False, "paused": "nav"}}, "touch_flick": 150, "touch_flick_wait": 0}
+
+
+def test_youtube_paused_navigates_so_no_select_lands_on_the_grid():
+    """YouTube reports paused in its video grid: the knob moves focus there
+    (one tile per slow click) instead of scrubbing and auto-committing."""
+    assert engine(YT_CFG, {"s": "paused", "a": {"app_id": YT}})._mode("horizontal") == "nav"
+    assert engine(YT_CFG, {"s": "playing", "a": {"app_id": YT}})._mode("horizontal") == "touch"
+    assert engine(YT_CFG, {"s": "paused", "a": {"app_id": "com.netflix.Netflix"}})._mode("horizontal") == "touch"
+    assert engine({}, {"s": "paused", "a": {"app_id": YT}})._mode("horizontal") == "touch"  # opt-in only
+
+
+def test_a_scrub_awaiting_its_commit_keeps_scrubbing_when_paused():
+    """A re-grip can pause YouTube mid-scrub; the next turn must not switch
+    to focus moves while the scrub still waits for its commit."""
+    eng = engine(YT_CFG, {"s": "paused", "a": {"app_id": YT}})
+    eng._scrub_active = True
+    assert eng._mode("horizontal") == "touch"
+
+
+def test_a_fresh_touch_starts_with_a_quick_swipe_then_grips_again():
+    """The first touch input after a while is lost: a swipe wakes it first."""
+    touch = RecordingTouch()
+    eng = engine({**YT_CFG, "touch_interval": 0}, {"s": "playing", "a": {"app_id": YT}}, touch)
+    eng._finger_drag(12)
+    modes = [m for _, _, m in touch.events]
+    first_release = modes.index("release")
+    assert touch.events[0] == (575, 500, "press")
+    assert touch.events[first_release][0] == 575 + 150  # the swipe went 150 right, then lifted
+    assert touch.events[first_release + 1] == (575, 500, "press")  # grips again in the middle
+    assert eng._finger_down and eng._finger_x == 575 + 12  # the turn itself: no extra travel
+    n = len(touch.events)
+    eng._finger_drag(12)  # finger still down: no swipe
+    assert "release" not in [m for _, _, m in touch.events[n:]] and eng._finger_x == 575 + 24
+
+
+def test_the_swipe_follows_the_turn_and_stays_in_range():
+    touch = RecordingTouch()
+    cfg = {"touch_interval": 0, "touch_flick_wait": 0, "scrub_apps": {YT: {"pause": False, "touch_flick": 900}}}
+    eng = engine(cfg, {"s": "playing", "a": {"app_id": YT}}, touch)
+    eng._finger_drag(-12)
+    release = [x for x, _, m in touch.events if m == "release"][0]
+    assert release == 300  # left, clamped above the wrap zone
+
+
+def test_no_swipe_by_default():
+    touch = RecordingTouch()
+    eng = engine({"touch_interval": 0}, {"s": "playing", "a": {"app_id": YT}}, touch)
+    eng._finger_drag(-12)
+    assert "release" not in [m for _, _, m in touch.events] and eng._finger_x == 575 - 12
+
+
+def test_the_swipe_is_followed_by_the_wait_and_applies_to_every_app(monkeypatch):
+    import knob_accel
+
+    slept = []
+    monkeypatch.setattr(knob_accel.time, "sleep", lambda s: slept.append(s))
+    touch = RecordingTouch()
+    cfg = {"touch_interval": 0, "touch_flick": 150, "touch_flick_wait": 0.8}
+    eng = engine(cfg, {"s": "paused", "a": {"app_id": "com.netflix.Netflix"}}, touch)
+    eng._finger_drag(12)
+    assert 0.8 in slept
+    assert [m for _, _, m in touch.events].count("press") == 2  # swipe, then the drag

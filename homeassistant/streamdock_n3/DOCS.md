@@ -83,6 +83,19 @@ The TV Room config sets `"scrub": "touch"` (see Preview scrubbing below).
 and/or `"pause": false`. YouTube (`com.google.ios.youtube`) has
 `"pause": false`: its scrubber opens on a swipe while playing, whereas after
 a pause the focus sits on the control row and swipes walk the buttons.
+It also has `"paused": "nav"`: YouTube reports paused while its video grid
+is on screen, so there the large knob moves focus left/right (one tile per
+slow click) instead of scrubbing, and no auto-commit `select` lands on a
+tile. A scrub still awaiting its commit keeps scrubbing (a re-grip at the
+touch surface's edge can pause the video mid-scrub).
+
+`"touch_flick": 150` and `"touch_flick_wait": 0.8` (TV Room config, every
+app; per app in `"scrub_apps"` too): a fresh touch starts with a quick
+150-unit swipe in the turn's direction (finger down, fast move, lift), then
+waits 0.8 s before the real drag. After 20-30 s of playback no app reacted
+to the first slow clicks, while later turns acted at once: the first touch
+input after a while is lost. The first scrub so starts about a second
+after the first click. `0` disables it.
 Disney+ (`com.disney.disneyplus`) has `"seek"`: its player ignores touch
 swipes and draws no preview for key presses either, but lands an absolute
 seek exactly. Every other app on the dock scrubs by touch with its preview

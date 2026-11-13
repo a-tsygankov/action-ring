@@ -44,10 +44,14 @@ DEFAULTS: dict[str, Any] = {
     "seek_hold": 3.0,  # keep scrubbing from our own target for this long
     "scrub": "seek",  # "touch" for tvOS preview scrubbing (needs pairing)
     # Per-app settings by the player's app_id: a mode name ("touch" /
-    # "seek") or {"mode": ..., "pause": false}. "pause": false skips the
-    # pause before the first touch: YouTube's own scrubber opens on a swipe
-    # while playing, whereas after a pause its focus sits on the control
-    # row and swipes walk the buttons.
+    # "seek") or {"mode": ..., "pause": false, "paused": "nav",
+    # "touch_flick": 150, "touch_flick_wait": 0.8}. "pause": false skips the pause before the first
+    # touch: YouTube's own scrubber opens on a swipe while playing, whereas
+    # after a pause its focus sits on the control row and swipes walk the
+    # buttons. "paused": "nav": while the app reports paused (YouTube does
+    # in its video grid), the knob moves focus left/right instead of
+    # scrubbing, so no auto-commit select lands on a tile; a scrub awaiting
+    # its commit still scrubs (a re-grip can pause the video mid-scrub).
     "scrub_apps": {},
     # Touch scrubbing, in touchpad units (0..1000 across the surface).
     "touch_steps": [12, [60, 2], [150, 3]],  # finger travel per detent by tier
@@ -62,6 +66,14 @@ DEFAULTS: dict[str, Any] = {
     "touch_interval": 0.016,  # s between touch events (as pyatv's own swipe)
     "touch_release_after": 0.6,  # lift the finger after this long idle
     "touch_pause_delay": 0.4,  # wait after pausing before touching
+    # Wake-up before the first drag of a fresh touch: a quick swipe (finger
+    # down, fast move, lift) of this many units in the turn's direction, then
+    # a pause of touch_flick_wait seconds. After 20-30 s of playback no app
+    # reacted to the first slow clicks (12 units each) - the first touch
+    # input after a while is lost - while later turns acted at once. Per app
+    # in scrub_apps; 0 = none.
+    "touch_flick": 0,
+    "touch_flick_wait": 0.8,
     # After a scrub (seek or touch), this long without knob activity resumes
     # playback: touch scrubs are committed with select first. 0 disables.
     "resume_after": 3.0,
@@ -150,6 +162,8 @@ class AppleTVKnobs:
         if st.get("s") not in PLAYBACK_STATES:
             return "nav"
         app = (st.get("a") or {}).get("app_id")
+        if st.get("s") == "paused" and not self._scrub_active and self._app_setting(app, "paused", None) == "nav":
+            return "nav"
         wanted = self._app_setting(app, "mode", self.cfg["scrub"])
         if wanted == "touch" and self._touch is not None and self._touch.available():
             return "touch"
@@ -305,11 +319,22 @@ class AppleTVKnobs:
         centre = (lo + hi) // 2
         if not self._finger_down:
             st = self._state(self.player) or {}
-            if st.get("s") == "playing" and self._pause_before_touch((st.get("a") or {}).get("app_id")):
+            app = (st.get("a") or {}).get("app_id")
+            flick = float(self._app_setting(app, "touch_flick", cfg["touch_flick"]) or 0)
+            if st.get("s") == "playing" and self._pause_before_touch(app):
                 # Preview scrubbing engages while paused (except where the
                 # app's scrubber opens on the swipe itself: "pause": false).
                 self._call("media_player", "media_pause", {"entity_id": self.player})
                 time.sleep(cfg["touch_pause_delay"])
+            if flick > 0 and abs(distance) >= 1:
+                # Wake the touch input with a quick swipe, wait, then grip again.
+                touch.action(centre, y, "press")
+                self._finger_x = centre
+                self._finger_move(round(min(hi, max(lo, centre + (flick if distance > 0 else -flick)))))
+                touch.action(self._finger_x, y, "release")
+                print(f"atv-knob: touch flick {self._finger_x - centre:+d}", flush=True)
+                wait = float(self._app_setting(app, "touch_flick_wait", cfg["touch_flick_wait"]) or 0)
+                time.sleep(max(cfg["touch_interval"], wait))
             touch.action(centre, y, "press")
             self._finger_x, self._finger_down = centre, True
         remaining = distance
