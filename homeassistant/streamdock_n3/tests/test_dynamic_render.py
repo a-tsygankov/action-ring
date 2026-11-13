@@ -118,3 +118,47 @@ def test_the_same_frame_is_not_drawn_twice(daemon):
     _, first = render_at(daemon, 104.1)
     _, again = render_at(daemon, 104.2)
     assert len(first) == 1 and again == []
+
+
+def test_youtube_page_next_previous_and_like_dislike(daemon):
+    import json
+
+    preset = json.loads((ICONS.parent / "presets" / "tv_room.json").read_text())
+    page = preset["tabs"]["pages"]["context:youtube"]
+    hd = daemon.hd
+    hd._engine = TabEngine({"context:youtube": page}, {})
+    hd._engine.set_context("youtube", 100.0)
+    commands, rated = [], {"like": False}
+    hd._youtube = SimpleNamespace(command=commands.append, next_chapter=lambda: None,
+                                  any_active=lambda: True, playing=lambda: True,
+                                  subtitles_on=lambda: False, has_chapters=lambda: False)
+    hd._rating = SimpleNamespace(rate=commands.append, liked=lambda: rated["like"], disliked=lambda: False)
+
+    class Inline:
+        def __init__(self, target, args=(), daemon=None):
+            self.run = lambda: target(*args)
+
+        def start(self):
+            self.run()
+
+    hd.threading = SimpleNamespace(Thread=Inline)
+
+    def press(key, t):
+        daemon.clock.t = t
+        commands.clear()
+        hd._run_actions({"tab_key": key}, dry_run=False)
+        return commands
+
+    render_at(daemon, 100.0)
+    assert hd._drawn[2].icon.endswith("/next_video.png")
+    assert hd._drawn[3].icon.endswith("/thumb_up__off.png")
+    assert press(2, 101.0) == ["next"] and press(3, 101.0) == ["like"]
+    rated["like"] = True
+    render_at(daemon, 102.0)
+    assert hd._drawn[3].icon.endswith("/thumb_up__on.png")  # liked: lit
+    render_at(daemon, 104.01)
+    assert hd._drawn[2].warn is not None and hd._drawn[3].warn is not None  # both count down
+    render_at(daemon, 105.01)
+    assert hd._drawn[2].icon.endswith("/prev_video.png")
+    assert hd._drawn[3].icon.endswith("/thumb_down__off.png")
+    assert press(2, 105.5) == ["previous"] and press(3, 105.5) == ["dislike"]

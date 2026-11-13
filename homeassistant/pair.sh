@@ -13,6 +13,13 @@
 #                                                as in config "youtube.screens",
 #                                                e.g. lg, atv); code from YouTube
 #                                                > Settings > Link with TV code
+#   homeassistant/pair.sh youtube-rating [client.json]
+#                                                Sign the app in to Google for
+#                                                like / dislike (YouTube Data
+#                                                API); client.json is the OAuth
+#                                                client ("TVs and Limited Input
+#                                                devices") from the Cloud console,
+#                                                needed the first time only
 #   homeassistant/pair.sh status                 What is paired / linked
 #
 # HA_HOST overrides the SSH host (default: homeassistant). The Apple TV is
@@ -95,6 +102,34 @@ pair_youtube() {
     fi
 }
 
+pair_youtube_rating() {
+    local client=${1:-} before line
+    if [ -n "$client" ]; then
+        [ -f "$client" ] || die "no such file: $client"
+        jq -e '(.installed // .web // .) | .client_id and .client_secret' "$client" >/dev/null \
+            || die "$client has no client_id / client_secret"
+        ssh_ha "umask 077; cat > $DIR/yt_oauth_client.json" < "$client"
+    fi
+    ssh_ha "test -f $DIR/yt_oauth_client.json" \
+        || die "no OAuth client on the Pi yet: pair.sh youtube-rating <client.json>"
+    ssh_ha "jq -e '.youtube.rating' $DIR/config.json >/dev/null" \
+        || echo "Note: \"youtube\": {\"rating\": true} is not in the app config; restore it first."
+    before=$(ssh_ha "ha apps logs $SLUG --lines 1000 2>&1 | grep -c 'youtube-rating: sign-in' || true")
+    ssh_ha "touch $DIR/yt_rate_auth"
+    wait_for "[ \$(ha apps logs $SLUG --lines 1000 2>&1 | grep -c 'youtube-rating: sign-in') -gt $before ]" 15 \
+        || die "the app did not start the sign-in (is \"rating\" on and the app restarted?)"
+    line=$(last_log 'youtube-rating: sign-in')
+    echo "$line"
+    case "$line" in *"enter "*) ;; *) exit 1 ;; esac
+    echo "Sign in with the Google account that is signed in to YouTube on the TV."
+    echo "(An unverified-app warning is expected: Advanced > Go to <app>.) Waiting..."
+    wait_for "ha apps logs $SLUG --lines 1000 2>&1 | grep 'youtube-rating: sign-in' | tail -1 | grep -qv 'enter '" 450 \
+        || die "no answer yet; check: ssh $HOST ha apps logs $SLUG"
+    line=$(last_log 'youtube-rating: sign-in')
+    echo "$line"
+    case "$line" in *"done"*) ;; *) exit 1 ;; esac
+}
+
 status() {
     local paired addr
     echo "Apple TV touch:"
@@ -127,11 +162,17 @@ status() {
             echo "  $screen: not linked (pair.sh youtube $screen)"
         fi
     done
+    if ssh_ha "test -f $DIR/yt_oauth.json"; then
+        echo "  like / dislike: signed in"
+    else
+        echo "  like / dislike: not signed in (pair.sh youtube-rating <client.json>)"
+    fi
 }
 
 case "${1:-}" in
     atv) shift; pair_atv "$@" ;;
     youtube) shift; pair_youtube "$@" ;;
+    youtube-rating) shift; pair_youtube_rating "$@" ;;
     status) status ;;
-    *) sed -n '2,21p' "$0"; exit 2 ;;
+    *) sed -n '2,28p' "$0"; exit 2 ;;
 esac

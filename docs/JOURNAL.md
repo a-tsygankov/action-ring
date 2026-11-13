@@ -28,13 +28,13 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 
 | Path | Purpose |
 |---|---|
-| `homeassistant/streamdock_n3/` | The HA app (Dockerfile, `config.yaml`, `run.sh` watchdog, `ha_daemon.py` live key state + HA calls, `knob_accel.py` Apple TV knob engine, `atv_touch.py` Companion touch connection, `yt_lounge.py` + `yt_chapters.py` YouTube link and chapters, `np_log.py` now-playing log, `ha-call`, `patch_ids.py`, `DOCS.md`) |
+| `homeassistant/streamdock_n3/` | The HA app (Dockerfile, `config.yaml`, `run.sh` watchdog, `ha_daemon.py` live key state + HA calls, `knob_accel.py` Apple TV knob engine, `atv_touch.py` Companion touch connection, `yt_lounge.py` + `yt_chapters.py` YouTube link and chapters, `yt_rating.py` like/dislike, `dynamic.py` keys that take turns, `np_log.py` now-playing log, `ha-call`, `patch_ids.py`, `DOCS.md`) |
 | `homeassistant/streamdock_n3/presets/tv_room.json` | Live dock mappings (source of truth) |
 | `homeassistant/streamdock_n3/icons/` | Key images, deployed to `/app_configs/local_streamdock_n3/icons/` (`/config/icons/` in the app) |
 | `homeassistant/ha-config/scripts/*.yaml` | HA scripts, one top-level key per file |
 | `homeassistant/ha-config/automations/*.yaml` | HA automations, one `- id:` entry per file |
 | `homeassistant/restore.sh` | Restore everything above onto a HAOS device |
-| `homeassistant/pair.sh` | Pair the Apple TV (`atv` touch, `atv airplay` media protocol) and link YouTube apps; `status` |
+| `homeassistant/pair.sh` | Pair the Apple TV (`atv` touch, `atv airplay` media protocol), link YouTube apps, sign in for YouTube like/dislike (`youtube-rating`); `status` |
 | `homeassistant/tools/` | Ad research: `mrp_summary.py`, `replay_ad_detect.py`, `sanitize_mrp.py`, sanitized `fixtures/`; live tests: `probe.sh` + `probes/*.json` |
 | `docs/AD_DETECTION_GUIDE.md` | Guide for AI agents: analyze a new app and add its ad rule |
 
@@ -118,7 +118,10 @@ Idempotent. Steps:
 7. Pairs the Apple TV via `pair.sh atv` if needed (prompts for the PIN),
    then prints `pair.sh status`.
 
-Link YouTube apps afterwards with `bash homeassistant/pair.sh youtube <screen>`.
+Link YouTube apps afterwards with `bash homeassistant/pair.sh youtube <screen>`,
+and sign in for like/dislike with `bash homeassistant/pair.sh youtube-rating
+<client.json>` (the OAuth client JSON from the Google Cloud project, see
+DOCS.md "Like / dislike"; `yt_oauth*.json` are not in the repo).
 Verified against the live Pi.
 
 ### Hiccups seen on a real restore (arpi, 2026-11-01)
@@ -1077,3 +1080,37 @@ announced by a TV toast via `system.notifications/createToast`):
 - Not in the preset yet: there is no like/dislike action for YouTube on
   the Apple TV (the Lounge API has none). Tests: `test_dynamic.py`,
   `test_dynamic_render.py` (daemon with the device stubbed). 0.5.0-25.
+
+### 2026-11-13 — YouTube page: next/previous and like/dislike as dynamic keys
+
+- Asked for: thumbs up/down via the YouTube Data API (option 1 of two;
+  the other was clicking through YouTube's on-screen controls), previous/
+  next video as one dynamic key, like/dislike on the freed position.
+- `context:youtube` now: 1 play/pause, **2 next ⇄ previous video**, **3 like
+  ⇄ dislike**, 4 −10 s, 5 +10 s / next chapter, 6 Back. Both dynamic keys
+  hold each phase 5 s with a 1 s 3-2-1 countdown and switch together. A
+  thumb is blue and filled when the video has that rating.
+- Why the Data API: pyytlounge 3.5 (the TV link) has no rating command
+  (only play/pause, seek, next/previous, captions, d-pad), and the Apple TV
+  remote has none either. `yt_rating.py`: `videos.getRating` once per
+  video (lazily, from the key's condition; 60 s back-off after a failure),
+  `videos.rate` on a press, optimistic with a fall-back. Like on a liked
+  video clears it. Commands `{"youtube": "like" | "dislike"}`, conditions
+  `youtube_liked` / `youtube_disliked`, config `"youtube": {"rating": true}`.
+- Sign-in: Google's device flow (scope `youtube`), started by the file
+  `yt_rate_auth` or `pair.sh youtube-rating <client.json>`; the code to
+  enter at google.com/device is printed. Only the refresh token is kept
+  (`yt_oauth.json`, 0600). The OAuth app must be published ("In
+  production"): in Testing, Google expires the refresh token after 7 days.
+  The allowed-scopes page for the device flow could not be checked from the
+  build sandbox; Google's YouTube Data API device-flow guide implies the
+  scope is allowed. If Google refuses it, the sign-in log line says so.
+- Icons `thumb_up__off/on`, `thumb_down__off/on` (Material Symbols thumb-up
+  / thumb-down, rounded; filled on `RATED` #1971c2). Iconify is blocked in
+  the build sandbox, so their SVGs came from the npm package
+  `@iconify-json/material-symbols` (the same data the Iconify API serves;
+  `next_video` rebuilt from it matches the committed PNG pixel for pixel).
+- Untested on the device and against Google (no network from the build
+  sandbox): needs a sign-in on the Pi, then a like/unlike/dislike on a real
+  video. Tests: `test_yt_rating.py` (fake Google), the YouTube page through
+  the daemon in `test_dynamic_render.py`, preset checks. 0.5.0-26.

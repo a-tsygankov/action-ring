@@ -43,6 +43,9 @@ Runs the upstream daemon unchanged and adds:
    (+10 s), "rewind" (-10 s), "next", "previous", "play_pause" and "subtitles" (toggle) go
    through the Lounge. Conditions "youtube_playing", "youtube_subtitles" and
    "youtube_chapters" (the current video has chapters) follow its live state.
+   With "rating": true, "like" / "dislike" (toggles) go to the YouTube Data
+   API as the signed-in account (yt_rating.py); conditions "youtube_liked",
+   "youtube_disliked".
 
 5. Now-playing log (np_log.py): "now_playing_log": {"entities": [...]} logs
    what changes in those media players, to find ad markers per app.
@@ -120,7 +123,8 @@ TICK_SECONDS = 0.2
 SLOW_PASS_SECONDS = 0.5
 EMPTY_LOOK = Look(None, "", "#000000")  # a key the visible page leaves undefined
 ERROR_LOOK = Look(None, "?", "#5c3b00")  # a key whose spec failed to resolve
-YOUTUBE_COMMANDS = ("next_chapter", "forward", "rewind", "next", "previous", "play_pause", "subtitles")
+YOUTUBE_COMMANDS = ("next_chapter", "forward", "rewind", "next", "previous", "play_pause", "subtitles",
+                    "like", "dislike")
 SOCCER_COMMANDS = ("start", "next")
 
 _ready = threading.Event()
@@ -128,6 +132,7 @@ _device = None
 _draw_lock = threading.Lock()
 _knobs: AppleTVKnobs | None = None
 _youtube: Any = None  # yt_lounge.YouTubeScreens
+_rating: Any = None  # yt_rating.YouTubeRating; with youtube "rating": true
 _np_log: Any = None  # np_log.NowPlayingLog
 _soccer: Any = None  # soccer.LiveSoccer; set in main() with a "soccer" config
 _engine = TabEngine({}, {})  # replaced in main() before the device starts
@@ -164,6 +169,8 @@ _conds: dict[str, Callable[[], bool]] = {
     "youtube_playing": lambda: _youtube is not None and _youtube.playing(),
     "youtube_subtitles": lambda: _youtube is not None and _youtube.subtitles_on(),
     "youtube_chapters": lambda: _youtube is not None and _youtube.has_chapters(),
+    "youtube_liked": lambda: _rating is not None and _rating.liked(),
+    "youtube_disliked": lambda: _rating is not None and _rating.disliked(),
     "soccer_live": lambda: _soccer is not None and bool(_soccer.games()),
     "soccer_picking": lambda: _soccer is not None and _soccer.picking(),
 }
@@ -229,8 +236,16 @@ def _run_actions(actions: Any, *, dry_run: bool) -> None:
         if dry_run or _youtube is None or command not in YOUTUBE_COMMANDS:
             print(f"youtube: ignoring {command!r}", flush=True)
             return
-        # Lounge commands wait on the network; keep the SDK reader thread free.
-        run = _youtube.next_chapter if command == "next_chapter" else lambda: _youtube.command(command)
+        if command in ("like", "dislike") and _rating is None:
+            print(f"youtube: {command}: ratings are off (youtube \"rating\")", flush=True)
+            return
+        # Lounge and Data API calls wait on the network; keep the SDK reader thread free.
+        if command in ("like", "dislike"):
+            run = lambda: _rating.rate(command)  # noqa: E731
+        elif command == "next_chapter":
+            run = _youtube.next_chapter
+        else:
+            run = lambda: _youtube.command(command)  # noqa: E731
         threading.Thread(target=_safe, args=(run,), daemon=True).start()
         return
     if isinstance(actions, dict) and "soccer" in actions:
@@ -612,7 +627,7 @@ def _watch(entities: list[str]) -> None:
 
 
 def main() -> int:
-    global _knobs, _youtube, _np_log, _engine, _ctx_cfg, _launch_cfg, _core, _soccer
+    global _knobs, _youtube, _rating, _np_log, _engine, _ctx_cfg, _launch_cfg, _core, _soccer
     global _atv_app, _logo_cfg, _logo_icons, _logo_clock
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", type=Path)
@@ -656,6 +671,11 @@ def main() -> int:
 
             _youtube = YouTubeScreens(yt, state_of, on_change=_signal)
             entities |= _youtube.entities()
+            if yt.get("rating"):
+                from yt_rating import YouTubeRating
+
+                _rating = YouTubeRating(_youtube.video_id, on_change=_signal)
+                threading.Thread(target=_rating.run_forever, daemon=True).start()
         except Exception as err:
             print(f"youtube: disabled ({err!r})", flush=True)
     ad_cfg = config.get("ad_detect")

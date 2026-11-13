@@ -11,6 +11,7 @@
   },
   "now_playing_log": { "entities": ["media_player.vugitv_4k_vugitv_4k"] },
   "youtube": {
+    "rating": true,
     "screens": {
       "lg": {
         "match": [
@@ -255,8 +256,32 @@
             "modes": [ { "when": "youtube_playing", "icon": "play_pause__playing" } ],
             "action": { "youtube": "play_pause" }
           },
-          "2": { "icon": "prev_video", "action": { "youtube": "previous" } },
-          "3": { "icon": "next_video", "action": { "youtube": "next" } },
+          "2": {
+            "dynamic": {
+              "hold_s": 5, "warn_s": 1, "warn": "countdown",
+              "phases": [
+                { "icon": "next_video", "action": { "youtube": "next" } },
+                { "icon": "prev_video", "action": { "youtube": "previous" } }
+              ]
+            }
+          },
+          "3": {
+            "dynamic": {
+              "hold_s": 5, "warn_s": 1, "warn": "countdown",
+              "phases": [
+                {
+                  "icon": "thumb_up__off",
+                  "modes": [ { "when": "youtube_liked", "icon": "thumb_up__on" } ],
+                  "action": { "youtube": "like" }
+                },
+                {
+                  "icon": "thumb_down__off",
+                  "modes": [ { "when": "youtube_disliked", "icon": "thumb_down__on" } ],
+                  "action": { "youtube": "dislike" }
+                }
+              ]
+            }
+          },
           "4": { "icon": "skip_back_10", "action": { "youtube": "rewind" } },
           "5": {
             "icon": "skip_fwd_10",
