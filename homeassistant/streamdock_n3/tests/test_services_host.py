@@ -318,3 +318,29 @@ def test_malformed_context_return_is_skipped_and_strikes(host):
     h = host({"sloppy": {}}); h.start()
     assert [h.context("idle") for _ in range(3)] == ["idle"] * 3
     assert h._is_open("sloppy")
+
+
+def test_non_dict_services_section_is_ignored_with_one_line(host, capsys):
+    h = host(["demo"]); h.start()
+    assert h.names() == []
+    assert capsys.readouterr().out.count('services: "services" config is not an object; ignored') == 1
+
+
+def test_bad_metrics_numbers_fall_back_with_one_line_each(host, capsys):
+    h = host({"demo": {}}, metrics={"log_every_s": "10m",
+                                    "slow_ms": {"key": "fast", "cond": 7, "job": None, "vars": True}})
+    h.start()
+    assert h._log_every_s == 600
+    assert h._metrics.slow_ms["cond"] == 7 and h._metrics.slow_ms["key"] == 20
+    assert h._metrics.slow_ms["job"] == 2000 and h._metrics.slow_ms["vars"] == 5
+    out = capsys.readouterr().out
+    assert out.count("services: metrics.log_every_s '10m' is not a positive number; using 600") == 1
+    assert out.count("services: metrics.slow_ms entries dropped (not numbers): key, job, vars") == 1
+
+
+def test_non_dict_metrics_values_are_ignored(host, capsys):
+    h = host({"demo": {}}, metrics={"log_every_s": -5, "slow_ms": [1]}); h.start()
+    assert h._log_every_s == 600 and h._metrics.slow_ms["key"] == 20
+    out = capsys.readouterr().out
+    assert "metrics.log_every_s -5 is not a positive number" in out
+    assert "services: metrics.slow_ms is not an object; ignored" in out

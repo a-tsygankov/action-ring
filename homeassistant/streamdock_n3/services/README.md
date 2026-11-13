@@ -28,8 +28,11 @@ is the smallest useful one. Design background:
    in `config.yaml`, run `restore.sh`. The image copies the whole `services/`
    tree, so no `Dockerfile` edit is needed unless you need a new pip package.
 
-A service that fails to import or to `start()` is disabled with one log line
-(`services: <name> disabled (<Error>: <why>)`); the rest of the app runs.
+A service that fails to import, to `start()`, or whose `pages()`,
+`entities()`, `conditions()` or job list raises at startup is disabled with
+one log line (`services: <name> disabled (<Error>: <why>)`): its keys show
+`?`, its jobs stop and the rest of the app runs. The name `host` is reserved
+(the daemon's own metrics).
 
 ## The contract
 
@@ -47,10 +50,10 @@ class MyService(Service):
     def entities(self) -> set[str]: ...       # HA entities to subscribe to
     def vars(self) -> dict[str, str]: ...     # label variables; names must start "my_"
     def key(self, name, args) -> dict | None: ...   # spec for {"service_key": "my.<name>"}
-    def pages(self) -> dict[str, dict]: ...   # {"slip": {"keys": {...}, "close_on_press": False}}
+    def pages(self) -> dict[str, dict]: ...   # {"slip": {"keys": {...}, "close_on_press": False}}; before start()
     def context(self, layout) -> str | None: ...    # override the context layout, or None
     def on_state(self, changed: set[str]): ...      # HA entities (yours) changed
-    def stop(self): ...                       # shutting down, best effort
+    def stop(self): ...                       # not called yet: see below
 
     @job("refresh", first_in=0, long_running=False)
     def refresh(self) -> float | None: ...    # seconds until the next run; None = once
@@ -61,11 +64,14 @@ class MyService(Service):
 ```
 
 - **Jobs** run on a pool of 3 worker threads and never overlap with
-  themselves. The returned delay counts from the job's finish (minimum 1 s).
+  themselves. The returned delay counts from the job's finish (minimum 1 s,
+  maximum 1 day; NaN means the 60 s retry).
   An exception counts as an error and the job is retried after 60 s, doubling
   up to 1800 s; a streak is logged once at the first failure
   (`services: my job:refresh failed: <Error>: <why>`), once at the 10th
   (`... failing (10 in a row) ...`) and once on recovery (`... recovered`).
+  Anything else escaping a job (`SystemExit`) logs
+  `services: worker error <Error>: <why>` and the job is retried after 60 s.
   A `long_running=True` job (a websocket feed) gets its own thread, is rerun
   `delay` seconds after it returns, and is left out of slow-job warnings.
   `first_in` delays the first run (seconds).
@@ -82,9 +88,20 @@ class MyService(Service):
   `streaming`, `youtube`, ...) and may return another (soccer turns
   `streaming` into `live_game` while a started game is on screen). Services
   are asked in config order; the first non-None wins.
-- **`pages()`** is read once at startup. Page names become `<service>.<page>`
-  and are used in the preset's `round` cycles or opened with
-  `ctx.show_page(page)`.
+- **`start(ctx)`** runs synchronously on the main thread before the dock
+  opens. Keep it quick: do network I/O (the first fetch) in a `first_in=0`
+  job, not in `start()`.
+- **`pages()`** is read once at startup, **before `start()`**: there is no
+  `ctx` yet, so build the pages without it. Page names become
+  `<service>.<page>` and are used in the preset's `round` cycles or opened
+  with `ctx.show_page(page)`.
+- **`entities()`** is read once, after `start()`. It must include every
+  entity your key specs read (`state_entity`, the entities in a `when`
+  list): a `service_key` slot is opaque to the daemon's entity scan, so
+  those entities are watched (and in `ctx.state()`) only if you return them.
+- **`stop()` is not called by the app yet**: the process is killed on
+  restart. Do not rely on it for persistence; save state as you go
+  (`ctx.store.save` after each change).
 - A malformed return (a `key()` that is not a dict, `vars()` not a
   `dict[str, str]`, `context()` not a string) counts as an error, like an
   exception.
@@ -325,7 +342,10 @@ ctx = fake_context(name, config, states={"entity": {"s": "on", "a": {}}},
 (`(message, channel)`), `signals` (`changed()` count), `context_signals`,
 `redraws` (the seconds passed to `redraw_in`), `pages`, `urls` and `time`
 (`ctx.fakes.time.now += 30` moves the injected clock; `ctx.sleep` advances it
-instead of sleeping). An HTTP call with no matching fake fails the test. Tests
+instead of sleeping). An HTTP call with no matching fake raises an
+`AssertionError`; that fails the test only if your code lets it through, so
+a service that catches exceptions around its fetch should assert on
+`ctx.fakes.urls` and on its results instead. Tests
 call jobs, actions, conditions and keys directly, without threads; put them in
 `services/<name>/tests/` (give the file a unique name: `test_<name>.py`).
 

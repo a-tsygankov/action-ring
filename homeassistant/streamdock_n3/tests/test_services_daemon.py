@@ -174,3 +174,11 @@ def test_make_engine_adds_service_pages_and_vars(daemon_with_demo):
     _, pages, _ = hd._make_engine({"keys": {}})  # no tabs: the config's keys and the service pages
     assert set(pages) == {"context:idle", "demo.slip"}
     assert hd._vars() == {"demo_n": "3"}
+
+
+def test_top_level_soccer_config_logs_that_it_moved(daemon_without_host, capsys):
+    hd = daemon_without_host.hd
+    hd._warn_legacy_config({"soccer": {"poll_s": 60}, "services": {"soccer": {}}})
+    hd._warn_legacy_config({"services": {"soccer": {}}})
+    out = capsys.readouterr().out
+    assert out == 'soccer: top-level "soccer" config is ignored; it moved to services.soccer\n'

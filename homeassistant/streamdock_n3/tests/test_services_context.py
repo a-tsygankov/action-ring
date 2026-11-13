@@ -1,5 +1,6 @@
 """Tests for ServiceContext, Http, Store and the fake_context helper."""
 
+import os
 import urllib.error
 
 import pytest
@@ -153,3 +154,43 @@ def test_sleep_advances_fake_time():
     ctx = fake_context(now=100.0)
     ctx.sleep(5)
     assert ctx.clock() == 105.0 and ctx.monotonic() == 105.0
+
+
+def _tmp_files(root):
+    return sorted(p.name for p in root.iterdir() if p.name.endswith(".tmp"))
+
+
+def test_store_save_of_one_key_while_another_save_of_it_is_finishing(tmp_path, monkeypatch):
+    s = Store(tmp_path / "svc")
+    real_replace, nested = os.replace, []
+
+    def replace(src, dst):
+        if not nested:                       # a second save of the same key lands mid-save
+            nested.append(1)
+            s.save("k", {"v": 2})
+        real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", replace)
+    s.save("k", {"v": 1})
+    assert s.load("k") == {"v": 1} and _tmp_files(tmp_path / "svc") == []
+
+
+def test_store_save_failure_leaves_no_tmp(tmp_path, monkeypatch):
+    s = Store(tmp_path / "svc")
+    s.save("k", {"v": 1})
+
+    def broken(src, dst):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(os, "replace", broken)
+    with pytest.raises(OSError):
+        s.save("k", {"v": 2})
+    assert s.load("k") == {"v": 1} and _tmp_files(tmp_path / "svc") == []
+
+
+def test_shared_dict_filled_after_the_context_is_made_is_seen():
+    shared = {}
+    ctx = fake_context(shared=shared)
+    assert ctx.shared("atv_touch") is None
+    shared["atv_touch"] = object()
+    assert ctx.shared("atv_touch") is not None

@@ -92,7 +92,7 @@ Runs the upstream daemon unchanged and adds:
    "probe: …", for the live test session.
 
 13. Services (services/): a "services" config section loads plug-in
-   services (services/<name>.py, each its own section; "enabled": false
+   services (packages services/<name>/, each its own section; "enabled": false
    skips one) through one ServiceHost (services/host.py). A key slot
    {"service_key": "<service>.<key>", "args": {...}, ...} shows the key the
    service gives, with the slot's other fields on top; one that can't be
@@ -152,7 +152,7 @@ _toaster: Any = None  # toast.Toaster; with a "toast" config section
 _np_log: Any = None  # np_log.NowPlayingLog
 _host: ServiceHost | None = None  # set in main(); without a "services" section it has none
 # Handles services may borrow (ctx.shared); filled in main() as they are made.
-# Never empty, so the services' contexts keep this very dict (they read it per call).
+# The services' contexts keep this very dict and read it per call.
 _shared: dict[str, Any] = {"atv_touch": None, "youtube": None}
 _engine = TabEngine({}, {})  # replaced in main() before the device starts
 _ctx_cfg: dict | None = None  # config "tabs.context"; None = no context detection
@@ -715,6 +715,12 @@ def _watch(entities: list[str]) -> None:
         time.sleep(RETRY_SECONDS)
 
 
+def _warn_legacy_config(config: dict[str, Any]) -> None:
+    """One line for a config section that is no longer read where it is."""
+    if "soccer" in config:
+        print('soccer: top-level "soccer" config is ignored; it moved to services.soccer', flush=True)
+
+
 def main() -> int:
     global _knobs, _youtube, _rating, _toaster, _np_log, _engine, _ctx_cfg, _launch_cfg, _core
     global _atv_app, _logo_cfg, _logo_icons, _logo_clock, _host
@@ -722,6 +728,7 @@ def main() -> int:
     parser.add_argument("--config", type=Path)
     args, _ = parser.parse_known_args()
     config = configmod.normalize(configmod.load(args.config or configmod.ensure_config()))
+    _warn_legacy_config(config)
 
     entities: set[str] = set()
     _core = CoreAPI()

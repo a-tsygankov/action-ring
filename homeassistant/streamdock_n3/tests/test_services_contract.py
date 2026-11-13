@@ -80,3 +80,11 @@ def test_load_rejects_name_mismatch():
     lines = []
     assert load({"demo": {}}, importer=lambda n: types.SimpleNamespace(SERVICE=Other), log=lines.append) == []
     assert "disabled" in lines[0]
+
+
+def test_load_reserves_the_name_host():
+    lines, imported = [], []
+    got = load({"host": {}}, importer=lambda n: imported.append(n) or types.SimpleNamespace(SERVICE=Demo),
+               log=lines.append)
+    assert got == [] and imported == []
+    assert lines == ["services: host disabled (reserved name)"]

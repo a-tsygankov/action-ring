@@ -12,6 +12,7 @@ while the host lock is held.  Stdlib only.
 from __future__ import annotations
 
 import importlib
+import math
 import threading
 import time
 from pathlib import Path
@@ -36,6 +37,30 @@ def _checked(value, ok: Callable[[object], bool], what: str):
     if not ok(value):
         raise TypeError(f"returned {type(value).__name__}, expected {what}")
     return value
+
+
+def _is_number(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def _metrics_kw(mcfg: dict, log: Callable[[str], None]) -> dict:
+    """Metrics() arguments from the "metrics" config; bad values fall back, one line each."""
+    kw: dict = {}
+    if "log_every_s" in mcfg:
+        every = mcfg["log_every_s"]
+        if _is_number(every) and every > 0:
+            kw["log_every_s"] = every
+        else:
+            log(f"services: metrics.log_every_s {every!r} is not a positive number; using 600")
+    slow = mcfg.get("slow_ms")
+    if slow is not None and not isinstance(slow, dict):
+        log("services: metrics.slow_ms is not an object; ignored")
+    elif slow:
+        bad = [k for k, v in slow.items() if not _is_number(v)]
+        if bad:
+            log(f"services: metrics.slow_ms entries dropped (not numbers): {', '.join(map(str, bad))}")
+        kw["slow_ms"] = {k: v for k, v in slow.items() if k not in bad}
+    return kw
 
 
 class ServiceHost:
@@ -71,11 +96,11 @@ class ServiceHost:
              snapshot_path: Path = Path("/config/metrics.json"),
              spawn=None, log: Callable[[str], None] = print) -> "ServiceHost":
         sections = config.get("services") or {}
+        if not isinstance(sections, dict):
+            log('services: "services" config is not an object; ignored')
+            sections = {}
         mcfg = config.get("metrics") or {}
-        kw = {"slow_ms": mcfg.get("slow_ms")}
-        if "log_every_s" in mcfg:
-            kw["log_every_s"] = mcfg["log_every_s"]
-        metrics = Metrics(**kw, log=log, monotonic=monotonic, clock=clock)
+        metrics = Metrics(**_metrics_kw(mcfg, log), log=log, monotonic=monotonic, clock=clock)
         sched = Scheduler(metrics, monotonic=monotonic, log=log, spawn=spawn)
         services = load(sections, importer=importer, log=log)
         redraws: list[float] = []

@@ -1,7 +1,7 @@
 """The service contract: decorators, the Service base class and the loader.
 
-A service is a module `services/<name>.py` exposing `SERVICE`, a `Service`
-subclass whose `name` equals the module name.  Methods marked with `@job`,
+A service is a package `services/<name>/` exposing `SERVICE`, a `Service`
+subclass whose `name` equals the package name.  Methods marked with `@job`,
 `@action` or `@condition` are collected by `jobs()`, `actions()` and
 `conditions()`; everything else is an optional hook with a no-op default.
 `load()` imports the configured services in config order and skips (with one
@@ -67,6 +67,7 @@ class Service:
         return None
 
     def pages(self) -> dict[str, dict]:
+        """Read once at startup, BEFORE `start()`: no ctx yet, so build pages from nothing else."""
         return {}
 
     def context(self, layout: str) -> "str | None":
@@ -76,6 +77,7 @@ class Service:
         pass
 
     def stop(self) -> None:
+        """Not called by the app yet (the process is killed on restart): save state as you go."""
         pass
 
     def _marked(self, attr: str) -> list[tuple[Any, Callable]]:
@@ -107,6 +109,9 @@ def load(
     loaded: list[Service] = []
     for name, cfg in sections.items():
         if not isinstance(cfg, dict) or cfg.get("enabled") is False:
+            continue
+        if name == "host":                      # the pseudo-service holding the daemon's own metrics
+            log("services: host disabled (reserved name)")
             continue
         try:
             if not isinstance(name, str) or not _NAME.fullmatch(name):

@@ -7,9 +7,11 @@ attributed to one service in the metrics.  Stdlib only.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sqlite3
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -94,10 +96,16 @@ class Store:
 
     def save(self, key: str, value: Any) -> None:
         self._root.mkdir(parents=True, exist_ok=True)
-        path = self._root / f"{key}.json"
-        tmp = self._root / f"{key}.json.tmp"
-        tmp.write_text(json.dumps(value))
-        os.replace(tmp, path)
+        text = json.dumps(value)
+        fd, tmp = tempfile.mkstemp(dir=self._root, prefix=f"{key}.", suffix=".tmp")  # one per save
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.write(text)
+            os.replace(tmp, self._root / f"{key}.json")
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp)
+            raise
 
     def sqlite(self, name: str) -> sqlite3.Connection:
         self._root.mkdir(parents=True, exist_ok=True)
@@ -188,7 +196,7 @@ class ServiceContext:
         self._context_signal = context_signal
         self._redraw_in = redraw_in
         self._show_page = show_page
-        self._shared = shared or {}
+        self._shared = shared if shared is not None else {}   # keep the caller's dict: filled later
         self._secrets_path = Path(secrets_path)
         self._icons_root = Path(icons_root) if icons_root is not None else Path(__file__).resolve().parent
         self._log = log
