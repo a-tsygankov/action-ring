@@ -165,3 +165,53 @@ def test_youtube_page_next_previous_and_like_dislike(daemon):
     assert hd._drawn[2].icon.endswith("/prev_video.png")
     assert hd._drawn[3].icon.endswith("/thumb_down__off.png")
     assert press(2, 108.5) == ["previous"] and press(3, 108.5) == ["dislike"]
+
+
+def test_a_press_shakes_the_pressed_thumb_then_the_turns_resume(daemon):
+    import dynamic
+
+    shaky = {"dynamic": {"hold_s": 5, "warn_s": 1, "phases": [
+        {**SPEC["dynamic"]["phases"][0], "press": "shake"},
+        {**SPEC["dynamic"]["phases"][1], "press": "shake"},
+    ]}}
+    hd = daemon.hd
+    hd._engine = TabEngine({"context:youtube": {"keys": {"4": shaky}}}, {})
+    hd._engine.set_context("youtube", 100.0)
+    render_at(daemon, 100.0)
+
+    # A press 0.4 s before the switch: the like thumb shakes, frame by frame.
+    assert press_at(daemon, 104.6) == ["like"]
+    due, drawn = render_at(daemon, 104.6)
+    assert [k for k, _ in drawn] == [4] and hd._drawn[4].anim == dynamic.Anim("shake", 0)
+    assert due == pytest.approx(104.6 + dynamic.PRESS_FRAME_S)
+    seen = {0}
+    t = 104.6
+    while hd._drawn[4].anim is not None:
+        t += dynamic.PRESS_FRAME_S
+        render_at(daemon, t + 0.001)
+        if hd._drawn[4].anim is not None:
+            seen.add(hd._drawn[4].anim.step)
+            assert hd._drawn[4].warn is None  # no warning over the shake
+            assert hd._drawn[4].icon.endswith("/home.png")  # still the thumb that was pressed
+    assert seen == set(range(len(dynamic.PRESS_ANIMS["shake"])))
+
+    # Shaking past the switch at 105: a press meant the shaken phase; then dislike.
+    assert hd._press_anims == {}
+    assert hd._drawn[4].icon.endswith("/back.png")
+    assert press_at(daemon, t + 0.5) == ["dislike"]
+
+
+def test_a_press_during_the_shake_means_the_shaken_phase(daemon):
+    shaky = {"dynamic": {"hold_s": 5, "warn_s": 1, "phases": [
+        {**SPEC["dynamic"]["phases"][0], "press": "shake"},
+        SPEC["dynamic"]["phases"][1],
+    ]}}
+    hd = daemon.hd
+    hd._engine = TabEngine({"context:youtube": {"keys": {"4": shaky}}}, {})
+    hd._engine.set_context("youtube", 100.0)
+    render_at(daemon, 100.0)
+    assert press_at(daemon, 104.85) == ["like"]
+    render_at(daemon, 104.86)
+    render_at(daemon, 105.05)  # the clock says dislike; the screen still shakes like
+    assert hd._drawn[4].anim is not None and hd._drawn[4].icon.endswith("/home.png")
+    assert press_at(daemon, 105.1) == ["like"]

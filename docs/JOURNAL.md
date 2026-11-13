@@ -1135,13 +1135,26 @@ announced by a TV toast via `system.notifications/createToast`):
   `like`, again `none` (unlike), again `like`; on the next video `like`.
   No errors.
 
-### 2026-11-13 — YouTube dynamic keys: 8 s per option, 1.8 s shrinking bar
+### 2026-11-13 — YouTube dynamic keys: 8 s per option, 1.8 s shrinking bar, shake on press
 
 - Asked for: longer turns and a longer, clearer warning. Keys 2 (next ⇄
   previous) and 3 (like ⇄ dislike) on `context:youtube`: `hold_s` 5 → 8,
   `warn_s` 1 → 1.8, `warn` `countdown` → `bar` (a bar along the bottom that
   shrinks in 5 steps, one every 0.36 s). Preset only; no code change.
   `test_dynamic_render.py` follows the new timings.
+- Then: a longer pause between the bar's segments. New `warn_steps` (any
+  style; default 3, `bar` 5, at most 20): the YouTube keys use 3, so each
+  segment stays 0.6 s.
+- Then: a press on a thumb shows an animation of the thumb pressed. A phase
+  may set `"press": "shake"`: the key keeps that phase's look (the liked
+  thumb turns blue at once) and wiggles it, 7 frames 0.09 s apart (−16° to
+  0°, turned about a point below the centre; the uncovered corners take the
+  tile's own background). During it there is no warning and a press means
+  that phase again; the timer keeps running, so a shake across a switch
+  ends on the next phase. `dynamic.Pressed` / `anim_frame` / `draw_anim`;
+  `_press_anims` in `ha_daemon.py` (set on a press, cleared by the
+  renderer); `Look.anim`. Like and dislike on `context:youtube` have it.
+  Tests in `test_dynamic.py` and `test_dynamic_render.py`. 0.5.0-27.
 
 ## Open items
 

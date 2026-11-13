@@ -81,8 +81,9 @@ Runs the upstream daemon unchanged and adds:
 10. Dynamic keys (dynamic.py): a key with a "dynamic" section takes turns
    between its phases (e.g. 5 s thumbs up, 5 s thumbs down) while its page
    is shown, with a 1 s warning (3-2-1, a shrinking bar or dots going out)
-   before each change; a press does what the key showed. The renderer wakes
-   on the next frame of any dynamic key on screen.
+   before each change; a press does what the key showed, and a phase with
+   "press": "shake" wiggles its icon for a moment. The renderer wakes on the
+   next frame of any dynamic key on screen.
 
 11. Probe tool (probe.py): with the Apple TV connection up, a request written
    to probe_request.json (homeassistant/tools/probe.sh) runs raw MRP,
@@ -151,6 +152,7 @@ _drawn: dict[int, Look] = {}  # key -> look on screen; renderer thread only
 _render_errors: set[str] = set()  # key spec errors already logged; renderer thread only
 _on_screen: dict[int, dynamic.OnScreen] = {}  # dynamic key -> phase on screen; set by the renderer
 _on_screen_lock = threading.Lock()  # read by the SDK thread on presses
+_press_anims: dict[int, dynamic.Pressed] = {}  # dynamic key -> press animation; under _on_screen_lock
 
 # entity_id -> {"s": state, "a": attributes}, kept current by _watch().
 _states: dict[str, dict[str, Any]] = {}
@@ -299,6 +301,10 @@ def _pressed_phase(key: int, spec: dict, shown_at: float, now: float) -> dict:
         drawn = _on_screen.get(key)
     index = dynamic.pressed_index(spec, shown_at, now, drawn)
     print(f"dynamic: key {key} pressed in phase {index + 1}", flush=True)
+    anim = dynamic.pressed(spec, shown_at, index, now)
+    if anim is not None:
+        with _on_screen_lock:
+            _press_anims[key] = anim  # the caller's _signal() wakes the renderer
     return dynamic.phase_spec(spec, index)
 
 
@@ -415,6 +421,16 @@ def _image_for(key: int, look: Look) -> str:
     """The icon file (with a label: on a bottom band), or a generated text
     tile, with a dynamic key's warning on top; generated images are cached by
     their inputs."""
+    if look.anim is not None:
+        base = Path(_image_for(key, replace(look, anim=None, warn=None)))
+        digest = hashlib.sha1(f"{base.resolve()}\0{base.stat().st_mtime_ns}\0{look.anim}".encode()).hexdigest()[:10]
+        out = paths.generated_key_dir() / f"key-{key}-{digest}.jpg"
+        if not out.exists():
+            out.parent.mkdir(parents=True, exist_ok=True)
+            tmp = out.with_name(out.name + ".tmp")
+            dynamic.draw_anim(str(base), look.anim, tmp)
+            os.replace(tmp, out)  # never leave a half-written tile to be reused
+        return str(out)
     if look.warn is not None:
         base = Path(_image_for(key, replace(look, warn=None)))
         digest = hashlib.sha1(f"{base.resolve()}\0{base.stat().st_mtime_ns}\0{look.warn}".encode()).hexdigest()[:10]
@@ -486,9 +502,20 @@ def _render_pass() -> float | None:
     looks: dict[int, Look] = {}
     phases: dict[int, int] = {}  # dynamic key -> phase shown
     due = math.inf
+    with _on_screen_lock:
+        anims = dict(_press_anims)
     for k in range(1, 7):
         spec = keys.get(str(k))
-        if spec is not None and dynamic.config(spec) is not None:
+        running = dynamic.anim_frame(anims.get(k), shown_at, now) if spec is not None else None
+        if running is not None and dynamic.config(spec) is not None:
+            # A press animation: the pressed phase stays on the key until it ends.
+            anim, next_in = running
+            index = anims[k].index
+            phases[k] = index
+            due = min(due, next_in)
+            look = _look_for(k, dynamic.phase_spec(spec, index), label_vars)
+            looks[k] = replace(look, anim=anim) if look is not ERROR_LOOK else look
+        elif spec is not None and dynamic.config(spec) is not None:
             f = dynamic.frame(spec, now - shown_at)
             phases[k] = f.index
             due = min(due, f.next_in)
@@ -514,6 +541,9 @@ def _render_pass() -> float | None:
             print(f"render: {len(todo)} keys in {elapsed:.2f}s{slow}", flush=True)
     drawn_at = time.monotonic()
     with _on_screen_lock:
+        for k, p in list(_press_anims.items()):  # over (a press since this pass began stays)
+            if drawn_at - p.since >= dynamic.PRESS_S:
+                del _press_anims[k]
         for k in range(1, 7):
             if k in phases:
                 _on_screen[k] = dynamic.on_screen(_on_screen.get(k), shown_at, phases[k], drawn_at)
