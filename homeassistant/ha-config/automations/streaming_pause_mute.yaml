@@ -11,7 +11,9 @@
     by hand. Some apps report a pause as "idle" (Netflix); those are listed in
     idle_pause_apps. Apps in excluded_apps are skipped: Pluto TV reports a false
     "paused" when an ad ends, and its ads are handled by the StreamDock app's
-    ad detection instead.
+    ad detection instead. Each mute and unmute is announced by a toast on the
+    LG (it shows over the Apple TV input); a failed toast never stops the
+    automation.
   mode: single
   max_exceeded: silent
   variables:
@@ -48,6 +50,13 @@
         entity_id: media_player.tv_room_tv_room
       data:
         is_volume_muted: true
+    - action: webostv.command
+      continue_on_error: true
+      data:
+        entity_id: media_player.lg_tv_2
+        command: system.notifications/createToast
+        payload:
+          message: "Paused: sound muted"
     - wait_for_trigger:
         - trigger: state
           entity_id: media_player.vugitv_4k_vugitv_4k
@@ -77,3 +86,10 @@
             entity_id: media_player.tv_room_tv_room
           data:
             is_volume_muted: false
+        - action: webostv.command
+          continue_on_error: true
+          data:
+            entity_id: media_player.lg_tv_2
+            command: system.notifications/createToast
+            payload:
+              message: "Sound on"

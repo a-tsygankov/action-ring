@@ -486,6 +486,11 @@ turns it on:
 | `ad` | `Ad: sound muted`, `Ad over: sound on` (only when ad muting itself mutes or unmutes) |
 | `sign_in` | The Google sign-in code for like/dislike, every minute until you sign in; then done / failed / expired |
 
+Tubi (and any app that pauses for its ads) is muted by the Home Assistant
+automation `streaming_pause_mute`, not by the app's ad detection; that
+automation toasts `Paused: sound muted` and `Sound on` itself (an existing
+automation is only updated with `restore.sh --replace-ha-config`).
+
 `events` lists which of these show (all when left out). Soccer picks are
 merged: a run of presses shows only the last pick, `settle_s` after the
 presses stop. Nothing is sent while the TV is off. A key can show its own

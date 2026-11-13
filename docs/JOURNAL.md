@@ -1224,6 +1224,11 @@ announced by a TV toast via `system.notifications/createToast`):
   drawing at 64 natively. DOCS.md "Key images" has the details and palette.
 - Google Cloud console values for the like/dislike OAuth app (branding,
   audience, no scopes, TV client) are in DOCS.md "Like / dislike".
+- Tubi showed no toast: its breaks are muted by the HA automation
+  `streaming_pause_mute` (any app paused), not by ad detection (Pluto,
+  Peacock). The automation now toasts `Paused: sound muted` and `Sound on`
+  itself (`webostv.command`, `continue_on_error`). Deploy with
+  `restore.sh --replace-ha-config`, or the Pi keeps its older copy.
 
 ## Open items
 
