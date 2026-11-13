@@ -1156,7 +1156,50 @@ announced by a TV toast via `system.notifications/createToast`):
   renderer); `Look.anim`. Like and dislike on `context:youtube` have it.
   Tests in `test_dynamic.py` and `test_dynamic_render.py`. 0.5.0-27.
 
+### 2026-11-13 — YouTube grid: the knob moved focus only fast, and clicked a tile
+
+- Symptom: in YouTube on the Apple TV, picking a video with the large
+  knob: unexpected clicks (a tile opened), and slow turns didn't move the
+  focus. While watching, the first scrub started late; later ones at once.
+- Logged with timestamps (`docker logs -t`): the Apple TV reports the
+  YouTube player as **paused** while the grid is on screen (playing while
+  a video plays full screen), so the knob ran its touch scrub there: the
+  finger's swipes moved focus only when big (fast tier), and 2.5 s + 0.5 s
+  after the last click the auto-commit `select` clicked the focused tile.
+  With `resume_after` 0 as a test: no clicks in the grid, but full screen
+  the scrub then stays on its preview until a press, so the commit is
+  needed there.
+- Also seen: a re-grip at the touch surface's edge (a long fast turn)
+  pauses YouTube about 0.5 s later; the auto-commit `select` then resumes
+  it and lands the scrub, so it is left as is.
+- Fix (`knob_accel.py`, YouTube's `scrub_apps` entry): `"paused": "nav"`:
+  paused and no scrub awaiting its commit -> focus moves (`left`/`right`,
+  1 / 2 / 3 per click), no select. Checked on the TV: no clicks in the
+  grid, slow clicks move one tile, a scrub commits and plays on. 0.5.0-28.
+- First scrub after a while: slow clicks did nothing at first in any app
+  (YouTube, Netflix, ...), later turns acted at once. Tried and dropped:
+  40 and then 100 extra units on the first drag (0.5.0-28), a quick swipe
+  before it (0.5.0-29): none opened the scrubber sooner. Now (0.5.0-30,
+  every touch-scrub app): a 150-unit swipe in the turn's direction, then
+  0.8 s before the drag (`touch_flick`, `touch_flick_wait`), so the lost
+  first input is the swipe. Checked on the TV: Netflix now scrubs on slow
+  first clicks; YouTube does not (open item). Tests in
+  `test_knob_scrub_mode.py`.
+- Meanwhile: the Pi dropped off the network for ~10 min (~07:41); HA's
+  Sonos entity stopped updating then (subscriptions lost), so the pause
+  mute never undid itself (its "only undo my own mute" check read a stale
+  `is_volume_muted: false`). Reloading the Sonos integration fixed it. And
+  at 08:13 HA core exited with 137 during an app rebuild (not an OOM kill,
+  per Docker) and came back by itself at 08:18.
+
 ## Open items
+
+- [ ] YouTube (Apple TV): a slow first scrub still opens no scrubber; fast
+      turns open it after ~1 s. The log ties every opening to the finger
+      reaching the touch surface's edge and lifting (a 150-unit warm-up
+      swipe lifting at x=725 did nothing). Next try: a YouTube-only
+      `"touch_flick": 275` (to the edge) in its `scrub_apps` entry. Netflix
+      is fixed by the 150-unit swipe + 0.8 s wait (checked on the TV).
 
 - [ ] Google OAuth client `action-ring-tv` is used by `yt_rating.py`
       (scope `youtube`, sensitive). Unverified, so sign-in shows the
