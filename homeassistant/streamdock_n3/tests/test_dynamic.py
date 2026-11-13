@@ -212,3 +212,49 @@ def test_bar_sits_above_a_label_band(tmp_path):
     w, h = img.size
     assert _amber(img.getpixel((w // 2, round(h * 0.7) - 3)))
     assert not _amber(img.getpixel((w // 2, h - 3)))  # the band's text stays clear
+
+
+# -- warn_steps and the press animation ----------------------------------------
+
+
+def test_warn_steps_sets_how_long_each_segment_stays():
+    spec = styled(warn="bar", warn_s=1.8, warn_steps=3)
+    assert steps(spec, 5.0)[1:] == [(3.205, 0, 3), (3.805, 0, 2), (4.405, 0, 1)]  # 0.6 s each
+    assert frame(styled(warn="bar", warn_s=1.8), 3.3).warn.steps == 5  # the style's default
+    assert frame(styled(warn_steps="many"), 4.5).warn.steps == 3  # garbled: the default
+
+
+SHAKY = {**THUMBS, "dynamic": {**THUMBS["dynamic"], "phases": [
+    {"icon": "thumb_up", "action": "like", "press": "shake"},
+    {"icon": "thumb_down", "action": "dislike"},
+]}}
+
+
+def test_a_press_starts_the_phases_animation():
+    p = dynamic.pressed(SHAKY, 10.0, 0, 12.0)
+    assert p == dynamic.Pressed(10.0, 0, "shake", 12.0)
+    assert dynamic.pressed(SHAKY, 10.0, 1, 12.0) is None  # that phase has none
+    assert dynamic.pressed({"icon": "x", "press": "shake"}, 10.0, 0, 12.0) is None  # not dynamic
+    assert dynamic.pressed(styled(), 10.0, 0, 12.0) is None
+
+
+def test_the_animation_runs_frame_by_frame_then_ends():
+    p = dynamic.Pressed(10.0, 0, "shake", 12.0)
+    anim, next_in = dynamic.anim_frame(p, 10.0, 12.0)
+    assert anim == dynamic.Anim("shake", 0) and next_in == pytest.approx(dynamic.PRESS_FRAME_S)
+    anim, _ = dynamic.anim_frame(p, 10.0, 12.0 + dynamic.PRESS_FRAME_S * 2.5)
+    assert anim.step == 2
+    assert dynamic.anim_frame(p, 10.0, 12.0 + dynamic.PRESS_S + 0.001) is None  # over
+    assert dynamic.anim_frame(p, 11.0, 12.1) is None  # another page now
+    assert dynamic.anim_frame(None, 10.0, 12.1) is None
+
+
+def test_the_shake_turns_the_icon_and_ends_still(tmp_path):
+    first, last = tmp_path / "a.jpg", tmp_path / "b.jpg"
+    steps_n = len(dynamic.PRESS_ANIMS["shake"])
+    dynamic.draw_anim(str(ICON), dynamic.Anim("shake", 0), first)
+    dynamic.draw_anim(str(ICON), dynamic.Anim("shake", steps_n - 1), last)
+    src = Image.open(ICON).convert("RGB")
+    diff = lambda a, b: sum(abs(x - y) for p, q in zip(a.getdata(), b.getdata()) for x, y in zip(p, q))
+    assert diff(Image.open(first).convert("RGB"), src) > 20 * diff(Image.open(last).convert("RGB"), src)
+    assert Image.open(first).size == src.size

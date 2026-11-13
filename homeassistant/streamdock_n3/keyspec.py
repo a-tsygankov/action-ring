@@ -25,6 +25,7 @@ class Look:
     label: str
     color: str | None
     warn: Any = None  # dynamic.Warn: the "about to change" overlay of a dynamic key
+    anim: Any = None  # dynamic.Anim: a press animation frame of a dynamic key
 
 
 def icon_path(ref: str | None) -> str | None:

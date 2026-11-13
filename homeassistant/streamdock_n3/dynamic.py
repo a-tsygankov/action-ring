@@ -22,7 +22,13 @@ does what the key showed when it was pressed: the phase last drawn, or the
 one before it if that was swapped in less than `grace_s` ago (the finger was
 already on its way).
 
-Timing is pure (time is passed in); draw_warning() renders the overlay.
+A phase with "press": "shake" answers a press with a short animation of
+what was pressed: the key keeps that phase's look (e.g. the thumb that was
+pressed) and wiggles for PRESS_S seconds; the timer and the warning wait
+behind it, and a press during it means that phase again.
+
+Timing is pure (time is passed in); draw_warning() and draw_anim() render
+the overlays.
 """
 
 from __future__ import annotations
@@ -37,8 +43,13 @@ WARN_S = 1.0
 GRACE_S = 0.25
 WARN_STYLE = "countdown"
 WARN_COLOR = "#ffb300"
-STEPS = {"countdown": 3, "bar": 5, "dots": 3}  # frames per warning
+STEPS = {"countdown": 3, "bar": 5, "dots": 3}  # frames per warning; "warn_steps" overrides
+MAX_STEPS = 20
 MIN_HOLD_S = 0.2  # a shorter (or missing/garbled) hold is raised to this
+# Press animations: one rotation (degrees) per frame, PRESS_FRAME_S apart.
+PRESS_ANIMS = {"shake": (-16.0, 13.0, -10.0, 7.0, -4.0, 2.0, 0.0)}
+PRESS_FRAME_S = 0.09
+PRESS_S = PRESS_FRAME_S * len(PRESS_ANIMS["shake"])
 
 
 @dataclass(frozen=True)
@@ -49,6 +60,25 @@ class Warn:
     step: int
     steps: int
     color: str
+
+
+@dataclass(frozen=True)
+class Anim:
+    """The press animation on a key: frame `step` of style `style`."""
+
+    style: str
+    step: int
+
+
+@dataclass(frozen=True)
+class Pressed:
+    """A press animation running on a key: phase `index`, started at `since`,
+    on the page shown at `shown_at`."""
+
+    shown_at: float
+    index: int
+    style: str
+    since: float
 
 
 @dataclass(frozen=True)
@@ -129,7 +159,7 @@ def frame(spec: dict, elapsed: float) -> Frame:
     warn_s = min(max(0.0, _num(dyn.get("warn_s"), WARN_S)), holds[index])
     if warn_s <= 0 or remaining > warn_s:
         return Frame(index, remaining, None, remaining - warn_s if warn_s > 0 else remaining)
-    steps = STEPS[style]
+    steps = min(MAX_STEPS, max(1, int(_num(dyn.get("warn_steps"), STEPS[style]))))
     slot = warn_s / steps
     step = min(steps, max(1, math.ceil(remaining / slot - 1e-9)))
     warn = Warn(style, step, steps, str(dyn.get("warn_color") or WARN_COLOR))
@@ -147,6 +177,31 @@ def pressed_index(spec: dict, shown_at: float, now: float, drawn: OnScreen | Non
     if drawn.prev is not None and now - drawn.since < grace:
         return drawn.prev
     return drawn.index
+
+
+def press_style(phase: dict) -> str | None:
+    """The phase's press animation ("press"), or None."""
+    style = phase.get("press") if isinstance(phase, dict) else None
+    return style if style in PRESS_ANIMS else None
+
+
+def pressed(spec: dict, shown_at: float, index: int, now: float) -> Pressed | None:
+    """The animation a press of phase `index` starts, if that phase has one."""
+    if config(spec) is None:
+        return None
+    style = press_style(phase_spec(spec, index))
+    return Pressed(shown_at, index, style, now) if style else None
+
+
+def anim_frame(p: Pressed | None, shown_at: float, now: float) -> tuple[Anim, float] | None:
+    """(frame, seconds until the next one) while `p` runs on this page, else None."""
+    if p is None or p.shown_at != shown_at or now < p.since:
+        return None
+    angles = PRESS_ANIMS[p.style]
+    step = int((now - p.since) / PRESS_FRAME_S)
+    if step >= len(angles):
+        return None
+    return Anim(p.style, step), p.since + (step + 1) * PRESS_FRAME_S - now
 
 
 def on_screen(prev: OnScreen | None, shown_at: float, index: int, now: float) -> OnScreen:
@@ -215,3 +270,16 @@ def draw_warning(image: str, warn: Warn, out: Path, bottom: float = 1.0) -> None
         canvas.text((cx - (box[2] - box[0]) / 2 - box[0], cy - (box[3] - box[1]) / 2 - box[1]),
                     text, fill=color, font=font)
     img.save(out, "JPEG", quality=95)
+
+
+def draw_anim(image: str, anim: Anim, out: Path) -> None:
+    """Write `image` turned for frame `anim` to `out` (JPEG); the corners the
+    turn uncovers take the tile's own background colour."""
+    from PIL import Image
+
+    img = Image.open(image).convert("RGB")
+    angle = PRESS_ANIMS[anim.style][anim.step]
+    bg = img.getpixel((0, 0))
+    turned = img.rotate(angle, resample=Image.Resampling.BICUBIC, center=(img.width / 2, img.height * 0.6),
+                        fillcolor=bg)
+    turned.save(out, "JPEG", quality=95)

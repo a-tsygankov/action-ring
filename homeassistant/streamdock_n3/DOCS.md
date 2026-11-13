@@ -207,7 +207,9 @@ before):
   context page puts its back/forward pair side by side on one row (back on
   key 2 or 4): ⟲10/⟳10 (Apple TV apps, a live game), ⏪/⏩ (LG), −10 s/+10 s
   (YouTube). The YouTube page's key 2 takes turns between next and previous
-  video and key 3 between like and dislike, 5 s each (dynamic keys, below).
+  video and key 3 between like and dislike, 8 s each, with a bar that
+  shrinks in 3 steps over the last 1.8 s; a press on a thumb shakes it
+  (dynamic keys, below).
   Night sound and subtitles are only
   on tab 2A (`sonos`, round button 2 once): Night, Speech, Next track,
   Mute, Subtitles (the linked YouTube's captions), Surround. Key 4 of the
@@ -332,8 +334,15 @@ and `prev_video` (`{"youtube": "previous"}`) the same way.
 | `hold_s` | 5 | Seconds each phase shows; a phase's own `hold_s` overrides it |
 | `warn_s` | 1 | Seconds before a change that the warning shows (0: none) |
 | `warn` | `countdown` | `countdown`: 3-2-1 in the top-right corner; `bar`: a bar along the bottom (above a label band) that shrinks to nothing; `dots`: three dots along the top that go out one by one |
+| `warn_steps` | 3 (`bar`: 5) | Segments the warning moves through, spread evenly over `warn_s` (fewer: each one stays up longer) |
 | `warn_color` | `#ffb300` | Colour of the warning |
 | `grace_s` | 0.25 | A press this soon after a change still does the old phase's function |
+
+A phase may also set `"press": "shake"`: a press of the key in that phase
+wiggles the phase's icon (what was pressed, e.g. the thumb) for about 0.6 s.
+During it the key stays on that phase and shows no warning, so a second
+press does the same again; the timer keeps running, and if it moved on to
+the next phase meanwhile, that phase shows when the shake ends.
 
 - The cycle starts on the first phase whenever the page is shown (a context
   page adopted, a tab opened or closed back to it).
@@ -343,7 +352,8 @@ and `prev_video` (`{"youtube": "previous"}`) the same way.
   within `grace_s` of the swap, since the finger was already on its way.
   The log shows `dynamic: key N pressed in phase P`.
 - While a dynamic key is on screen the renderer wakes for each warning
-  frame (3 a second for `countdown` and `dots`, 5 for `bar`); frames are
+  frame (3 per warning for `countdown` and `dots`, 5 for `bar`, spread over
+  `warn_s`); frames are
   cached images and are not logged.
 
 ### YouTube: next chapter and ads

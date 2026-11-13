@@ -258,7 +258,7 @@
           },
           "2": {
             "dynamic": {
-              "hold_s": 5, "warn_s": 1, "warn": "countdown",
+              "hold_s": 8, "warn_s": 1.8, "warn": "bar", "warn_steps": 3,
               "phases": [
                 { "icon": "next_video", "action": { "youtube": "next" } },
                 { "icon": "prev_video", "action": { "youtube": "previous" } }
@@ -267,17 +267,19 @@
           },
           "3": {
             "dynamic": {
-              "hold_s": 5, "warn_s": 1, "warn": "countdown",
+              "hold_s": 8, "warn_s": 1.8, "warn": "bar", "warn_steps": 3,
               "phases": [
                 {
                   "icon": "thumb_up__off",
                   "modes": [ { "when": "youtube_liked", "icon": "thumb_up__on" } ],
-                  "action": { "youtube": "like" }
+                  "action": { "youtube": "like" },
+                  "press": "shake"
                 },
                 {
                   "icon": "thumb_down__off",
                   "modes": [ { "when": "youtube_disliked", "icon": "thumb_down__on" } ],
-                  "action": { "youtube": "dislike" }
+                  "action": { "youtube": "dislike" },
+                  "press": "shake"
                 }
               ]
             }
