@@ -205,8 +205,10 @@ before):
   input) closes it too, once that layout has held `context_debounce` s.
 - **TV Room layout.** Keys run 1 2 3 on the top row, 4 5 6 below. Each
   context page puts its back/forward pair side by side on one row (back on
-  key 2 or 4): ⟲10/⟳10 (Apple TV apps, a live game), ⏪/⏩ (LG), previous/
-  next video and −10 s/+10 s (YouTube). Night sound and subtitles are only
+  key 2 or 4): ⟲10/⟳10 (Apple TV apps, a live game), ⏪/⏩ (LG), −10 s/+10 s
+  (YouTube). The YouTube page's key 2 takes turns between next and previous
+  video and key 3 between like and dislike, 5 s each (dynamic keys, below).
+  Night sound and subtitles are only
   on tab 2A (`sonos`, round button 2 once): Night, Speech, Next track,
   Mute, Subtitles (the linked YouTube's captions), Surround. Key 4 of the
   idle, streaming and LG pages is left blank.
@@ -228,12 +230,14 @@ Key actions, besides shell strings (`ha-call domain.service '<json>'`):
 | `{"launch": {"device": "lg", "app": "<webOS app id>"}}` | Powers on if needed, starts the app on the LG (`system.launcher/launch`) |
 | `{"next_playing": [entities]}` | Next track on the first of those speakers that is playing and leads its group |
 | `{"youtube": "play_pause" \| "next" \| "previous" \| "next_chapter" \| "forward" \| "rewind" \| "subtitles"}` | Controls the linked YouTube app (see below); `forward` / `rewind` skip 10 s, `subtitles` toggles captions |
+| `{"youtube": "like" \| "dislike"}` | Rates the playing video as the signed-in Google account; again on a rated video clears it (see Like / dislike) |
 | `{"soccer": "start" \| "next"}` | Picks the first live soccer game, or the next one while picking, and switches to it (powering on first); `next` always moves on (see Live soccer) |
 
 Named `when` conditions for modes: `youtube` (YouTube in the foreground on a
 screen), `youtube_playing`, `youtube_subtitles` (its live play and caption
 state), `youtube_chapters` (the playing video has chapters; rechecked on every
-video change), `soccer_live` (a live soccer game is listed), `soccer_picking`
+video change), `youtube_liked`, `youtube_disliked` (the playing video's rating
+by the signed-in account), `soccer_live` (a live soccer game is listed), `soccer_picking`
 (a game was picked in the last minute, or a started game is on screen).
 
 ### Key modes
@@ -296,6 +300,52 @@ without `action` leaves the key's press unchanged. The power key on
 }
 ```
 
+### Dynamic keys
+
+A key can take turns between functions on a timer, to fit more on a page:
+e.g. 5 s thumbs up, then 5 s thumbs down, and again. Give it a `dynamic`
+section with two or more `phases`; each phase is laid over the key's own
+spec, so it can set `icon`, `label`, `color`, `action`, `modes` or
+`state_entity`, and fields it leaves out come from the key. The YouTube
+page's like/dislike key (key 3); each phase lights up when the video has
+that rating:
+
+```json
+"3": {
+  "dynamic": {
+    "hold_s": 5, "warn_s": 1, "warn": "countdown",
+    "phases": [
+      { "icon": "thumb_up__off", "modes": [ { "when": "youtube_liked", "icon": "thumb_up__on" } ],
+        "action": { "youtube": "like" } },
+      { "icon": "thumb_down__off", "modes": [ { "when": "youtube_disliked", "icon": "thumb_down__on" } ],
+        "action": { "youtube": "dislike" } }
+    ]
+  }
+}
+```
+
+Key 2 beside it takes turns between `next_video` (`{"youtube": "next"}`)
+and `prev_video` (`{"youtube": "previous"}`) the same way.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `hold_s` | 5 | Seconds each phase shows; a phase's own `hold_s` overrides it |
+| `warn_s` | 1 | Seconds before a change that the warning shows (0: none) |
+| `warn` | `countdown` | `countdown`: 3-2-1 in the top-right corner; `bar`: a bar along the bottom (above a label band) that shrinks to nothing; `dots`: three dots along the top that go out one by one |
+| `warn_color` | `#ffb300` | Colour of the warning |
+| `grace_s` | 0.25 | A press this soon after a change still does the old phase's function |
+
+- The cycle starts on the first phase whenever the page is shown (a context
+  page adopted, a tab opened or closed back to it).
+- A page may hold several dynamic keys; each keeps its own phases and holds.
+- A press does what the key *showed*: the phase last drawn on the dock (a
+  slow redraw never runs the next function early), or the one before it
+  within `grace_s` of the swap, since the finger was already on its way.
+  The log shows `dynamic: key N pressed in phase P`.
+- While a dynamic key is on screen the renderer wakes for each warning
+  frame (3 a second for `countdown` and `dots`, 5 for `bar`); frames are
+  cached images and are not logged.
+
 ### YouTube: next chapter and ads
 
 The top-level `youtube` section lists screens, i.e. the YouTube app on each
@@ -333,6 +383,45 @@ echo '123 456 789 012' > /app_configs/local_streamdock_n3/yt_pair_lg
 
 The log shows `youtube: lg: linked to '…'`. Tokens are saved to
 `yt_lounge.json`, which is secret and stays out of the repo.
+
+#### Like / dislike
+
+The TV link has no rating command, so `{"youtube": "like"}` and
+`{"youtube": "dislike"}` go to the YouTube Data API (`yt_rating.py`) as your
+Google account, for the video the TV link reports. Turn it on with
+`"youtube": { "rating": true, "screens": … }`. Pressing like on a liked
+video clears the rating (as in the YouTube app); the key changes at once and
+changes back if Google refuses. The rating of each new video is read once
+(`videos.getRating`, 1 quota unit; a rating costs 50 of the free 10,000 a
+day).
+
+One-time setup in the Google Cloud console (console.cloud.google.com):
+
+1. Create a project (e.g. `action-ring`).
+2. **APIs & Services → Library → YouTube Data API v3 → Enable.**
+3. **Google Auth Platform → Branding:** app name, your e-mail. **Audience:**
+   External, then **Publish app** (In production). Left in *Testing*, the
+   sign-in expires after 7 days. The app is not verified by Google, which is
+   fine for your own account: the sign-in shows a warning, pick
+   **Advanced → Go to …**.
+4. **Clients → Create client → TVs and Limited Input devices**, then
+   download its JSON.
+
+Then, from the PC:
+
+```bash
+bash homeassistant/pair.sh youtube-rating ~/Downloads/client_secret_….json
+```
+
+It copies the client to `yt_oauth_client.json` in the app's config folder,
+starts the sign-in and prints e.g. `youtube-rating: sign-in: open
+https://www.google.com/device and enter ABCD-EFGH`. Open that on a phone,
+sign in with the account that is signed in to YouTube on the TV, enter the
+code and allow access. The refresh token is saved to `yt_oauth.json`
+(secret; not in the repo). By hand: put the client JSON in
+`yt_oauth_client.json` and create an empty `yt_rate_auth` there; the log shows
+the code. If the sign-in is revoked, the log says so; sign in again the same
+way. `pair.sh status` shows whether ratings are signed in.
 
 ### Live soccer
 

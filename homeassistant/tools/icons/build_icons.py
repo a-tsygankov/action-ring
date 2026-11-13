@@ -68,6 +68,7 @@ SUBS_ON = "#0c8599"     # subtitles on (teal; distinct from Night/Speech)
 SPEED_FG = "#ffd43b"    # speed multiplier text on FF/RW keys
 YT_RED = "#e62117"      # existing next_chapter.png background
 LIVE_RED = "#e03131"
+RATED = "#1971c2"       # YouTube like/dislike given (blue, distinct from teal subtitles)
 
 # Iconify collection metadata (https://api.iconify.design/collections, 2026-10-24).
 LICENSES = {
@@ -498,6 +499,26 @@ def _next_chapter(ico):
         k.rrect(x, 80, x + 24, 88, 3, WHITE)
     k.colors["glyph"] = WHITE
     return k
+
+
+@icon("thumb_up", "off", notes="Like (YouTube rating), not given: outlined thumb.")
+def _thumb_up_off(ico):
+    return centered(ico, NEUTRAL, "material-symbols:thumb-up-outline-rounded", box=70)
+
+
+@icon("thumb_up", "on", notes="Liked: filled thumb on blue.")
+def _thumb_up_on(ico):
+    return centered(ico, RATED, "material-symbols:thumb-up-rounded", box=70)
+
+
+@icon("thumb_down", "off", notes="Dislike (YouTube rating), not given: outlined thumb.")
+def _thumb_down_off(ico):
+    return centered(ico, NEUTRAL, "material-symbols:thumb-down-outline-rounded", box=70)
+
+
+@icon("thumb_down", "on", notes="Disliked: filled thumb on blue.")
+def _thumb_down_on(ico):
+    return centered(ico, RATED, "material-symbols:thumb-down-rounded", box=70)
 
 
 @icon("stop", notes="Stop.")

@@ -10,6 +10,7 @@ import json
 import re
 from pathlib import Path
 
+from dynamic import phase_specs
 from keyspec import ICON_DIR, entities_of, icon_path
 
 APP_DIR = Path(__file__).resolve().parent.parent
@@ -38,7 +39,8 @@ KNOWN_ENTITIES = {
     "script.tv_room_power_toggle",
 }
 CONTEXT_LAYOUTS = ("idle", "streaming", "youtube", "lg_media", "lg_app", "live_game")
-NAMED_CONDITIONS = {"youtube", "youtube_playing", "youtube_subtitles", "youtube_chapters", "soccer_live", "soccer_picking"}
+NAMED_CONDITIONS = {"youtube", "youtube_playing", "youtube_subtitles", "youtube_chapters", "youtube_liked",
+                    "youtube_disliked", "soccer_live", "soccer_picking"}
 # (device, app) per launch key, from the Global Constraints bundle ids.
 LAUNCH_IDS = {
     ("apps", "1"): ("atv", "com.netflix.Netflix"),
@@ -63,12 +65,14 @@ def key_specs():
 
 
 def looks(spec: dict):
-    """The spec itself, its state variants and its modes: everything that can set an icon."""
-    yield spec
-    for name in ("on", "off", "unavailable"):
-        if isinstance(spec.get(name), dict):
-            yield spec[name]
-    yield from spec.get("modes") or []
+    """The spec itself, its state variants and its modes, and those of each
+    dynamic phase: everything that can set an icon."""
+    for part in phase_specs(spec):
+        yield part
+        for name in ("on", "off", "unavailable"):
+            if isinstance(part.get(name), dict):
+                yield part[name]
+        yield from part.get("modes") or []
 
 
 def all_actions():
@@ -127,6 +131,11 @@ def test_back_and_forward_keys_pair_on_one_row():
             continue
         icon = {k: spec.get("icon") for k, spec in page["keys"].items()}
         for back, fwd in BACK_FWD:
+            # A dynamic key that takes turns between back and forward is its own pair.
+            both = [k for k, spec in page["keys"].items()
+                    if {back, fwd} <= {p.get("icon") for p in phase_specs(spec)}]
+            if both:
+                continue
             at = [k for k, i in icon.items() if i == back]
             if at:
                 assert at[0] in ("2", "4") and icon[str(int(at[0]) + 1)] == fwd, (name, back)
@@ -178,7 +187,7 @@ def test_entities_are_known():
 
 def test_named_conditions_are_known():
     for page, key, spec in key_specs():
-        for mode in spec.get("modes") or []:
+        for mode in (m for part in phase_specs(spec) for m in part.get("modes") or []):
             if isinstance(mode["when"], str):
                 assert mode["when"] in NAMED_CONDITIONS, (page, key)
 
@@ -263,3 +272,27 @@ def test_dockerfile_copies_every_module():
     copied = " ".join(l for l in (APP_DIR / "Dockerfile").read_text().splitlines() if l.startswith("COPY"))
     for module in APP_DIR.glob("*.py"):
         assert module.name in copied, f"{module.name} missing from the Dockerfile COPY lines"
+
+
+def test_youtube_page_has_dynamic_next_previous_and_like_dislike():
+    keys = PAGES["context:youtube"]["keys"]
+    assert [(p["icon"], p["action"]) for p in phase_specs(keys["2"])] == [
+        ("next_video", {"youtube": "next"}), ("prev_video", {"youtube": "previous"})]
+    assert [(p["icon"], p["action"], p["modes"]) for p in phase_specs(keys["3"])] == [
+        ("thumb_up__off", {"youtube": "like"}, [{"when": "youtube_liked", "icon": "thumb_up__on"}]),
+        ("thumb_down__off", {"youtube": "dislike"}, [{"when": "youtube_disliked", "icon": "thumb_down__on"}]),
+    ]
+    assert CONFIG["youtube"]["rating"] is True
+    for icon in ("prev_video", "next_video", "thumb_up__off", "thumb_up__on"):  # nowhere else on it
+        assert sum(icon in {p.get("icon") for p in looks(spec)} for spec in keys.values()) <= 1
+
+
+def test_every_youtube_action_is_known():
+    # ha_daemon imports the device SDK; read its command list from the source.
+    import ast
+    tree = ast.parse((APP_DIR / "ha_daemon.py").read_text())
+    known = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign)
+                 and getattr(n.targets[0], "id", None) == "YOUTUBE_COMMANDS")
+    used = {a["youtube"] for a in all_actions() if isinstance(a, dict) and "youtube" in a}
+    assert used <= set(known), used - set(known)
+    assert {"like", "dislike", "next", "previous"} <= used

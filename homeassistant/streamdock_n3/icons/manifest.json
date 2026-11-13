@@ -14,7 +14,8 @@
     "SUBS_ON": "#0c8599",
     "SPEED_FG": "#ffd43b",
     "YT_RED": "#e62117",
-    "LIVE_RED": "#e03131"
+    "LIVE_RED": "#e03131",
+    "RATED": "#1971c2"
   },
   "_font": "Arial Bold (Windows) / Liberation Sans Bold (Linux) for labels",
   "icons": {
@@ -1010,6 +1011,78 @@
           "background": "#0070d1->#003791"
         },
         "notes": "PS5 input on the LG: white PS5 wordmark on PlayStation blue."
+      }
+    },
+    "thumb_up": {
+      "off": {
+        "file": "thumb_up__off.png",
+        "sources": [
+          {
+            "id": "material-symbols:thumb-up-outline-rounded",
+            "set": "Material Symbols",
+            "author": "Google",
+            "license": "Apache-2.0",
+            "url": "https://api.iconify.design/material-symbols/thumb-up-outline-rounded.svg"
+          }
+        ],
+        "colors": {
+          "background": "#262626",
+          "glyph": "#ffffff"
+        },
+        "notes": "Like (YouTube rating), not given: outlined thumb."
+      },
+      "on": {
+        "file": "thumb_up__on.png",
+        "sources": [
+          {
+            "id": "material-symbols:thumb-up-rounded",
+            "set": "Material Symbols",
+            "author": "Google",
+            "license": "Apache-2.0",
+            "url": "https://api.iconify.design/material-symbols/thumb-up-rounded.svg"
+          }
+        ],
+        "colors": {
+          "background": "#1971c2",
+          "glyph": "#ffffff"
+        },
+        "notes": "Liked: filled thumb on blue."
+      }
+    },
+    "thumb_down": {
+      "off": {
+        "file": "thumb_down__off.png",
+        "sources": [
+          {
+            "id": "material-symbols:thumb-down-outline-rounded",
+            "set": "Material Symbols",
+            "author": "Google",
+            "license": "Apache-2.0",
+            "url": "https://api.iconify.design/material-symbols/thumb-down-outline-rounded.svg"
+          }
+        ],
+        "colors": {
+          "background": "#262626",
+          "glyph": "#ffffff"
+        },
+        "notes": "Dislike (YouTube rating), not given: outlined thumb."
+      },
+      "on": {
+        "file": "thumb_down__on.png",
+        "sources": [
+          {
+            "id": "material-symbols:thumb-down-rounded",
+            "set": "Material Symbols",
+            "author": "Google",
+            "license": "Apache-2.0",
+            "url": "https://api.iconify.design/material-symbols/thumb-down-rounded.svg"
+          }
+        ],
+        "colors": {
+          "background": "#1971c2",
+          "glyph": "#ffffff"
+        },
+        "notes": "Disliked: filled thumb on blue."
       }
     }
   }

@@ -185,6 +185,11 @@ class YouTubeScreens:
             for name, s in self.screens.items()
         }
 
+    def video_id(self) -> str | None:
+        """The video on the linked screen (the playing one wins), for ratings."""
+        screen = self._pick()
+        return screen.video_id if screen is not None else None
+
     def playing(self) -> bool:
         screen = self._pick()
         return screen is not None and screen.state == State.Playing

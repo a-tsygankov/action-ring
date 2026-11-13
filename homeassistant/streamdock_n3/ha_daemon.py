@@ -43,6 +43,9 @@ Runs the upstream daemon unchanged and adds:
    (+10 s), "rewind" (-10 s), "next", "previous", "play_pause" and "subtitles" (toggle) go
    through the Lounge. Conditions "youtube_playing", "youtube_subtitles" and
    "youtube_chapters" (the current video has chapters) follow its live state.
+   With "rating": true, "like" / "dislike" (toggles) go to the YouTube Data
+   API as the signed-in account (yt_rating.py); conditions "youtube_liked",
+   "youtube_disliked".
 
 5. Now-playing log (np_log.py): "now_playing_log": {"entities": [...]} logs
    what changes in those media players, to find ad markers per app.
@@ -75,7 +78,13 @@ Runs the upstream daemon unchanged and adds:
    "tabs.context.content_apps" (the TV app) count only for real content, and
    an Apple TV app only once seen playing (context.AtvApp).
 
-10. Probe tool (probe.py): with the Apple TV connection up, a request written
+10. Dynamic keys (dynamic.py): a key with a "dynamic" section takes turns
+   between its phases (e.g. 5 s thumbs up, 5 s thumbs down) while its page
+   is shown, with a 1 s warning (3-2-1, a shrinking bar or dots going out)
+   before each change; a press does what the key showed. The renderer wakes
+   on the next frame of any dynamic key on screen.
+
+11. Probe tool (probe.py): with the Apple TV connection up, a request written
    to probe_request.json (homeassistant/tools/probe.sh) runs raw MRP,
    Companion, HA, Lounge and webOS commands and logs each result as
    "probe: …", for the live test session.
@@ -87,13 +96,16 @@ import argparse
 import hashlib
 import http.client
 import json
+import math
 import os
 import threading
 import time
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable
 
 import badge
+import dynamic
 from context import AtvApp, foreground_layout
 from keyspec import Look, changed_keys, entities_of, icon_path, resolve_action, resolve_look
 from knob_accel import AppleTVKnobs
@@ -111,7 +123,8 @@ TICK_SECONDS = 0.2
 SLOW_PASS_SECONDS = 0.5
 EMPTY_LOOK = Look(None, "", "#000000")  # a key the visible page leaves undefined
 ERROR_LOOK = Look(None, "?", "#5c3b00")  # a key whose spec failed to resolve
-YOUTUBE_COMMANDS = ("next_chapter", "forward", "rewind", "next", "previous", "play_pause", "subtitles")
+YOUTUBE_COMMANDS = ("next_chapter", "forward", "rewind", "next", "previous", "play_pause", "subtitles",
+                    "like", "dislike")
 SOCCER_COMMANDS = ("start", "next")
 
 _ready = threading.Event()
@@ -119,6 +132,7 @@ _device = None
 _draw_lock = threading.Lock()
 _knobs: AppleTVKnobs | None = None
 _youtube: Any = None  # yt_lounge.YouTubeScreens
+_rating: Any = None  # yt_rating.YouTubeRating; with youtube "rating": true
 _np_log: Any = None  # np_log.NowPlayingLog
 _soccer: Any = None  # soccer.LiveSoccer; set in main() with a "soccer" config
 _engine = TabEngine({}, {})  # replaced in main() before the device starts
@@ -135,6 +149,8 @@ _core: "CoreAPI | None" = None  # shared REST client for media actions; set in m
 _wake = threading.Event()  # set by _signal(): the renderer has work
 _drawn: dict[int, Look] = {}  # key -> look on screen; renderer thread only
 _render_errors: set[str] = set()  # key spec errors already logged; renderer thread only
+_on_screen: dict[int, dynamic.OnScreen] = {}  # dynamic key -> phase on screen; set by the renderer
+_on_screen_lock = threading.Lock()  # read by the SDK thread on presses
 
 # entity_id -> {"s": state, "a": attributes}, kept current by _watch().
 _states: dict[str, dict[str, Any]] = {}
@@ -153,6 +169,8 @@ _conds: dict[str, Callable[[], bool]] = {
     "youtube_playing": lambda: _youtube is not None and _youtube.playing(),
     "youtube_subtitles": lambda: _youtube is not None and _youtube.subtitles_on(),
     "youtube_chapters": lambda: _youtube is not None and _youtube.has_chapters(),
+    "youtube_liked": lambda: _rating is not None and _rating.liked(),
+    "youtube_disliked": lambda: _rating is not None and _rating.disliked(),
     "soccer_live": lambda: _soccer is not None and bool(_soccer.games()),
     "soccer_picking": lambda: _soccer is not None and _soccer.picking(),
 }
@@ -194,8 +212,11 @@ def _run_actions(actions: Any, *, dry_run: bool) -> None:
     if isinstance(actions, dict) and ("tab_key" in actions or "key_action" in actions):
         try:
             key = int(actions.get("tab_key", actions.get("key_action")))
-            spec = _engine.key_press(key, time.monotonic())
+            now = time.monotonic()
+            shown_at = _engine.shown_at  # of the page pressed on (the press may close it)
+            spec = _engine.key_press(key, now)
             if spec:
+                spec = _pressed_phase(key, spec, shown_at, now)
                 _run_actions(resolve_action(spec, state_of, _conds), dry_run=dry_run)
         except Exception as err:
             print(f"tabs: {type(err).__name__}: {err}", flush=True)
@@ -215,8 +236,16 @@ def _run_actions(actions: Any, *, dry_run: bool) -> None:
         if dry_run or _youtube is None or command not in YOUTUBE_COMMANDS:
             print(f"youtube: ignoring {command!r}", flush=True)
             return
-        # Lounge commands wait on the network; keep the SDK reader thread free.
-        run = _youtube.next_chapter if command == "next_chapter" else lambda: _youtube.command(command)
+        if command in ("like", "dislike") and _rating is None:
+            print(f"youtube: {command}: ratings are off (youtube \"rating\")", flush=True)
+            return
+        # Lounge and Data API calls wait on the network; keep the SDK reader thread free.
+        if command in ("like", "dislike"):
+            run = lambda: _rating.rate(command)  # noqa: E731
+        elif command == "next_chapter":
+            run = _youtube.next_chapter
+        else:
+            run = lambda: _youtube.command(command)  # noqa: E731
         threading.Thread(target=_safe, args=(run,), daemon=True).start()
         return
     if isinstance(actions, dict) and "soccer" in actions:
@@ -260,6 +289,17 @@ def _run_actions(actions: Any, *, dry_run: bool) -> None:
             _knobs.detent(actions["atv_knob"])
         return
     _upstream_run_actions(actions, dry_run=dry_run)
+
+
+def _pressed_phase(key: int, spec: dict, shown_at: float, now: float) -> dict:
+    """A dynamic key's spec for the phase it showed when pressed; others as is."""
+    if dynamic.config(spec) is None:
+        return spec
+    with _on_screen_lock:
+        drawn = _on_screen.get(key)
+    index = dynamic.pressed_index(spec, shown_at, now, drawn)
+    print(f"dynamic: key {key} pressed in phase {index + 1}", flush=True)
+    return dynamic.phase_spec(spec, index)
 
 
 def _next_track(candidates: list[str]) -> None:
@@ -361,18 +401,31 @@ def _action_entities(pages: dict[str, dict]) -> set[str]:
     """Speakers named by next_playing actions: their state must be watched."""
     out: set[str] = set()
     for page in pages.values():
-        for spec in page["keys"].values():
-            modes = [m for m in spec.get("modes") or [] if isinstance(m, dict)]
-            for action in [spec.get("action"), *(m.get("action") for m in modes)]:
-                for act in action if isinstance(action, list) else [action]:
-                    if isinstance(act, dict) and isinstance(act.get("next_playing"), list):
-                        out |= {e for e in act["next_playing"] if isinstance(e, str)}
+        for key_spec in page["keys"].values():
+            for spec in dynamic.phase_specs(key_spec):  # a plain key: itself
+                modes = [m for m in spec.get("modes") or [] if isinstance(m, dict)]
+                for action in [spec.get("action"), *(m.get("action") for m in modes)]:
+                    for act in action if isinstance(action, list) else [action]:
+                        if isinstance(act, dict) and isinstance(act.get("next_playing"), list):
+                            out |= {e for e in act["next_playing"] if isinstance(e, str)}
     return out
 
 
 def _image_for(key: int, look: Look) -> str:
     """The icon file (with a label: on a bottom band), or a generated text
-    tile; generated images are cached by their inputs."""
+    tile, with a dynamic key's warning on top; generated images are cached by
+    their inputs."""
+    if look.warn is not None:
+        base = Path(_image_for(key, replace(look, warn=None)))
+        digest = hashlib.sha1(f"{base.resolve()}\0{base.stat().st_mtime_ns}\0{look.warn}".encode()).hexdigest()[:10]
+        out = paths.generated_key_dir() / f"key-{key}-{digest}.jpg"
+        if not out.exists():
+            out.parent.mkdir(parents=True, exist_ok=True)
+            tmp = out.with_name(out.name + ".tmp")
+            on_band = bool(look.icon and look.label and Path(look.icon).exists())
+            dynamic.draw_warning(str(base), look.warn, tmp, 1 - badge.BAND if on_band else 1.0)
+            os.replace(tmp, out)  # never leave a half-written tile to be reused
+        return str(out)
     if look.icon and Path(look.icon).exists():
         if not look.label:
             return look.icon
@@ -399,12 +452,12 @@ def _image_for(key: int, look: Look) -> str:
     return str(out)
 
 
-def _look_for(key: int, keys: dict, label_vars: dict[str, str]) -> Look:
+def _look_for(key: int, spec: dict | None, label_vars: dict[str, str]) -> Look:
     """The key's look; a spec that fails to resolve shows ERROR_LOOK (logged once per error)."""
-    if str(key) not in keys:
+    if spec is None:
         return EMPTY_LOOK
     try:
-        return resolve_look(keys[str(key)], state_of, _conds, label_vars)
+        return resolve_look(spec, state_of, _conds, label_vars)
     except Exception as err:  # one bad spec must not blank the other keys
         msg = f"key {key}: {type(err).__name__}: {err}"
         if msg not in _render_errors:
@@ -424,38 +477,65 @@ def _logo_look() -> tuple[int, Look] | None:
     return (int(_logo_cfg.get("key", 6)), Look(icon_path(icon), "", None)) if icon else None
 
 
-def _render_pass() -> None:
-    keys = _engine.keys()  # one snapshot per pass
+def _render_pass() -> float | None:
+    """Draw the keys whose look changed; returns when a dynamic key on screen
+    next changes its look (monotonic time), or None."""
+    keys, shown_at = _engine.page()  # one snapshot per pass
     label_vars = _vars()
-    looks = {k: _look_for(k, keys, label_vars) for k in range(1, 7)}
+    now = time.monotonic()
+    looks: dict[int, Look] = {}
+    phases: dict[int, int] = {}  # dynamic key -> phase shown
+    due = math.inf
+    for k in range(1, 7):
+        spec = keys.get(str(k))
+        if spec is not None and dynamic.config(spec) is not None:
+            f = dynamic.frame(spec, now - shown_at)
+            phases[k] = f.index
+            due = min(due, f.next_in)
+            look = _look_for(k, dynamic.phase_spec(spec, f.index), label_vars)
+            looks[k] = replace(look, warn=f.warn) if f.warn and look is not ERROR_LOOK else look
+        else:
+            looks[k] = _look_for(k, spec, label_vars)
     logo = _logo_look()
     if logo is not None and logo[0] in looks:
         looks[logo[0]] = logo[1]
     todo = changed_keys(_drawn, looks)
-    if not todo:
-        return
-    started = time.monotonic()
-    images = {k: _image_for(k, looks[k]) for k in todo}
-    with _draw_lock:
-        for k in todo:
-            _device.set_key_image(k, images[k])
-        _device.refresh()
-    _drawn.update((k, looks[k]) for k in todo)
-    elapsed = time.monotonic() - started
-    slow = " (slow)" if elapsed > SLOW_PASS_SECONDS else ""
-    print(f"render: {len(todo)} keys in {elapsed:.2f}s{slow}", flush=True)
+    if todo:
+        started = time.monotonic()
+        images = {k: _image_for(k, looks[k]) for k in todo}
+        with _draw_lock:
+            for k in todo:
+                _device.set_key_image(k, images[k])
+            _device.refresh()
+        _drawn.update((k, looks[k]) for k in todo)
+        elapsed = time.monotonic() - started
+        slow = " (slow)" if elapsed > SLOW_PASS_SECONDS else ""
+        if slow or not set(todo) <= set(phases):  # dynamic frames alone: no log line each
+            print(f"render: {len(todo)} keys in {elapsed:.2f}s{slow}", flush=True)
+    drawn_at = time.monotonic()
+    with _on_screen_lock:
+        for k in range(1, 7):
+            if k in phases:
+                _on_screen[k] = dynamic.on_screen(_on_screen.get(k), shown_at, phases[k], drawn_at)
+            else:
+                _on_screen.pop(k, None)
+    return now + due if due != math.inf else None
 
 
 def _render() -> None:
     _ready.wait()  # after the upstream initial paint; _drawn is empty, so all 6 draw
     _signal()
+    due: float | None = None  # next frame of a dynamic key on screen
     while True:
-        _wake.wait()
+        # Wake a hair after the frame is due, so the pass sees the new frame.
+        _wake.wait(None if due is None else max(0.01, due - time.monotonic() + 0.005))
         _wake.clear()  # a signal from here on schedules exactly one more pass
         try:
-            _render_pass()
+            due = _render_pass()
         except Exception as err:  # keys not drawn stay out of _drawn and retry
             print(f"render: {type(err).__name__}: {err}", flush=True)
+            if due is not None:
+                due = time.monotonic() + 1.0  # keep dynamic keys going
 
 
 def _tick() -> None:
@@ -547,7 +627,7 @@ def _watch(entities: list[str]) -> None:
 
 
 def main() -> int:
-    global _knobs, _youtube, _np_log, _engine, _ctx_cfg, _launch_cfg, _core, _soccer
+    global _knobs, _youtube, _rating, _np_log, _engine, _ctx_cfg, _launch_cfg, _core, _soccer
     global _atv_app, _logo_cfg, _logo_icons, _logo_clock
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", type=Path)
@@ -591,6 +671,11 @@ def main() -> int:
 
             _youtube = YouTubeScreens(yt, state_of, on_change=_signal)
             entities |= _youtube.entities()
+            if yt.get("rating"):
+                from yt_rating import YouTubeRating
+
+                _rating = YouTubeRating(_youtube.video_id, on_change=_signal)
+                threading.Thread(target=_rating.run_forever, daemon=True).start()
         except Exception as err:
             print(f"youtube: disabled ({err!r})", flush=True)
     ad_cfg = config.get("ad_detect")

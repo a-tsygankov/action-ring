@@ -24,6 +24,7 @@ class Look:
     icon: str | None
     label: str
     color: str | None
+    warn: Any = None  # dynamic.Warn: the "about to change" overlay of a dynamic key
 
 
 def icon_path(ref: str | None) -> str | None:
@@ -110,8 +111,14 @@ def resolve_action(
 
 
 def entities_of(spec: dict) -> set[str]:
-    """Entities whose changes can alter this key: state_entity plus every `when` entity."""
+    """Entities whose changes can alter this key: state_entity plus every `when`
+    entity, also those of its dynamic phases."""
     out: set[str] = set()
+    dyn = spec.get("dynamic")
+    if isinstance(dyn, dict):
+        for phase in dyn.get("phases") or []:
+            if isinstance(phase, dict):
+                out |= entities_of(phase)
     if spec.get("state_entity"):
         out.add(spec["state_entity"])
     for mode in spec.get("modes") or []:

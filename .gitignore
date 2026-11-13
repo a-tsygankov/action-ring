@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 .superpowers/
+
+# Local secrets (OAuth client JSON etc.)
+*.local.json
