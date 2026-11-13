@@ -1,4 +1,6 @@
+import math
 import threading
+import time
 
 from services import JobSpec
 from services.metrics import Metrics
@@ -188,3 +190,77 @@ def test_add_job_rejects_bad_first_in():
             continue
         raise AssertionError(f"accepted {bad!r}")
     assert s.next_due() is None
+
+
+def test_job_delay_is_capped_at_a_day_and_nan_means_retry():
+    s = sched()
+    s.add_job("a", JobSpec("inf", lambda: math.inf, 0, False))
+    s.add_job("b", JobSpec("nan", lambda: math.nan, 0, False))
+    assert s.run_pending(0) == 2
+    assert sorted((j.spec.name, due) for due, _, j in s._heap) == [("inf", 86400.0), ("nan", 60.0)]
+
+
+def _until(cond, timeout=2.0):
+    end = time.monotonic() + timeout
+    while not cond() and time.monotonic() < end:
+        time.sleep(0.01)
+    return cond()
+
+
+def test_worker_thread_survives_a_job_returning_inf():
+    s = Scheduler(Metrics(), workers=1)
+    later = threading.Event()
+    s.add_job("a", JobSpec("inf", lambda: math.inf, 0, False))
+    s.start()
+    worker = s._threads[0]                               # runs Scheduler._worker
+    try:
+        assert _until(lambda: s.next_due() is not None)  # the inf job ran and was put back
+        s.add_job("b", JobSpec("p", lambda: later.set() or None, 0, False))
+        assert later.wait(2.0)                           # the other job still runs
+        worker.join(0.2)
+        assert worker.is_alive()
+        assert s.next_due() - time.monotonic() <= 86400
+    finally:
+        s.stop()
+    assert not worker.is_alive()
+
+
+def test_worker_thread_survives_base_exception_and_keeps_the_job():
+    lines = []
+    s = Scheduler(Metrics(), workers=1, log=lines.append)
+
+    def bye():
+        raise SystemExit("bye")
+
+    later = threading.Event()
+    s.add_job("a", JobSpec("bye", bye, 0, False))
+    s.start()
+    worker = s._threads[0]
+    try:
+        assert _until(lambda: lines)
+        s.add_job("b", JobSpec("p", lambda: later.set() or None, 0, False))
+        assert later.wait(2.0)
+        assert worker.is_alive()
+        assert [j.spec.name for _, _, j in s._heap] == ["bye"]   # re-pushed, not lost
+    finally:
+        s.stop()
+    assert lines == ["services: worker error SystemExit: bye"]
+    assert not worker.is_alive()
+
+
+def test_long_running_job_survives_base_exception():
+    lines, runs, spawned = [], [], []
+    s = sched(spawn=spawned.append, retry_s=0.01, log=lines.append)
+
+    def watch():
+        runs.append(1)
+        if len(runs) == 1:
+            raise SystemExit("bye")
+        s.stop()
+        return 5.0
+
+    s.add_job("a", JobSpec("watch", watch, 0, True))
+    s.start()
+    spawned[0]()                                         # raise, retry after 0.01 s, then stop
+    assert runs == [1, 1]
+    assert lines == ["services: worker error SystemExit: bye"]

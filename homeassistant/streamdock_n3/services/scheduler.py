@@ -22,6 +22,9 @@ from . import JobSpec
 from .metrics import Metrics
 
 MIN_DELAY_S = 1.0
+MAX_DELAY_S = 86400.0      # a job's returned delay is capped at a day
+MAX_WAIT_S = 60.0          # an idle worker re-checks the heap at least this often
+ERROR_PAUSE_S = 0.5        # after an unexpected worker error, so a persistent one can't spin
 STREAK_LOG_AT = 10
 
 
@@ -146,7 +149,8 @@ class Scheduler:
             with self._metrics.measure(svc, op, check_slow=not spec.long_running):
                 value = spec.fn()
             if value is not None:
-                delay = max(MIN_DELAY_S, float(value))
+                delay = float(value)
+                delay = self._retry_s if math.isnan(delay) else min(max(MIN_DELAY_S, delay), MAX_DELAY_S)
         except Exception as e:
             failed = e
         line = None
@@ -176,24 +180,52 @@ class Scheduler:
 
     def _worker(self) -> None:
         while True:
-            with self._cond:
-                while True:
-                    if self._stopped.is_set():
-                        return
-                    now = self._monotonic()
-                    job = self._take(now)
-                    if job is not None:
-                        break
-                    self._cond.wait(self._heap[0][0] - now if self._heap else None)
-            self._run_job(job)
+            job = None
+            try:
+                with self._cond:
+                    while True:
+                        if self._stopped.is_set():
+                            return
+                        now = self._monotonic()
+                        job = self._take(now)
+                        if job is not None:
+                            break
+                        self._cond.wait(min(self._heap[0][0] - now, MAX_WAIT_S) if self._heap else MAX_WAIT_S)
+                self._run_job(job)
+            except KeyboardInterrupt:
+                raise
+            except BaseException as e:          # SystemExit from a job, a raising log, ...
+                self._worker_error(e, job)
+
+    def _worker_error(self, err: BaseException, job: "_Job | None") -> None:
+        """Log an unexpected error and put back a popped job that was not rescheduled."""
+        with self._cond:
+            if job is not None and job.run is not None:     # still marked running: not put back
+                self._runs.discard(job.run)
+                job.run = None
+                if job.service not in self._dropped:
+                    heapq.heappush(self._heap, (self._monotonic() + self._retry_s, next(self._seq), job))
+                    self._cond.notify()
+        try:
+            self._log(f"services: worker error {type(err).__name__}: {err}")
+        except Exception:
+            pass
+        self._stopped.wait(ERROR_PAUSE_S)
 
     def _long_loop(self, job: _Job) -> None:
-        if self._stopped.wait(job.spec.first_in) or self._is_dropped(job.service):
-            return
-        while not self._stopped.is_set():
-            delay = self._run_job(job)
-            if delay is None or self._stopped.wait(delay) or self._is_dropped(job.service):
-                return
+        delay: float | None = job.spec.first_in
+        while True:
+            try:
+                if self._stopped.wait(min(delay, MAX_DELAY_S)) or self._is_dropped(job.service):
+                    return
+                delay = self._run_job(job)
+                if delay is None:
+                    return
+            except KeyboardInterrupt:
+                raise
+            except BaseException as e:
+                self._worker_error(e, None)
+                delay = self._retry_s
 
     # -- actions ------------------------------------------------------------
 
