@@ -1230,6 +1230,16 @@ announced by a TV toast via `system.notifications/createToast`):
   itself (`webostv.command`, `continue_on_error`). Deploy with
   `restore.sh --replace-ha-config`, or the Pi keeps its older copy.
 
+### 2026-11-13 — TV toasts deployed on arpi (0.5.0-31)
+
+- Merged as #35 and deployed with `restore.sh --replace-ha-config arpi`:
+  0.5.0-31 running, dock connected, pairings kept (Apple TV touch and
+  AirPlay, YouTube atv, like / dislike signed in). Only
+  `streaming_pause_mute` differed from the repo and was replaced.
+- Test toast: `webostv.command` `system.notifications/createToast` sent
+  from inside the app container (its token can call HA services; the
+  `hassio_cli` container's gets 401) returned 200 and showed on the TV.
+
 ## Open items
 
 - [ ] YouTube (Apple TV): a slow first scrub still opens no scrubber; fast
