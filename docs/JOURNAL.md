@@ -1135,6 +1135,14 @@ announced by a TV toast via `system.notifications/createToast`):
   `like`, again `none` (unlike), again `like`; on the next video `like`.
   No errors.
 
+### 2026-11-13 — YouTube dynamic keys: 8 s per option, 1.8 s shrinking bar
+
+- Asked for: longer turns and a longer, clearer warning. Keys 2 (next ⇄
+  previous) and 3 (like ⇄ dislike) on `context:youtube`: `hold_s` 5 → 8,
+  `warn_s` 1 → 1.8, `warn` `countdown` → `bar` (a bar along the bottom that
+  shrinks in 5 steps, one every 0.36 s). Preset only; no code change.
+  `test_dynamic_render.py` follows the new timings.
+
 ## Open items
 
 - [ ] Google OAuth client `action-ring-tv` is used by `yt_rating.py`

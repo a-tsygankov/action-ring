@@ -258,7 +258,7 @@
           },
           "2": {
             "dynamic": {
-              "hold_s": 5, "warn_s": 1, "warn": "countdown",
+              "hold_s": 8, "warn_s": 1.8, "warn": "bar",
               "phases": [
                 { "icon": "next_video", "action": { "youtube": "next" } },
                 { "icon": "prev_video", "action": { "youtube": "previous" } }
@@ -267,7 +267,7 @@
           },
           "3": {
             "dynamic": {
-              "hold_s": 5, "warn_s": 1, "warn": "countdown",
+              "hold_s": 8, "warn_s": 1.8, "warn": "bar",
               "phases": [
                 {
                   "icon": "thumb_up__off",

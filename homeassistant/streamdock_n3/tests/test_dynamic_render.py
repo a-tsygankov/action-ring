@@ -156,9 +156,12 @@ def test_youtube_page_next_previous_and_like_dislike(daemon):
     rated["like"] = True
     render_at(daemon, 102.0)
     assert hd._drawn[3].icon.endswith("/thumb_up__on.png")  # liked: lit
-    render_at(daemon, 104.01)
-    assert hd._drawn[2].warn is not None and hd._drawn[3].warn is not None  # both count down
-    render_at(daemon, 105.01)
+    render_at(daemon, 106.1)  # 8 s phases, 1.8 s warning: none yet
+    assert hd._drawn[2].warn is None and hd._drawn[3].warn is None
+    render_at(daemon, 106.21)
+    for key in (2, 3):  # both warn together, with a shrinking bar
+        assert hd._drawn[key].warn is not None and hd._drawn[key].warn.style == "bar"
+    render_at(daemon, 108.01)
     assert hd._drawn[2].icon.endswith("/prev_video.png")
     assert hd._drawn[3].icon.endswith("/thumb_down__off.png")
-    assert press(2, 105.5) == ["previous"] and press(3, 105.5) == ["dislike"]
+    assert press(2, 108.5) == ["previous"] and press(3, 108.5) == ["dislike"]
