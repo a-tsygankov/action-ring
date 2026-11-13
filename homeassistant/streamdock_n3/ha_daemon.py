@@ -85,7 +85,13 @@ Runs the upstream daemon unchanged and adds:
    "press": "shake" wiggles its icon for a moment. The renderer wakes on the
    next frame of any dynamic key on screen.
 
-11. Probe tool (probe.py): with the Apple TV connection up, a request written
+11. TV toasts (toast.py): a "toast" section (lg, events, settle_s) shows
+   short messages on the LG over any input: {"toast": "text"} (label
+   placeholders work), and the app's own events: "rating" (liked, removed,
+   failed), "soccer" (each pick), "ad" (muted / sound back) and "sign_in"
+   (the Google code to enter).
+
+12. Probe tool (probe.py): with the Apple TV connection up, a request written
    to probe_request.json (homeassistant/tools/probe.sh) runs raw MRP,
    Companion, HA, Lounge and webOS commands and logs each result as
    "probe: …", for the live test session.
@@ -108,7 +114,7 @@ from typing import Any, Callable
 import badge
 import dynamic
 from context import AtvApp, foreground_layout
-from keyspec import Look, changed_keys, entities_of, icon_path, resolve_action, resolve_look
+from keyspec import Look, changed_keys, entities_of, format_label, icon_path, resolve_action, resolve_look
 from knob_accel import AppleTVKnobs
 from logo import LogoClock, app_icons, logo_for
 from media_actions import launch, next_playing
@@ -134,6 +140,7 @@ _draw_lock = threading.Lock()
 _knobs: AppleTVKnobs | None = None
 _youtube: Any = None  # yt_lounge.YouTubeScreens
 _rating: Any = None  # yt_rating.YouTubeRating; with youtube "rating": true
+_toaster: Any = None  # toast.Toaster; with a "toast" config section
 _np_log: Any = None  # np_log.NowPlayingLog
 _soccer: Any = None  # soccer.LiveSoccer; set in main() with a "soccer" config
 _engine = TabEngine({}, {})  # replaced in main() before the device starts
@@ -258,6 +265,13 @@ def _run_actions(actions: Any, *, dry_run: bool) -> None:
         # Fetching, powering on and the select check take seconds.
         run = _soccer.start if command == "start" else _soccer.next
         threading.Thread(target=_safe, args=(run,), daemon=True).start()
+        return
+    if isinstance(actions, dict) and "toast" in actions:
+        text = format_label(str(actions["toast"]), _vars())
+        if dry_run or _toaster is None:
+            print(f"toast: {'dry run' if dry_run else 'no toast config'}: {text}", flush=True)
+        else:
+            _toaster.show(text)  # sends in the background
         return
     if isinstance(actions, dict) and "launch" in actions:
         req = actions["launch"]
@@ -657,7 +671,7 @@ def _watch(entities: list[str]) -> None:
 
 
 def main() -> int:
-    global _knobs, _youtube, _rating, _np_log, _engine, _ctx_cfg, _launch_cfg, _core, _soccer
+    global _knobs, _youtube, _rating, _toaster, _np_log, _engine, _ctx_cfg, _launch_cfg, _core, _soccer
     global _atv_app, _logo_cfg, _logo_icons, _logo_clock
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", type=Path)
@@ -672,6 +686,16 @@ def main() -> int:
         entities |= {e for e in (_ctx_cfg.get("lg"), _ctx_cfg.get("atv")) if e}
         _atv_app = AtvApp(_ctx_cfg)
     _core = CoreAPI()
+    toast_cfg = config.get("toast")
+    if isinstance(toast_cfg, dict) and toast_cfg.get("lg"):
+        from toast import Toaster
+
+        _toaster = Toaster(CoreAPI().call, state_of, toast_cfg)
+        entities.add(toast_cfg["lg"])
+
+    def notifier(event: str) -> Callable[..., None] | None:
+        return _toaster.notifier(event) if _toaster is not None else None
+
     tabs_cfg = config.get("tabs")
     if isinstance(tabs_cfg, dict) and isinstance(tabs_cfg.get("logo"), dict):
         _logo_cfg = tabs_cfg["logo"]
@@ -685,7 +709,8 @@ def main() -> int:
     if isinstance(soccer_cfg, dict):
         from soccer import LiveSoccer
 
-        _soccer = LiveSoccer(_core.call, state_of, soccer_cfg, on_change=_signal)
+        _soccer = LiveSoccer(_core.call, state_of, soccer_cfg, on_change=_signal,
+                             notify=notifier("soccer"))
         entities |= {e for e in (soccer_cfg.get("lg"), soccer_cfg.get("atv")) if e}
         threading.Thread(target=_soccer.poll_forever, daemon=True).start()
     np_entities = (config.get("now_playing_log") or {}).get("entities") or []
@@ -704,7 +729,8 @@ def main() -> int:
             if yt.get("rating"):
                 from yt_rating import YouTubeRating
 
-                _rating = YouTubeRating(_youtube.video_id, on_change=_signal)
+                _rating = YouTubeRating(_youtube.video_id, on_change=_signal,
+                                        notify=notifier("rating"), notify_sign_in=notifier("sign_in"))
                 threading.Thread(target=_rating.run_forever, daemon=True).start()
         except Exception as err:
             print(f"youtube: disabled ({err!r})", flush=True)
@@ -720,6 +746,11 @@ def main() -> int:
                                                        state_file=Path("/data/ad_mute_frozen.json"))
             show_clock = ad_detect.AdDetector(ad_cfg, CoreAPI().call, state_of,
                                               state_file=Path("/data/ad_mute_show_clock.json"))
+            ad_toast = notifier("ad")
+            if ad_toast is not None:
+                for detector in (show_clock, frozen):
+                    if detector is not None:
+                        detector.notify = ad_toast
             ad_detect.install(show_clock, frozen)
             entities |= {e for e in (ad_cfg.get("speaker"), ad_cfg.get("media_player")) if e}
         except Exception as err:

@@ -1192,6 +1192,25 @@ announced by a TV toast via `system.notifications/createToast`):
   at 08:13 HA core exited with 137 during an app rebuild (not an OOM kill,
   per Docker) and came back by itself at 08:18.
 
+### 2026-11-13 — TV toasts: rating, soccer picks, ad muting, sign-in code
+
+- Asked: can the Pi put text on the Apple TV? Not on tvOS (no outside
+  overlay or notification; AirPlaying a picture would take over the
+  screen, and the Companion keyboard only types into an open text field).
+  The LG can: webOS `system.notifications/createToast` over any input,
+  already used to announce probe steps (2026-10-27).
+- `toast.py` + config `toast` (`lg`, `events`, `settle_s`) + key action
+  `{"toast": "text"}` (label placeholders filled). Wired: rating results,
+  each soccer pick (merged: only the last of a run of presses, 0.6 s after
+  they stop; webOS would queue one toast per press), ad mute / unmute (only
+  when ad muting changes the sound itself), and the Google sign-in code
+  (repeated every minute while waiting, then done / failed / expired).
+  Skipped while the LG is off.
+- Untested on the TV: a toast over the Apple TV HDMI input (expected to
+  work, as with any webOS toast) and over the PS5 in Game mode (ads only
+  mute on the Apple TV input anyway). Merged after the 8 s keys and the
+  knob fix, as 0.5.0-31.
+
 ## Open items
 
 - [ ] YouTube (Apple TV): a slow first scrub still opens no scrubber; fast

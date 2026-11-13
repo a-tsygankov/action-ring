@@ -296,3 +296,14 @@ def test_every_youtube_action_is_known():
     used = {a["youtube"] for a in all_actions() if isinstance(a, dict) and "youtube" in a}
     assert used <= set(known), used - set(known)
     assert {"like", "dislike", "next", "previous"} <= used
+
+
+def test_toast_config():
+    from toast import EVENTS
+
+    toast = CONFIG["toast"]
+    assert toast["lg"] == LG
+    assert set(toast["events"]) == set(EVENTS)  # every event the app sends is on
+    for action in all_actions():
+        if isinstance(action, dict) and "toast" in action:
+            assert isinstance(action["toast"], str) and action["toast"].strip()

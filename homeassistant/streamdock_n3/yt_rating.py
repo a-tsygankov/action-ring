@@ -39,6 +39,9 @@ DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code"
 RETRY_S = 60.0  # after a failed getRating, before asking again for that video
 CACHE_SIZE = 50
 RATINGS = ("like", "dislike", "none")
+CODE_TOAST_S = 60.0  # the sign-in code is shown on the TV again this often
+DONE = {"like": "Liked", "dislike": "Disliked"}
+CLEARED = {"like": "Like removed", "dislike": "Dislike removed"}
 
 # (method, url, form or None, headers) -> (HTTP status, parsed JSON body or {})
 Http = Callable[[str, str, "dict | None", dict], "tuple[int, dict]"]
@@ -85,9 +88,15 @@ class YouTubeRating:
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
         spawn: Callable[[Callable[[], None]], None] | None = None,
+        notify: Callable[[str], None] | None = None,
+        notify_sign_in: Callable[[str], None] | None = None,
     ) -> None:
+        """`notify` shows a rating's outcome to the viewer (a TV toast);
+        `notify_sign_in` the sign-in code and result."""
         self._video_id = video_id
         self._on_change = on_change
+        self._toast = notify or (lambda message: None)
+        self._toast_sign_in = notify_sign_in or (lambda message: None)
         self._http = http
         self._clock = clock
         self._sleep = sleep
@@ -141,8 +150,10 @@ class YouTubeRating:
         vid = self._video_id()
         if not vid:
             log(f"{kind}: no linked YouTube video")
+            self._toast("Like/dislike: no YouTube video")
             return
         if not self._ready_to_call(kind):
+            self._toast("Like/dislike: not signed in")
             return
         with self._lock:
             before = self._ratings.get(vid)
@@ -152,6 +163,7 @@ class YouTubeRating:
         status, body = self._api("POST", f"{API}/rate?" + urllib.parse.urlencode({"id": vid, "rating": new}))
         if status in (200, 204):
             log(f"{vid}: {new}")
+            self._toast(DONE[kind] if new == kind else CLEARED[kind])
             return
         with self._lock:
             if before is None:
@@ -159,6 +171,7 @@ class YouTubeRating:
             else:
                 self._ratings[vid] = before
         log(f"{vid}: rating {new} failed: HTTP {status} {_reason(body)}")
+        self._toast("Rating failed")
         self._notify()
 
     # -- sign-in (its own thread) ---------------------------------------------
@@ -187,6 +200,10 @@ class YouTubeRating:
         url = dev.get("verification_url") or dev.get("verification_uri")
         log(f"sign-in: open {url} and enter {dev['user_code']} "
             f"(within {int(dev.get('expires_in', 1800)) // 60} min)")
+        short = str(url).split("://", 1)[-1].removeprefix("www.")
+        code_toast = f"YouTube sign-in: on a phone open {short}, code {dev['user_code']}"
+        self._toast_sign_in(code_toast)
+        toasted = self._clock()
         interval = float(dev.get("interval", 5))
         deadline = self._clock() + float(dev.get("expires_in", 1800))
         form = {"client_id": client_id, "client_secret": secret,
@@ -197,17 +214,23 @@ class YouTubeRating:
             if status == 200 and tok.get("refresh_token"):
                 self._save(tok)
                 log("sign-in: done; ratings are on")
+                self._toast_sign_in("YouTube sign-in done: like/dislike is on")
                 self._notify()
                 return True
             error = tok.get("error")
             if error == "authorization_pending":
+                if self._clock() - toasted >= CODE_TOAST_S:
+                    self._toast_sign_in(code_toast)  # a toast lasts seconds; the code, minutes
+                    toasted = self._clock()
                 continue
             if error == "slow_down":
                 interval += 5
                 continue
             log(f"sign-in: failed: HTTP {status} {_reason(tok)}")
+            self._toast_sign_in("YouTube sign-in failed")
             return False
         log("sign-in: the code expired; create yt_rate_auth again")
+        self._toast_sign_in("YouTube sign-in code expired")
         return False
 
     # -- internals --------------------------------------------------------------

@@ -245,6 +245,7 @@ Key actions, besides shell strings (`ha-call domain.service '<json>'`):
 | `{"launch": {"device": "lg", "app": "<webOS app id>"}}` | Powers on if needed, starts the app on the LG (`system.launcher/launch`) |
 | `{"next_playing": [entities]}` | Next track on the first of those speakers that is playing and leads its group |
 | `{"youtube": "play_pause" \| "next" \| "previous" \| "next_chapter" \| "forward" \| "rewind" \| "subtitles"}` | Controls the linked YouTube app (see below); `forward` / `rewind` skip 10 s, `subtitles` toggles captions |
+| `{"toast": "text"}` | Shows `text` on the TV for a few seconds, over any input (see TV toasts); `{name}` placeholders work |
 | `{"youtube": "like" \| "dislike"}` | Rates the playing video as the signed-in Google account; again on a rated video clears it (see Like / dislike) |
 | `{"soccer": "start" \| "next"}` | Picks the first live soccer game, or the next one while picking, and switches to it (powering on first); `next` always moves on (see Live soccer) |
 
@@ -440,11 +441,38 @@ It copies the client to `yt_oauth_client.json` in the app's config folder,
 starts the sign-in and prints e.g. `youtube-rating: sign-in: open
 https://www.google.com/device and enter ABCD-EFGH`. Open that on a phone,
 sign in with the account that is signed in to YouTube on the TV, enter the
-code and allow access. The refresh token is saved to `yt_oauth.json`
+code and allow access. With TV toasts on, the code also shows on the TV, again
+every minute until you sign in. The refresh token is saved to `yt_oauth.json`
 (secret; not in the repo). By hand: put the client JSON in
 `yt_oauth_client.json` and create an empty `yt_rate_auth` there; the log shows
 the code. If the sign-in is revoked, the log says so; sign in again the same
 way. `pair.sh status` shows whether ratings are signed in.
+
+### TV toasts
+
+The Apple TV can't show text sent from outside, but the LG can: a webOS toast
+is a small box in the corner for a few seconds, over any input (the Apple TV
+included), while the picture keeps playing (`toast.py`, HA
+`webostv.command` → `system.notifications/createToast`). A `toast` section
+turns it on:
+
+```json
+"toast": { "lg": "media_player.lg_tv_2",
+           "events": ["rating", "soccer", "ad", "sign_in"], "settle_s": 0.6 }
+```
+
+| Event | Toasts |
+|---|---|
+| `rating` | `Liked`, `Like removed`, `Disliked`, `Dislike removed`, `Rating failed`, `Like/dislike: not signed in`, `Like/dislike: no YouTube video` |
+| `soccer` | Each pick, e.g. `2/8 Columbus Crew vs. Toronto FC`; `No live soccer games` |
+| `ad` | `Ad: sound muted`, `Ad over: sound on` (only when ad muting itself mutes or unmutes) |
+| `sign_in` | The Google sign-in code for like/dislike, every minute until you sign in; then done / failed / expired |
+
+`events` lists which of these show (all when left out). Soccer picks are
+merged: a run of presses shows only the last pick, `settle_s` after the
+presses stop. Nothing is sent while the TV is off. A key can show its own
+text with `{"toast": "text"}`. Toasts are plain text, cut to 120
+characters; webOS sets their place, look and length on screen.
 
 ### Live soccer
 

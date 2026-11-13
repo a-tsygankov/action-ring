@@ -616,3 +616,25 @@ def test_a_press_with_nothing_cached_fetches_first():
     live.press()
     assert live.vars()["soccer_pos"] == "1/3"
     assert [s for _, s, _ in rec.calls] == ["play_media"]
+
+
+def test_each_pick_is_toasted_on_the_soccer_channel():
+    shown = []
+    t = FakeTime()
+    live = LiveSoccer(Recorder(), {}.get, CFG, fetch=FakeFetch(), clock=t.clock, sleep=t.sleep,
+                      monotonic=t.clock, notify=lambda m, channel=None: shown.append((m, channel)))
+    live.refresh()
+    games = live.games()
+    live.select()
+    live.select()
+    assert shown == [(f"1/{len(games)} {games[0].title}", "soccer"), (f"2/{len(games)} {games[1].title}", "soccer")]
+
+
+def test_no_live_games_is_toasted():
+    shown = []
+    fetch, t = FakeFetch(), FakeTime()
+    fetch.fail = OSError("down")
+    live = LiveSoccer(Recorder(), {}.get, CFG, fetch=fetch, clock=t.clock, sleep=t.sleep,
+                      monotonic=t.clock, notify=lambda m, channel=None: shown.append((m, channel)))
+    live.start()
+    assert shown == [("No live soccer games", "soccer")]
