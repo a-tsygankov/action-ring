@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import heapq
 import itertools
+import math
 import threading
 import time
 from typing import Callable
@@ -64,6 +65,7 @@ class Scheduler:
         self._long: list[_Job] = []
         self._runs: set[_Run] = set()               # in-flight work, for hang reports
         self._actions: dict[str, int] = {}          # running actions per service
+        self._dropped: set[str] = set()             # disabled services: never rescheduled
         self._started = False
         self._stopped = threading.Event()
         self._threads: list[threading.Thread] = []
@@ -71,6 +73,11 @@ class Scheduler:
     # -- registration -------------------------------------------------------
 
     def add_job(self, service: str, spec: JobSpec) -> None:
+        """Queue a job; raises ValueError/TypeError on a malformed spec (nothing is added)."""
+        first_in = spec.first_in
+        if isinstance(first_in, bool) or not isinstance(first_in, (int, float)) \
+                or not 0 <= first_in < math.inf:
+            raise ValueError(f"job {spec.name}: bad first_in {first_in!r}")
         job = _Job(service, spec)
         spawn_now = False
         with self._cond:
@@ -82,6 +89,18 @@ class Scheduler:
                 self._cond.notify()
         if spawn_now:
             self._spawn(lambda: self._long_loop(job))
+
+    def drop(self, service: str) -> None:
+        """Stop scheduling a disabled service's jobs; a run in progress is not rescheduled."""
+        with self._cond:
+            self._dropped.add(service)
+            self._heap = [e for e in self._heap if e[2].service != service]
+            heapq.heapify(self._heap)
+            self._long = [j for j in self._long if j.service != service]
+
+    def _is_dropped(self, service: str) -> bool:
+        with self._cond:
+            return service in self._dropped
 
     def next_due(self) -> float | None:
         with self._cond:
@@ -147,7 +166,7 @@ class Scheduler:
                     line = f"services: {svc} {op} failed: {what}"
                 elif job.streak == STREAK_LOG_AT:
                     line = f"services: {svc} {op} failing ({job.streak} in a row): {what}"
-            if delay is not None and not spec.long_running:
+            if delay is not None and not spec.long_running and svc not in self._dropped:
                 base = self._monotonic() if now is None else now
                 heapq.heappush(self._heap, (base + delay, next(self._seq), job))
                 self._cond.notify()
@@ -169,11 +188,11 @@ class Scheduler:
             self._run_job(job)
 
     def _long_loop(self, job: _Job) -> None:
-        if self._stopped.wait(job.spec.first_in):
+        if self._stopped.wait(job.spec.first_in) or self._is_dropped(job.service):
             return
         while not self._stopped.is_set():
             delay = self._run_job(job)
-            if delay is None or self._stopped.wait(delay):
+            if delay is None or self._stopped.wait(delay) or self._is_dropped(job.service):
                 return
 
     # -- actions ------------------------------------------------------------

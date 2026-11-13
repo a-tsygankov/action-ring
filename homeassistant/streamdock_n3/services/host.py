@@ -104,15 +104,22 @@ class ServiceHost:
             try:
                 svc.start(self._ctx[name])
                 self._actions[name] = svc.actions()
-                jobs = svc.jobs()
+                for spec in svc.jobs():
+                    self._sched.add_job(name, spec)
             except Exception as e:
-                self._log(f"services: {name} disabled ({type(e).__name__}: {e})")
-                del self._services[name]
-                continue
-            for spec in jobs:
-                self._sched.add_job(name, spec)
+                self._disable(name, e)
         self._sched.add_job("host", JobSpec("metrics", self._metrics_job, self._log_every_s, False))
         self._sched.start()
+
+    def _disable(self, name: str, err: Exception) -> None:
+        """Drop a service whose load-time hook failed: one log line, no more calls or jobs.
+
+        `_services` is replaced, not mutated, so a thread iterating it is unaffected.
+        """
+        self._log(f"services: {name} disabled ({type(err).__name__}: {err})")
+        self._services = {n: s for n, s in self._services.items() if n != name}
+        self._actions.pop(name, None)
+        self._sched.drop(name)
 
     def stop(self) -> None:
         self._sched.stop()
@@ -176,20 +183,34 @@ class ServiceHost:
     def names(self) -> list[str]:
         return list(self._services)
 
+    # entities(), pages() and conditions() are read once at startup (pages()
+    # before start()); a service whose hook raises is disabled, not the app.
+
     def entities(self) -> set[str]:
         out: set[str] = set()
-        for svc in self._services.values():
-            out |= set(svc.entities())
+        for n, s in list(self._services.items()):
+            try:
+                out |= set(s.entities())
+            except Exception as e:
+                self._disable(n, e)
         return out
 
     def pages(self) -> dict[str, dict]:
-        return {f"{n}.{p}": page for n, s in self._services.items() for p, page in s.pages().items()}
+        out: dict[str, dict] = {}
+        for n, s in list(self._services.items()):
+            try:
+                out.update({f"{n}.{p}": page for p, page in s.pages().items()})
+            except Exception as e:
+                self._disable(n, e)
+        return out
 
     def conditions(self) -> dict[str, Callable[[], bool]]:
         out: dict[str, Callable[[], bool]] = {}
-        for n, s in self._services.items():
-            for cname, fn in s.conditions().items():
-                out[f"{n}.{cname}"] = self._cond(n, cname, fn)
+        for n, s in list(self._services.items()):
+            try:
+                out.update({f"{n}.{c}": self._cond(n, c, fn) for c, fn in s.conditions().items()})
+            except Exception as e:
+                self._disable(n, e)
         return out
 
     def _cond(self, svc: str, cname: str, fn: Callable[[], bool]) -> Callable[[], bool]:

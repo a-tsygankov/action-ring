@@ -1,11 +1,12 @@
 """Tests for ServiceHost: namespacing, key presets, circuit breaker, hooks, metrics job."""
 
 import json
+import math
 import types
 
 import pytest
 
-from services import Service, action, condition
+from services import JobSpec, Service, action, condition
 from services.host import ServiceHost, ServiceUnavailable
 
 
@@ -76,12 +77,49 @@ class Bad(Service):
         raise ValueError("no start")
 
 
+def _later():
+    return 60.0
+
+
+class BadEntities(Service):
+    name = "badent"
+
+    def entities(self):
+        raise RuntimeError("no entities")
+
+    def jobs(self):
+        return [JobSpec("later", _later, 1000, False)]
+
+
+class BadPages(Service):
+    name = "badpages"
+
+    def pages(self):
+        raise RuntimeError("no pages")
+
+
+class BadConds(Service):
+    name = "badconds"
+
+    def conditions(self):
+        raise RuntimeError("no conditions")
+
+
+class BadJob(Service):
+    name = "badjob"
+    first_in: object = "soon"
+
+    def jobs(self):
+        return [JobSpec("ok", _later, 1000, False), JobSpec("bad", _later, self.first_in, False)]
+
+
 @pytest.fixture
 def host(tmp_path):
     made = []
 
     def make(sections, **kw):
-        mods = {f"services.{c.name}": types.SimpleNamespace(SERVICE=c) for c in (Demo, Slow, Bad, Sloppy)}
+        mods = {f"services.{c.name}": types.SimpleNamespace(SERVICE=c)
+                for c in (Demo, Slow, Bad, Sloppy, BadEntities, BadPages, BadConds, BadJob)}
         kw.setdefault("signal", lambda: None)
         kw.setdefault("spawn", lambda fn: fn())
         cfg = {"services": sections, "metrics": kw.pop("metrics", {})}
@@ -171,6 +209,47 @@ def test_failing_start_disables_only_that_service(host, capsys):
     h = host({"bad": {}, "demo": {}}); h.start()
     assert h.names() == ["demo"]
     assert "services: bad disabled (ValueError: no start)" in capsys.readouterr().out
+
+
+def _jobs_of(h, svc):
+    return [j.spec.name for _, _, j in h._sched._heap if j.service == svc]
+
+
+def test_raising_entities_disables_only_that_service(host, capsys):
+    h = host({"badent": {}, "demo": {}}); h.start()
+    assert _jobs_of(h, "badent") == ["later"]
+    assert h.entities() == {"sensor.a", "sensor.b"}
+    assert h.names() == ["demo"] and _jobs_of(h, "badent") == []
+    assert "services: badent disabled (RuntimeError: no entities)" in capsys.readouterr().out
+    assert h.entities() == {"sensor.a", "sensor.b"}
+    assert capsys.readouterr().out == ""                  # disabled once, then skipped
+
+
+def test_raising_pages_before_start_disables_only_that_service(host, capsys):
+    h = host({"badpages": {}, "demo": {}})
+    assert h.pages() == {"demo.slip": {"keys": {}}}       # pages() runs before start()
+    assert h.names() == ["demo"]
+    assert "services: badpages disabled (RuntimeError: no pages)" in capsys.readouterr().out
+    h.start()
+    assert h.names() == ["demo"]
+
+
+def test_raising_conditions_disables_only_that_service(host, capsys):
+    h = host({"badconds": {}, "demo": {}}); h.start()
+    assert list(h.conditions()) == ["demo.on"]
+    assert h.names() == ["demo"]
+    assert "services: badconds disabled (RuntimeError: no conditions)" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("first_in", ["soon", math.inf, math.nan, -1])
+def test_bad_job_first_in_disables_only_that_service(host, capsys, monkeypatch, first_in):
+    monkeypatch.setattr(BadJob, "first_in", first_in)
+    h = host({"badjob": {}, "demo": {}}); h.start()   # no exception out of start()
+    assert h.names() == ["demo"]
+    assert _jobs_of(h, "badjob") == []                # the job added before the bad one is gone too
+    assert "services: badjob disabled (" in capsys.readouterr().out
+    h.run_action("badjob", "x")
+    assert "services: ignoring badjob.x" in capsys.readouterr().out
 
 
 def test_run_action_dispatches_and_ignores_unknown(host, capsys):

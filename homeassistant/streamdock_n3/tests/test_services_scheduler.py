@@ -168,3 +168,23 @@ def test_worker_reschedules_from_finish_time_not_start():
         job = s._take(clock[0])
     s._run_job(job)
     assert s.next_due() == 74.0 + 60.0   # 4 + 70 = 74, then the 60 s retry   # retry delay counts from the failure
+
+
+def test_dropped_service_is_not_rescheduled_even_mid_run():
+    s = sched()
+    s.add_job("a", JobSpec("p", lambda: s.drop("a") or 5.0, 0, False))    # disabled while it runs
+    s.add_job("a", JobSpec("q", lambda: 5.0, 10, False))
+    s.add_job("b", JobSpec("r", lambda: 5.0, 10, False))
+    assert s.run_pending(0) == 1
+    assert [j.service for _, _, j in s._heap] == ["b"]
+
+
+def test_add_job_rejects_bad_first_in():
+    s = sched()
+    for bad in ("soon", None, True, -1, float("inf"), float("nan")):
+        try:
+            s.add_job("a", JobSpec("p", lambda: None, bad, False))
+        except ValueError:
+            continue
+        raise AssertionError(f"accepted {bad!r}")
+    assert s.next_due() is None
