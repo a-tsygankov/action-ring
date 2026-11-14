@@ -801,6 +801,39 @@ action, `remote.send_command` naming `suspend`/`turn_off`/`sleep`,
 commands (a `webos` step or an `ha` `webostv.command`) containing `turnoff`,
 `power` or `reboot`.
 
+#### Seeing the TV screen: `tv/executeOneShot`
+
+The LG can take a screenshot of whatever it is showing, so a probe can check
+its own result instead of someone watching the TV. A webOS step
+
+```json
+{"kind": "webos", "entity_id": "media_player.lg_tv_2", "command": "tv/executeOneShot"}
+```
+
+replies with an `imageUri` such as
+`https://<tv-ip>:3001/resources/<hash>/capture.jpg`. Fetch it from the PC
+straight away (`curl -sk`: the TV's certificate is self-signed); each capture
+overwrites the same file. The image is 960×540 JPEG and holds the picture
+plus the TV's overlays: the channel-number box, the mute icon, a "Dolby
+Vision" badge.
+
+- Works on the LG's own apps (LG Channels: the number box read
+  "807 · IP-807 ITV Deportes", and the picture matched the guide) and on HDMI
+  inputs (the Apple TV screensaver on `Apple OTT`).
+- Copy-protected video comes out black (Paramount+ playing on the Apple TV
+  gave an all-black image with only the TV's mute icon). A black capture
+  therefore says nothing about what the viewer sees; ask them.
+- No other read-back exists for some state: in LG Channels
+  `tv/getCurrentChannel` fails and the media id does not change on a channel
+  switch, so the capture was the only way to see which channel was tuned.
+
+Uses while testing: put a capture step after the action under test (and one
+before the last key of a sequence, to read what was typed) and compare
+captures across runs, instead of asking someone what the screen showed.
+This is how the LG Channels tuning was worked out (journal, 2026-11-14): the
+captures showed the first digit lost over full-screen playback ("07") and
+counted on the home page ("1109"), and then confirmed each fix.
+
 ### Key images
 
 Set `"icon": "/config/icons/<file>.png"` on a key to show an image instead of
