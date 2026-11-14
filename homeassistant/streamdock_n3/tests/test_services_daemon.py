@@ -182,3 +182,13 @@ def test_top_level_soccer_config_logs_that_it_moved(daemon_without_host, capsys)
     hd._warn_legacy_config({"services": {"soccer": {}}})
     out = capsys.readouterr().out
     assert out == 'soccer: top-level "soccer" config is ignored; it moved to services.soccer\n'
+
+
+def test_dock_input_is_recorded_for_real_presses_only(daemon_without_host):
+    hd = daemon_without_host.hd
+    assert hd._shared["dock_input"] is hd._dock_input
+    assert "atv_clients" in hd._shared
+    hd._run_actions({"toast": "x"}, dry_run=True)
+    assert hd._dock_input.last() == 0.0
+    hd._run_actions({"toast": "x"}, dry_run=False)
+    assert hd._dock_input.last() > 0.0

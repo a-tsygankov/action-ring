@@ -125,7 +125,7 @@ measured and faked in tests.
 | `ctx.call(domain, service, data)` / `ctx.call_response(...)` | Home Assistant service call (blocking; measured as `ha:<domain>.<service>`) |
 | `ctx.media` | `ensure_on()`, `select_atv_input()`, `launch(device, app)`: the shared media helpers, bound to this service's config |
 | `ctx.toast(message, channel=None)` | A TV toast. Shown only when the service name is in `toast.events`; the first suppressed toast logs one line (`toast: <name> not in toast.events; not shown`) |
-| `ctx.shared(name)` | A handle the daemon already holds, or `None`: `"atv_touch"` (Companion connection) or `"youtube"` (Lounge screens). Calls through it are timed as `shared:<name>` |
+| `ctx.shared(name)` | A handle the daemon already holds, or `None`: `"atv_touch"` (Companion connection), `"youtube"` (Lounge screens), `"atv_clients"` (which Apple TV apps are alive: `status(bundle)` gives `alive`, `gone` or `unknown`; see `atv_clients.py`) or `"dock_input"` (`last()`: monotonic time of the last key or knob event). Calls through it are timed as `shared:<name>` |
 | `ctx.changed()` | Redraw the keys (their look changed) |
 | `ctx.redraw_in(seconds)` | Redraw later without an event (a freshness deadline, a timed pick) |
 | `ctx.context_changed()` | Re-run the context layout decision |
