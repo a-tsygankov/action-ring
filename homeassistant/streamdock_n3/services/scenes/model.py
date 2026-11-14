@@ -42,6 +42,15 @@ _NON_ALNUM = re.compile(r"[^a-z0-9]+")
 _ARTICLES = ("the ", "a ", "an ")
 
 
+def split_title(title: str) -> tuple[str, int | None]:
+    """("Novocaine", 2025) from "Novocaine (2025)", as some apps report titles; else (title, None)."""
+    text = title.strip()
+    m = re.search(r"\s*\((\d{4})\)$", text)
+    if m and text[:m.start()].strip() and 1880 <= int(m.group(1)) <= 2100:
+        return text[:m.start()].strip(), int(m.group(1))
+    return text, None
+
+
 def norm_title(title: str) -> str:
     """Comparable form of a film title: ascii, lower case, no year, article or punctuation."""
     text = unicodedata.normalize("NFKD", title)

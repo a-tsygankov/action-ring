@@ -21,3 +21,12 @@ def test_parse_time():
     assert parse_time("0:00:03.95") == 3.95
     with pytest.raises(ValueError):
         parse_time("soon")
+
+
+def test_split_title():
+    from services.scenes.model import split_title
+    assert split_title("Novocaine (2025)") == ("Novocaine", 2025)
+    assert split_title("  Blade Runner 2049 ") == ("Blade Runner 2049", None)
+    assert split_title("2012 (2009)") == ("2012", 2009)
+    assert split_title("(2025)") == ("(2025)", None)          # nothing left: keep as it is
+    assert split_title("Odd (3025)") == ("Odd (3025)", None)   # not a plausible year

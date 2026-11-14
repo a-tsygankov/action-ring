@@ -9,7 +9,7 @@ from . import tmdb
 from .db import Db
 from .fetch import Fetcher
 from .merge import merge
-from .model import Film, SourceResult, norm_title
+from .model import Film, SourceResult, norm_title, split_title
 from .sources import NEEDS_IDENTITY, SOURCES
 
 _DAY_S = 86400
@@ -44,16 +44,22 @@ class Lookup:
         if not norm:
             ctx.log(f'"{title}": no usable title, not looked up')
             return ()
+        # Some apps append the year ("Novocaine (2025)"): search engines want the
+        # bare title, and the year itself helps to tell films apart.
+        clean, year_hint = split_title(title)
         found = self._db.find_film(norm, runtime_s)
         if found is None:
-            film = Film(title, norm, runtime_s)
+            film = Film(clean, norm, runtime_s, year_hint)
             film_id = self._db.save_film(film, ctx.clock())
         else:
             film_id, film = found
+            if year_hint and not film.year:
+                self._db.save_film(dataclasses.replace(film, year=year_hint), ctx.clock())
+            film = dataclasses.replace(film, title=clean, year=film.year or year_hint)
         state = self._db.lookup_state(film_id)
         gained = False
         if not film.tmdb_id and self._is_due(state.get(IDENTITY)):
-            identified = self._identity(film_id, title, runtime_s)
+            identified = self._identity(film_id, clean, runtime_s)
             if identified is not None:
                 film, gained = self._fold_identity(film, identified), True
         due = self._due(state, reopen=("miss", "ambiguous") if gained else ())

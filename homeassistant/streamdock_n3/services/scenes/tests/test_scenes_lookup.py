@@ -322,3 +322,30 @@ def test_default_sources_leave_out_nudidex():
     lk, calls, ctx = make(sources={"videoskip": miss(), "nsfwhen": miss(), "nudidex": blocked()})
     lk.run("Tuner", 6600, "a")
     assert calls == ["videoskip", "nsfwhen"]
+
+
+def test_title_with_year_suffix_is_cleaned_for_tmdb_and_sources():
+    # Prime reports "Novocaine (2025)"; TMDB's search returns nothing for that string (seen live 2026-11-13).
+    seen = {}
+
+    def identify(http, key, title, runtime_s):
+        seen["tmdb_title"] = title
+        return None                                   # TMDB has no match: the year from the title still identifies
+
+    def source(fetch, film, cfg):
+        seen["film"] = film
+        return SourceResult("hit", (Scene(1146, 1406, "sex", "videoskip"),), requests=3)
+
+    lk, calls, ctx = make({"videoskip": source}, identify=identify)
+    assert lk.run("Novocaine (2025)", 6741, "com.amazon.aiv.AIVApp") == ((1146, 1406),)
+    assert seen["tmdb_title"] == "Novocaine"
+    assert (seen["film"].title, seen["film"].year, seen["film"].norm) == ("Novocaine", 2025, "novocaine")
+
+
+def test_year_suffix_also_repairs_a_film_cached_with_the_raw_title():
+    seen = {}
+    lk, calls, ctx = make({"videoskip": lambda fetch, film, cfg: seen.setdefault("film", film) and SourceResult("miss")},
+                          identify=lambda *a: None)
+    ctx.db.save_film(Film("Novocaine (2025)", "novocaine", 6741), ctx.clock())      # row from before the fix
+    lk.run("Novocaine (2025)", 6741, "a")
+    assert (seen["film"].title, seen["film"].year) == ("Novocaine", 2025)
