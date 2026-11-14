@@ -39,6 +39,7 @@ _DEFAULTS = {
     "min_film_s": 3000, "settle_s": 10, "lead_s": 5, "guard_s": 2, "seek_hold_s": 5,
     "seek_apps": ["com.wbd.stream", "com.disney.disneyplus"],
     "exclude_apps": ["com.google.ios.youtube"],
+    "toast_lookup": False,      # temporary aid: a TV toast with the scene count after each lookup
 }
 
 
@@ -247,6 +248,9 @@ class ScenesService(Service):
         if current is None or current[0] != key:
             return WATCH_S                                   # film changed while looking up
         self._set_snap((key, app, scenes))
+        if self._cfg("toast_lookup"):
+            found = f"{len(scenes)} found" if scenes else "none found"
+            ctx.toast(f"Scenes: {found} for {title}")
         if scenes and app not in self._cfg("seek_apps") and self._no_seek_logged != key:
             self._no_seek_logged = key
             ctx.log("app cannot seek: key stays gray")

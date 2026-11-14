@@ -11,7 +11,7 @@
   },
   "toast": {
     "lg": "media_player.lg_tv_2",
-    "events": ["rating", "soccer", "sign_in"],
+    "events": ["rating", "soccer", "sign_in", "scenes"],
     "settle_s": 0.6
   },
   "now_playing_log": { "entities": ["media_player.vugitv_4k_vugitv_4k"] },
@@ -65,6 +65,7 @@
       "seek_apps": ["com.wbd.stream", "com.disney.disneyplus", "com.amazon.aiv.AIVApp", "com.cbsvideo.app",
                     "com.adrise.tubitv", "tv.pluto.ios", "com.netflix.Netflix"],
       "exclude_apps": ["com.google.ios.youtube"],
+      "toast_lookup": true,
       "sources": ["videoskip", "nsfwhen"],
       "app_services": { "com.wbd.stream": "max", "com.disney.disneyplus": "disneyplus",
                         "com.amazon.aiv.AIVApp": "amazon", "com.cbsvideo.app": "paramountplus",

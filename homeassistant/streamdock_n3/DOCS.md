@@ -653,6 +653,9 @@ once, second-press memory included; after longer it is noticed anew.
   - **Tubi and Pluto** stitch ads into the stream. A jump across an ad
     marker plays the ad break first (Tubi locks playback for it), and the
     reported position jumps around a break.
+- **`toast_lookup`** (off; on in the TV Room preset for now, as a temporary
+  aid): after each lookup a TV toast says `Scenes: 2 found for <title>` or
+  `Scenes: none found for <title>`. Needs `scenes` in `toast.events`.
 - **`lead_s`** (5): how many seconds before the scene the jump lands.
   `guard_s` (2) and `join_gap_s` (20, nearby scenes merged into one) tune
   the same thing.

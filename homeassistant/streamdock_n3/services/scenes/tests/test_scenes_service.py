@@ -350,3 +350,23 @@ def test_non_finite_numbers_are_not_a_film_and_nothing_raises():
         ctx.state(ATV)["a"]["media_position"] = bad
         assert svc.conditions()["ready"]() is False
         svc.actions()["next"]({}); assert ctx.fakes.calls == []
+
+
+def test_lookup_toast_is_off_by_default_and_reports_the_count_when_on():
+    svc, ctx, lk = make(scenes=((2943, 2946), (4000, 4010)), states=atv(pos=60))
+    svc.watch(); ctx.fakes.time.now += 10; svc.watch()
+    assert ctx.fakes.toasts == []                                   # toast_lookup defaults to off
+
+    svc, ctx, lk = make(scenes=((2943, 2946), (4000, 4010)), states=atv(pos=60), cfg={"toast_lookup": True})
+    svc.watch(); ctx.fakes.time.now += 10; svc.watch()
+    assert ctx.fakes.toasts == [("Scenes: 2 found for Tuner", None)]
+    svc.watch(); svc.watch()
+    assert len(ctx.fakes.toasts) == 1                               # once per lookup, not per tick
+
+    svc, ctx, lk = make(scenes=((2943, 2946),), states=atv(pos=60), cfg={"toast_lookup": True})
+    svc.watch(); ctx.fakes.time.now += 10; svc.watch()
+    assert ctx.fakes.toasts == [("Scenes: 1 found for Tuner", None)]
+
+    svc, ctx, lk = make(scenes=(), states=atv(pos=60), cfg={"toast_lookup": True})
+    svc.watch(); ctx.fakes.time.now += 10; svc.watch()
+    assert ctx.fakes.toasts == [("Scenes: none found for Tuner", None)]

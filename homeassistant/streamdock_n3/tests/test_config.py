@@ -329,8 +329,9 @@ def test_toast_config():
 
     toast = CONFIG["toast"]
     assert toast["lg"] == LG
-    # every event the app sends is on, except ad mute / unmute (too noisy)
-    assert set(toast["events"]) == set(EVENTS) - {"ad"}
+    # every event the app sends is on, except ad mute / unmute (too noisy);
+    # "scenes" is the scenes service's temporary lookup toast (toast_lookup)
+    assert set(toast["events"]) == (set(EVENTS) - {"ad"}) | {"scenes"}
     for action in all_actions():
         if isinstance(action, dict) and "toast" in action:
             assert isinstance(action["toast"], str) and action["toast"].strip()
