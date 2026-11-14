@@ -16,6 +16,7 @@ Last checked: 2026-11-13, from a home connection, about 20 requests in total
 | [nudidex](#nudidex) | Reported exact (not seen) | Reported small | Cloudflare challenge blocks curl and a real browser | Unknown | **Not usable** now |
 | [AZNude](#aznude) | None: clip lengths only | Very many | Behind Cloudflare, no challenge seen | No; a search form | Scene count only; key stays gray |
 | [Web image search](#web-search-google--duckduckgo) | None | n/a | Search engines block automated queries | Paid APIs only | Not planned |
+| [Reddit timestamp threads](#reddit-timestamp-threads-new) (new) | Exact when a thread lists them (free text) | Popular films only | Plain requests blocked (403; robots disallow all) | Yes: official OAuth API, free for personal use, needs an app | **Planned**, through the official API only |
 | [Gemini with a screenshot](#gemini-query-with-a-screenshot-tried-2026-11-13) (tried) | Model's estimate; minutes off, sometimes an hour | Any well-known film | None (official API, paid key) | Yes | Not usable alone; maybe a low-confidence last resort |
 | [IMDb parents guide](#imdb-parents-guide-new) (new) | Occasional, free text | Very many | Strong (WAF) | No free API | Not planned |
 
@@ -156,6 +157,50 @@ natural keys for the local database.
   search API. Image results would give stills, not times.
 - Not planned: finding a time from a still means matching it against the
   playing picture, which is a separate project.
+
+## Reddit timestamp threads (new)
+
+Added by the owner on 2026-11-13 after the Gemini trial: with web search,
+Gemini's two exact Oppenheimer times came from a Reddit thread
+(r/OppenheimerMovie) that lists scene times.
+
+- **What it has**: for popular films, posts and comments such as "nudity at
+  0:23:11-0:24:47, 1:15:30-1:16:56", in film subreddits and general ones.
+  Free text, written by viewers, usually for a streaming or disc version.
+  Nothing for most films; nothing structured; no ratings beyond votes.
+- **Plain requests are blocked** (checked 2026-11-13, 3 requests):
+  `robots.txt` is `Disallow: /` for everyone and points to Reddit's Public
+  Content Policy; `www.reddit.com/search.json` answered 403 with a block
+  page; `old.reddit.com/search` redirected. The service must not scrape
+  Reddit pages.
+- **Official API** (not tried: needs credentials): a free "script" app made
+  at `reddit.com/prefs/apps` gives a client id and secret; an app-only token
+  from `POST https://www.reddit.com/api/v1/access_token`
+  (`grant_type=client_credentials`, HTTP basic auth) is then used on
+  `https://oauth.reddit.com/search?q=...&type=link` and
+  `/comments/<id>`. Free tier: about 100 requests a minute per app, far more
+  than one or two per film. A descriptive `User-Agent` is required. Reddit's
+  terms allow personal, non-commercial use of the API.
+- **Parsing specifics** (to be settled on real threads): find times
+  (`H:MM:SS`, `MM:SS`, "1h15m", "at the 23 minute mark") in the post body and
+  top comments; keep those near words such as nudity, nude, naked, topless,
+  sex scene; read ranges ("a - b") as start and end; require the thread title
+  or subreddit to match the film (title + year) so a thread about another
+  film is not used. Votes and several commenters agreeing are the only
+  quality signals.
+- **Risks**: wrong film (remakes, sequels in one thread), times for a
+  different cut or with studio logos, jokes and spoilers-free vagueness
+  ("about halfway"). Store as medium confidence, below VideoSkip.
+- **Alternatives kept**: (1) Gemini Pro with search, which reads such threads
+  indirectly and already works with a Gemini key, at the cost of occasional
+  wrong times (see the Gemini section); (2) VideoSkip and NSFWhen stay the
+  primary and secondary sources; (3) IMDb's parents guide for the rare times
+  written there.
+- **Status**: planned as a source module `reddit` using the official API
+  only. Needs from the owner: a Reddit "script" app (client id and secret in
+  `/config/secrets.json` under `scenes`). First step once those exist:
+  capture three or four real threads through the API as test fixtures, then
+  write the parser against them.
 
 ## Gemini query with a screenshot (tried 2026-11-13)
 
