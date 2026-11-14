@@ -1378,7 +1378,7 @@ PC only (fixtures, no live requests in tests).
   crossed 54 min of film: Tubi landed on the target first, played about 14 s
   (into the scene), then started an ad break (HA `paused` at 3933 s). So on
   Tubi a long jump can be followed by a break a few seconds after landing;
-  where the film resumes after it was not recorded.
+  after the break the film resumed where it had stopped (owner watching).
 - Films with known times for further checks (VideoSkip; service per TMDB's
   US listings on 11-13): Fight Club on Pluto (0:48:38, 0:55:42, 0:58:43),
   Titanic on Paramount+ (1:22:04, 1:30:34, 1:31:12), Weapons on Max
@@ -1399,8 +1399,8 @@ PC only (fixtures, no live requests in tests).
       resort. Trial results and analysis: `docs/SCENE_SOURCES.md`.
 
 - [ ] Scene jump, TV checks left: Disney+ (no film with known nudity times
-      found on it yet); Pluto outside an ad break; where a Tubi film
-      resumes after the ad break that follows a long jump; whether the position reported after a seek ever
+      found on it yet); Pluto outside an ad break; whether a longer lead on
+      Tubi lets the ad break start before the scene does; whether the position reported after a seek ever
       lags more than `seek_hold_s` (5 s) (it arrived within 1-3 s in Prime,
       Paramount+, Max and Tubi).
 - [ ] Scene jump: keep the key gray while an ad break runs (Pluto, Tubi):
