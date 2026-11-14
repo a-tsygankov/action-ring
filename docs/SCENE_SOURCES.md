@@ -16,6 +16,7 @@ Last checked: 2026-11-13, from a home connection, about 20 requests in total
 | [nudidex](#nudidex) | Reported exact (not seen) | Reported small | Cloudflare challenge blocks curl and a real browser | Unknown | **Not usable** now |
 | [AZNude](#aznude) | None: clip lengths only | Very many | Behind Cloudflare, no challenge seen | No; a search form | Scene count only; key stays gray |
 | [Web image search](#web-search-google--duckduckgo) | None | n/a | Search engines block automated queries | Paid APIs only | Not planned |
+| [Gemini with a screenshot](#gemini-query-with-a-screenshot-proposed) (proposed) | Model's estimate; unverified | Any film with a still | None (official API, needs a key) | Yes | Candidate for a later version; needs a trial first |
 | [IMDb parents guide](#imdb-parents-guide-new) (new) | Occasional, free text | Very many | Strong (WAF) | No free API | Not planned |
 
 Only sources with timecodes can light the key. A film known only to AZNude
@@ -155,6 +156,34 @@ natural keys for the local database.
   search API. Image results would give stills, not times.
 - Not planned: finding a time from a still means matching it against the
   playing picture, which is a separate project.
+
+## Gemini query with a screenshot (proposed)
+
+Proposed by the owner on 2026-11-13; not analysed with real queries yet (no
+API key in the project).
+
+- **Idea**: for a film with no timecodes anywhere, send Gemini a still of the
+  scene (AZNude thumbnails are the obvious supply) with the film's name and
+  year, and ask when in the film it occurs.
+- **API**: official Gemini API (`generativelanguage.googleapis.com`), image +
+  text in one request, JSON answers possible. Needs a key in
+  `/config/secrets.json`; free tier with rate limits. No scraping, no bot
+  protection.
+- **What must be tested before relying on it**:
+  - Accuracy. A model answering from memory has no timeline of the film; it
+    can return a confident time that is simply wrong. Check against films
+    whose times are known (VideoSkip, NSFWhen) and measure the error. With
+    Google Search grounding it may instead find a page that states the time,
+    which is then the real source.
+  - Refusals. Nude stills are likely to be blocked by the API's safety
+    filters; the answer may be empty for exactly the images that matter.
+  - Cost and volume: one request per still, several stills per film.
+- **How it would fit**: its own source module, after an `aznude` module that
+  supplies the stills. Its scenes must be stored as low confidence (start
+  only, no end) and used only when no source with real timecodes has the
+  film; a wider lead before the jump (for example 30 s).
+- **Status**: candidate for a later version. First step is a manual trial on
+  5-10 films with known timecodes.
 
 ## IMDb parents guide (new)
 
