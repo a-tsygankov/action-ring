@@ -50,3 +50,12 @@ def test_clock_fixed_gap_and_missed_ticks():
     assert clock.showing(10.0)
     assert not clock.showing(100.0)  # long gap without ticks: start over, no stale flash
     assert clock.showing(110.0)
+
+
+def test_app_icons_from_service_open_keys():
+    pages = {"apps": {"keys": {
+        "1": {"icon": "netflix", "action": {"service": "profiles", "do": "open", "args": {"app": "com.netflix.Netflix"}}},
+        "2": {"icon": "x", "action": {"service": "soccer", "do": "watch", "args": {}}},
+        "3": {"icon": "y", "action": {"service": "profiles", "do": "open", "args": {"app": 5}}},
+    }}}
+    assert app_icons(pages) == {"com.netflix.Netflix": "netflix"}

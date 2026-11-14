@@ -52,9 +52,10 @@ def log(msg: str) -> None:
 
 
 class AppleTVTouch:
-    def __init__(self) -> None:
+    def __init__(self, on_lost: Callable[[], None] | None = None) -> None:
         self._loop = asyncio.new_event_loop()
         self._atv: Any = None
+        self._on_lost = on_lost  # told when the connection is gone (atv_clients)
         threading.Thread(target=self._loop.run_forever, daemon=True, name="pyatv").start()
         self._submit(self._supervise())
 
@@ -87,6 +88,7 @@ class AppleTVTouch:
         if atv is None:
             return
         log(f"dropping connection: {reason}; reconnecting")
+        self._tell_lost()
         self._loop.call_soon_threadsafe(atv.close)
 
     # -- connection management (pyatv loop) ----------------------------------
@@ -177,6 +179,16 @@ class AppleTVTouch:
     def _lost(self, reason: str) -> None:
         log(f"connection lost: {reason}; reconnecting")
         self._atv = None
+        self._tell_lost()
+
+    def _tell_lost(self) -> None:
+        on_lost = getattr(self, "_on_lost", None)  # absent on a bare test object
+        if on_lost is None:
+            return
+        try:
+            on_lost()
+        except Exception as err:
+            log(f"on_lost: {type(err).__name__}: {err}")
 
 
 class _Listener:

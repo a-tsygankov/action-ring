@@ -11,7 +11,7 @@
   },
   "toast": {
     "lg": "media_player.lg_tv_2",
-    "events": ["rating", "soccer", "sign_in", "scenes"],
+    "events": ["rating", "soccer", "sign_in", "scenes", "profiles"],
     "settle_s": 0.6
   },
   "now_playing_log": { "entities": ["media_player.vugitv_4k_vugitv_4k"] },
@@ -76,6 +76,23 @@
                         "com.amazon.aiv.AIVApp": "amazon", "com.cbsvideo.app": "paramountplus",
                         "com.adrise.tubitv": "tubitv", "tv.pluto.ios": "pluto", "com.netflix.Netflix": "netflix",
                         "com.apple.TVWatchList": "apple" }
+    },
+    "profiles": {
+      "atv": "media_player.vugitv_4k_vugitv_4k",
+      "atv_remote": "remote.vugitv_4k_vugitv_4k",
+      "lg": "media_player.lg_tv_2",
+      "atv_source": "Apple OTT",
+      "power_on_wait": 25,
+      "dry_run": true,
+      "delay_s": 6, "watch_s": 5, "film_s": 300, "sync_wait_s": 5,
+      "apps": {
+        "com.netflix.Netflix":   { "picker": false, "undo": false },
+        "com.amazon.aiv.AIVApp": { "picker": false, "registers": "launch" },
+        "com.wbd.stream":        { "picker": false },
+        "com.disney.disneyplus": { "picker": false },
+        "com.hulu.plus":         { "picker": false },
+        "com.cbsvideo.app":      { "picker": false }
+      }
     }
   },
   "metrics": { "log_every_s": 600 },
@@ -111,22 +128,22 @@
       "apps": {
         "close_on_press": true,
         "keys": {
-          "1": { "icon": "netflix", "action": { "launch": { "device": "atv", "app": "com.netflix.Netflix" } } },
-          "2": { "icon": "youtube", "action": { "launch": { "device": "atv", "app": "com.google.ios.youtube" } } },
-          "3": { "icon": "prime_video", "action": { "launch": { "device": "atv", "app": "com.amazon.aiv.AIVApp" } } },
-          "4": { "icon": "apple_tv_app", "action": { "launch": { "device": "atv", "app": "com.apple.TVWatchList" } } },
+          "1": { "icon": "netflix", "action": { "service": "profiles", "do": "open", "args": { "app": "com.netflix.Netflix" } } },
+          "2": { "icon": "youtube", "action": { "service": "profiles", "do": "open", "args": { "app": "com.google.ios.youtube" } } },
+          "3": { "icon": "prime_video", "action": { "service": "profiles", "do": "open", "args": { "app": "com.amazon.aiv.AIVApp" } } },
+          "4": { "icon": "apple_tv_app", "action": { "service": "profiles", "do": "open", "args": { "app": "com.apple.TVWatchList" } } },
           "5": { "icon": "lg_media_player", "action": { "launch": { "device": "lg", "app": "com.webos.app.mediadiscovery" } } },
-          "6": { "icon": "max", "action": { "launch": { "device": "atv", "app": "com.wbd.stream" } } }
+          "6": { "icon": "max", "action": { "service": "profiles", "do": "open", "args": { "app": "com.wbd.stream" } } }
         }
       },
       "apps_more": {
         "close_on_press": true,
         "keys": {
-          "1": { "icon": "hulu", "action": { "launch": { "device": "atv", "app": "com.hulu.plus" } } },
-          "2": { "icon": "disney_plus", "action": { "launch": { "device": "atv", "app": "com.disney.disneyplus" } } },
-          "3": { "icon": "paramount_plus", "action": { "launch": { "device": "atv", "app": "com.cbsvideo.app" } } },
-          "4": { "icon": "pluto_tv", "action": { "launch": { "device": "atv", "app": "tv.pluto.ios" } } },
-          "5": { "icon": "tubi", "action": { "launch": { "device": "atv", "app": "com.adrise.tubitv" } } },
+          "1": { "icon": "hulu", "action": { "service": "profiles", "do": "open", "args": { "app": "com.hulu.plus" } } },
+          "2": { "icon": "disney_plus", "action": { "service": "profiles", "do": "open", "args": { "app": "com.disney.disneyplus" } } },
+          "3": { "icon": "paramount_plus", "action": { "service": "profiles", "do": "open", "args": { "app": "com.cbsvideo.app" } } },
+          "4": { "icon": "pluto_tv", "action": { "service": "profiles", "do": "open", "args": { "app": "tv.pluto.ios" } } },
+          "5": { "icon": "tubi", "action": { "service": "profiles", "do": "open", "args": { "app": "com.adrise.tubitv" } } },
           "6": { "service_key": "soccer.live" }
         }
       },

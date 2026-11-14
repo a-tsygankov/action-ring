@@ -1457,8 +1457,70 @@ PC only (fixtures, no live requests in tests).
   link and presses `select` up to twice, 5 s apart, until Paramount+
   reports playing.
 
+### 2026-11-14 — Profile picker: OK after a cold launch (0.6.2-1)
+
+Status: **deployed 11-14 04:00 in dry run; not checked on the TV.** It only
+logs what it would do (`dry_run: true`, every app `picker: false`). At start
+the tracker listed the running apps at once (`atv-clients:
+com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
+
+- What it is: a `services/profiles/` service. The Apple TV app keys now use
+  `{"service": "profiles", "do": "open", "args": {"app": ...}}` instead of
+  `launch` (the LG Media Player key keeps `launch`). `open` launches the app
+  as before and presses select once on a cold start of an app listed with
+  `picker: true`; a click that starts a film is undone with one Menu.
+  Design: `docs/superpowers/specs/2026-11-14-profile-auto-select-design.md`;
+  how to configure it: `DOCS.md`, "Profile picker".
+- What made it possible (read from `mrp_raw.log` of 11-13, nothing sent to
+  the TV): the Apple TV's media-remote session reports app **processes**:
+  `update_client` with a process id when an app registers, `remove_client`
+  when its process ends, and the full list of live apps on every reconnect.
+  New core module `atv_clients.py` keeps that list
+  (`ctx.shared("atv_clients")`: `alive` / `gone` / `unknown`).
+- Facts from the same logs:
+  - Background apps were short-lived that evening: Tubi was removed 3 min
+    after Prime opened; Pluto, Paramount+ and Max within 7 s as Netflix
+    opened; Netflix 31 min after its start. The cause is not in the logs.
+  - Prime and the Apple TV app register right after launch with nothing
+    playing; Paramount+ 5 s before playback; Netflix in the second of its
+    first `playing`; Hulu only at playback. So "not listed" means "not
+    running" only for the first kind (`"registers": "launch"`).
+  - Nothing is reported at a launch until something plays; the logs cannot
+    say what a launch showed. Each open now logs its decision
+    (`profiles: open <app>: ...`) and the last 100 are kept in
+    `/data/services/profiles/history.json`.
+  - Netflix reports no duration, so the undo cannot work there
+    (`"undo": false`).
+- Safety rules built in: no click when the state is unknown (no AirPlay
+  pairing, connection down, or the key also woke the TV or the Apple TV was
+  asleep and no fresh
+  connection came within 5 s), when the app is playing or paused, or after
+  any dock key or knob was used (new `ctx.shared("dock_input")`). Menu is
+  sent at most once, only after the dock's own click, only for playback of
+  300 s or more that was not there before it.
+- The logo key reads app icons from the new key actions as well (`logo.py`).
+- `restore.sh` needs no change: it uploads the preset whole and the image
+  copies the `services/` tree; the `Dockerfile` lists the two new core
+  modules (`atv_clients.py`, `dock_input.py`).
+- Tests: 619 passing.
+
 ## Open items
 
+- [ ] Profile picker: survey on the TV (0.6.2-1 runs in dry run), one
+      step at a time: per app (Netflix, Prime, Max, Disney+, Paramount+,
+      Hulu) a cold and a warm launch from the dock: is there a picker, how
+      many seconds until it accepts OK, does the log say `cold` / `warm`,
+      does the app register at launch or at playback; what Menu does in each
+      app's player (only in a film started for the check). Then per app
+      `picker: true` and `dry_run: false`, and a cold and a warm launch each.
+- [ ] Profile picker: the first launch after a night off: does a fresh
+      connection come up within `sync_wait_s` (5 s), and was the app still
+      running? This decides how often the feature acts in the evening.
+- [ ] Profile picker, from normal use: an app left for hours and opened
+      again (does it ask for the profile although it was running?); an app
+      opened with the Siri Remote first.
+- [ ] Profile picker: YouTube's account picker is not covered (its key goes
+      through the service but it is not in `apps`); Peacock has no app key.
 - [ ] Scenes, left from the final review (small, not fixed): a film that an
       app reports as content type `movie` and whose duration drops out for a
       tick is treated as another film (key gray ~15 s, served from cache
@@ -1537,3 +1599,8 @@ PC only (fixtures, no live requests in tests).
       so it may never list a game.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.
+- [ ] Profile picker, left from the branch review (not fixed): if the
+      service fails to load, the Apple TV app keys do nothing (no fall-back
+      to plain `launch`); the logo's icon lookup accepts any service action
+      named `open`; the undo window (`watch_s`, 5 s) may be shortened once
+      the survey shows how fast each app reports a film's duration.
