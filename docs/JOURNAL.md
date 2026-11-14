@@ -1359,6 +1359,16 @@ PC only (fixtures, no live requests in tests).
 - A temporary TV toast after each lookup (`toast_lookup`, on in the preset;
   `scenes` added to `toast.events`): `Scenes: 3 found for <title>` or
   `Scenes: none found for <title>`. Remove when no longer needed.
+- Which scenes count (0.6.1-5): two of Titanic's three jumps were not nude
+  scenes; its file marks them `sex 2 (non-explicit)`. VideoSkip's level
+  (1-3) is now kept, and the key uses every nudity block plus sex at level
+  3 (`min_level`, default `{"sex": 3}`). The cache was upgraded in place
+  (level-less VideoSkip rows dropped and fetched again). After the
+  redeploy: `videoskip: hit, 3 scenes` -> `"Titanic": 1 scenes`, toast
+  `Scenes: 1 found for Titanic`.
+- A mangled `` (a backspace character) in the fixture privacy test made
+  its e-mail check match nothing since Task 2; repaired, and the check
+  passes for real.
 - Films with known times for further checks (VideoSkip; service per TMDB's
   US listings on 11-13): Fight Club on Pluto (0:48:38, 0:55:42, 0:58:43),
   Titanic on Paramount+ (1:22:04, 1:30:34, 1:31:12), Weapons on Max
