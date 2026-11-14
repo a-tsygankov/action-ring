@@ -1341,6 +1341,24 @@ PC only (fixtures, no live requests in tests).
 - `seek_apps` now also lists Prime (checked above), Paramount+, Tubi, Pluto
   and Netflix, added at the owner's request before a check. Netflix cannot
   work: the now-playing log shows it reports no title, duration or position.
+- Paramount+ works (0.6.1-4): Titanic, 3 scenes from VideoSkip (6 requests,
+  17 s); presses landed at 1:21:59, 1:30:29 and 1:31:07, each 5 s before
+  its scene and confirmed by the reported position; the key then went gray.
+- Pluto (Fight Club) is not usable as it stands:
+  - both presses were sent while an ad break played and Pluto ignored them
+    (seeking is locked during ads, as in Tubi); a press outside a break was
+    not tried;
+  - the reported film length changes around breaks (172, 139 and 142 min
+    for the same film), so the film is identified only while the true
+    length is reported, and each change makes it "another film" (served
+    from the cache, but the jump memory is lost);
+  - during a break the reported position is the ad's own clock (the service
+    read the film as being at 0:58).
+  The app's ad detector already knows when a Pluto break runs
+  (`ad-detect: ad started / ended`); the scenes service does not see that.
+- A temporary TV toast after each lookup (`toast_lookup`, on in the preset;
+  `scenes` added to `toast.events`): `Scenes: 3 found for <title>` or
+  `Scenes: none found for <title>`. Remove when no longer needed.
 - Films with known times for further checks (VideoSkip; service per TMDB's
   US listings on 11-13): Fight Club on Pluto (0:48:38, 0:55:42, 0:58:43),
   Titanic on Paramount+ (1:22:04, 1:30:34, 1:31:12), Weapons on Max
@@ -1361,10 +1379,12 @@ PC only (fixtures, no live requests in tests).
       resort. Trial results and analysis: `docs/SCENE_SOURCES.md`.
 
 - [ ] Scene jump, TV checks left: Max and Disney+ (a film known to
-      VideoSkip); Paramount+, Tubi and Pluto (first press is the seek check;
-      on Tubi and Pluto watch what an ad break does to the jump and to the
-      key); whether the position reported after a seek ever lags more than
+      VideoSkip); Tubi (no film with known times found yet); Pluto outside
+      an ad break; whether the position reported after a seek ever lags more than
       `seek_hold_s` (5 s) (in Prime it arrived within 1-3 s).
+- [ ] Scene jump: keep the key gray while an ad break runs (Pluto, Tubi):
+      give services the ad detector's state, or take Pluto out of
+      `seek_apps`. Remove the temporary `toast_lookup` toast when done.
 - [ ] Scene jump: Netflix reports nothing to the Apple TV; it would need a
       different design (film chosen by hand, timing from a known point).
 - [ ] Scene jump: one `SLOW scenes cond:ready 7ms` line seen (budget 5 ms);
