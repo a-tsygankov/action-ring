@@ -29,14 +29,18 @@ APP_LAYOUTS = ("streaming", "live_game", "youtube", "lg_media", "lg_app")
 
 
 def app_icons(pages: dict[str, dict], extra: dict[str, str] | None = None) -> dict[str, str]:
-    """App id -> icon id from the pages' launch keys, then `extra`."""
+    """App id -> icon id from the pages' launch keys (a {"launch": ...} action or
+    a service's "open" action with an "app" argument), then `extra`."""
     out: dict[str, str] = {}
     for page in pages.values():
         for spec in (page.get("keys") or {}).values():
             action = spec.get("action") if isinstance(spec, dict) else None
             launch = action.get("launch") if isinstance(action, dict) else None
-            if isinstance(launch, dict) and launch.get("app") and spec.get("icon"):
-                out.setdefault(launch["app"], spec["icon"])
+            if not isinstance(launch, dict) and isinstance(action, dict) and action.get("do") == "open":
+                launch = action.get("args")  # a service that opens the app (profiles)
+            app = launch.get("app") if isinstance(launch, dict) else None
+            if isinstance(app, str) and app and spec.get("icon"):
+                out.setdefault(app, spec["icon"])
     out.update(extra or {})
     return out
 

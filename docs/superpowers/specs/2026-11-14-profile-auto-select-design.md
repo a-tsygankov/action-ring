@@ -1,6 +1,6 @@
 # Profile auto-selection: design
 
-Date: 2026-11-14. Status: draft, waiting for the owner's approval.
+Date: 2026-11-14. Status: approved 2026-11-14; built (0.6.2-1), not deployed.
 Earlier research: [2026-10-26-profile-picker-research.md](2026-10-26-profile-picker-research.md).
 Service contract: [services/README.md](../../../homeassistant/streamdock_n3/services/README.md).
 
@@ -191,12 +191,13 @@ Details:
   time, are on the survey list; this is the first launch of an evening, so
   it decides how often the feature acts.
 - **Apps that register at playback**: no guessing. The service keeps
-  `opened_at[app]` (memory and `ctx.store`). `gone` counts as cold only when
-  `removed_at(app)` is later than `opened_at[app]`. An app the dock opened
+  `opened_at[app]` (memory only, like the tracker's times). `gone` counts as
+  cold only when a removal was seen and it is later than `opened_at[app]`
+  (or the dock has not opened the app since it started). An app the dock opened
   that was never played leaves no evidence, so the next open is "maybe
   alive": no click, the viewer picks the profile as today; once the app has
-  played and been removed, evidence exists again. An app the dock has never
-  opened has no evidence either: no click the first time.
+  played and been removed, evidence exists again. An app never seen to end
+  has no evidence either: no click.
 - Known gap: an app whose removal was seen, then opened with the Siri
   Remote, never played, and left alive looks cold. The safety net is what
   covers a wrong click there.

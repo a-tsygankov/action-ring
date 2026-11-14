@@ -10,6 +10,7 @@ the render path, and measures every operation.
 This file is enough to write a new service. `soccer/` is the worked example
 (jobs, actions, conditions, keys, context override, tests); `scenes/` is the second
 worked example (a database, several HTTP sources, a condition driven by the clock);
+`profiles/` is an action-only service (it waits and watches after a key press);
 the template below is the smallest useful one. Design background:
 [the design spec](../../../docs/superpowers/specs/2026-11-13-pluggable-services-design.md).
 

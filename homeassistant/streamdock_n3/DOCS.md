@@ -243,6 +243,7 @@ Key actions, besides shell strings (`ha-call domain.service '<json>'`):
 |---|---|
 | `{"launch": {"device": "atv", "app": "<bundle id>"}}` | Powers the TV on if it is off (Apple TV wake, HDMI-CEC), switches the LG to `atv_source`, starts the app on the Apple TV |
 | `{"launch": {"device": "lg", "app": "<webOS app id>"}}` | Powers on if needed, starts the app on the LG (`system.launcher/launch`) |
+| `{"service": "profiles", "do": "open", "args": {"app": "<bundle id>"}}` | As `launch` on the Apple TV, then OK on the app's profile picker when the app was not running (see Profile picker). The TV Room preset uses it for its Apple TV app keys |
 | `{"next_playing": [entities]}` | Next track on the first of those speakers that is playing and leads its group |
 | `{"youtube": "play_pause" \| "next" \| "previous" \| "next_chapter" \| "forward" \| "rewind" \| "subtitles"}` | Controls the linked YouTube app (see below); `forward` / `rewind` skip 10 s, `subtitles` toggles captions |
 | `{"toast": "text"}` | Shows `text` on the TV for a few seconds, over any input (see TV toasts); `{name}` placeholders work |
@@ -709,6 +710,89 @@ source, `videoskip: hit, 2 scenes, 4 requests` (status `hit`, `miss`, `ambiguous
 `videoskip: skipped (film not identified)`; `daily lookup limit reached`;
 `app cannot seek: key stays gray`; and each press `jump 1203s -> 1388s
 (scene at 1393s)`. No toasts in this version.
+
+### Profile picker
+
+The `services.profiles` section makes the dock press OK on an app's "Who's
+watching" picker (`services/profiles/`; design in
+`docs/superpowers/specs/2026-11-14-profile-auto-select-design.md`). The
+Apple TV app keys use its action instead of `launch`:
+
+```json
+"1": { "icon": "netflix",
+       "action": { "service": "profiles", "do": "open", "args": { "app": "com.netflix.Netflix" } } }
+```
+
+`open` powers the TV on and starts the app exactly as `launch` does. It then
+presses select once, `delay_s` after the launch, only when all of this holds:
+
+- the app is in `apps` with `"picker": true`;
+- the app was **not running** before the launch (a cold start). The app
+  learns this from the Apple TV's own media-remote session, which reports
+  when an app's process starts and ends (`atv_clients.py`; needs the AirPlay
+  pairing, `pair.sh atv airplay`). An app that was running gets no click;
+- the dock was not used since the key press, no newer app key was pressed,
+  the LG is still on the Apple TV input, and the app is not playing or paused.
+
+When the state is not known (no AirPlay pairing, the connection is down, the
+key also had to wake the TV and no new connection came up within
+`sync_wait_s`), the app is only launched.
+
+If the click starts a film (the app was on its home screen after all), the
+Apple TV reports playback with a duration of `film_s` or more within
+`watch_s`; the dock then sends Menu **once** and toasts `Opened by mistake:
+went back`. Menu is never sent in any other case.
+
+```json
+"services": { "profiles": {
+  "atv": "media_player.vugitv_4k_vugitv_4k", "atv_remote": "remote.vugitv_4k_vugitv_4k",
+  "lg": "media_player.lg_tv_2", "atv_source": "Apple OTT", "power_on_wait": 25,
+  "dry_run": true,
+  "delay_s": 6, "watch_s": 5, "film_s": 300, "sync_wait_s": 5,
+  "apps": {
+    "com.netflix.Netflix":   { "picker": false, "undo": false },
+    "com.amazon.aiv.AIVApp": { "picker": false, "registers": "launch" },
+    "com.hulu.plus":         { "picker": false }
+  }
+} }
+```
+
+| Setting | Meaning |
+|---|---|
+| `dry_run` | `true`: decide and log for every app in `apps`, send nothing. Ships `true` |
+| `delay_s` | Seconds from the launch to the click (also per app). Too short and the click is lost in the app's splash screen |
+| `watch_s` | Seconds after the click in which a starting film is undone |
+| `film_s` | Shortest duration that counts as a film (previews are shorter) |
+| `sync_wait_s` | After waking the TV: how long to wait for a fresh Apple TV connection |
+| `apps.<id>.picker` | `true` turns the click on for this app. Ships `false` everywhere |
+| `apps.<id>.registers` | `"launch"`: the app reports itself as soon as it starts (Prime, the Apple TV app), so "not reported" means "not running". `"playback"` (default): it reports only when it plays (Hulu); the dock then clicks only if it saw the app's process end after it last opened it |
+| `apps.<id>.undo` | `false`: never send Menu for this app. Netflix reports no duration, so its undo could never work |
+
+Apps without profiles (Pluto, Tubi, the Apple TV app) are left out of `apps`
+and are only launched. The `atv`, `atv_remote`, `lg`, `atv_source` and
+`power_on_wait` values are the same as in `tabs.launch`.
+
+Limits: the dock does not see the Siri Remote. An app opened with it and left
+running in its menus can look "not running"; and a film the viewer starts
+with the Siri Remote within `watch_s` of a click is taken for the dock's
+mistake and closed. `"undo": false` avoids the second.
+
+Log lines (all start with `profiles:`), one per open and one per step:
+
+```
+profiles: open com.amazon.aiv.AIVApp: alive (pid 8061) -> warm, no click
+profiles: open com.hulu.plus: gone -> cold, click in 6.0s
+profiles: com.hulu.plus: click sent
+profiles: com.hulu.plus: playback 7140s after click -> menu sent
+profiles: com.hulu.plus: no click (dock input)
+profiles: open com.netflix.Netflix: (dry run) gone -> cold, would click in 6.0s
+atv-clients: com.hulu.plus alive pid 8155
+atv-clients: com.hulu.plus gone
+```
+
+Reasons: `warm` (running), `cold`, `unknown`, `maybe alive` (reports only at
+playback and no process end was seen), `not listed`. The last 100 opens are
+kept in `/data/services/profiles/history.json`.
 
 ### Now-playing log (ad research)
 
