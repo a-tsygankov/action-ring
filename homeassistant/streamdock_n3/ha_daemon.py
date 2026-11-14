@@ -91,6 +91,13 @@ Runs the upstream daemon unchanged and adds:
    Companion, HA, Lounge and webOS commands and logs each result as
    "probe: …", for the live test session.
 
+14. Key combos (combo.py): a "combo" section ({"buttons": [7, 8, 9],
+   "gap_ms": 600, "action": ...}) runs its action when its buttons are
+   pressed in that order, each within the gap of the one before. A press
+   that starts or continues the combo waits (it is replayed, in order, if the
+   combo breaks), so a combo never also does what its buttons normally do.
+   Hooked on the upstream daemon's event_key(): a held press maps to no action.
+
 13. Services (services/): a "services" config section loads plug-in
    services (packages services/<name>/, each its own section; "enabled": false
    skips one) through one ServiceHost (services/host.py). A key slot
@@ -113,6 +120,8 @@ import http.client
 import json
 import math
 import os
+import re
+import sys
 import threading
 import time
 from dataclasses import replace
@@ -120,6 +129,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import badge
+import combo as combomod
 import dynamic
 from context import AtvApp, foreground_layout
 from keyspec import Look, changed_keys, entities_of, format_label, icon_path, resolve_action, resolve_look
@@ -227,6 +237,7 @@ def _signal() -> None:
 
 _upstream_apply_icons = daemon.apply_icons
 _upstream_run_actions = daemon.run_actions
+_upstream_event_key = getattr(daemon, "event_key", lambda event: None)
 
 
 def _apply_icons(device, config):
@@ -360,8 +371,68 @@ def _safe(fn) -> None:
         print(f"action failed: {type(err).__name__}: {err}", flush=True)
 
 
+# -- key combos ------------------------------------------------------------------
+
+_BUTTON_PRESS = re.compile(r"button\.(\d+)\.press")
+_combo: combomod.Combo | None = None  # set in main() from the "combo" section
+_combo_action: Any = None
+_button_actions: dict[str, Any] = {}  # the upstream action map, for replaying held presses
+_dry_run = False
+
+
+def _event_key(event) -> str | None:
+    # SDK reader thread. A press the combo holds back maps to no action.
+    return _combo_filter(_upstream_event_key(event))
+
+
+def _combo_filter(key: str | None) -> str | None:
+    """`key` as is, or None while a press is held for the combo (or completed it)."""
+    if _combo is None or not isinstance(key, str):
+        return key
+    m = _BUTTON_PRESS.fullmatch(key)
+    if m is None:
+        return key  # releases and knobs never wait
+    out = _combo.press(int(m.group(1)), time.monotonic())
+    _replay(out.replay)
+    if out.done:
+        print(f"combo: {'-'.join(map(str, _combo.buttons))}", flush=True)
+        _run_actions(_combo_action, dry_run=_dry_run)
+        return None
+    if out.held:
+        _arm_combo_timer()
+        return None
+    return key
+
+
+def _replay(buttons: tuple[int, ...]) -> None:
+    for b in buttons:
+        try:
+            _run_actions(_button_actions.get(f"button.{b}.press"), dry_run=_dry_run)
+        except Exception as err:  # never into the SDK or the timer
+            print(f"combo: button {b}: {type(err).__name__}: {err}", flush=True)
+
+
+def _arm_combo_timer() -> None:
+    due = _combo.next_due if _combo is not None else None
+    if due is None:
+        return
+    timer = threading.Timer(max(0.0, due - time.monotonic()) + 0.005, _combo_expire)
+    timer.daemon = True
+    timer.start()
+
+
+def _combo_expire() -> None:
+    # Timer thread: replay the held presses once the next one is overdue (a
+    # combo that completed meanwhile left nothing to replay).
+    if _combo is None:
+        return
+    _replay(_combo.expire(time.monotonic()))
+    _arm_combo_timer()  # presses held since are due later
+
+
 daemon.apply_icons = _apply_icons
 daemon.run_actions = _run_actions
+daemon.event_key = _event_key
 
 
 # -- Core REST calls -------------------------------------------------------------
@@ -746,11 +817,22 @@ def _warn_legacy_config(config: dict[str, Any]) -> None:
 def main() -> int:
     global _knobs, _youtube, _rating, _toaster, _np_log, _engine, _ctx_cfg, _launch_cfg, _core
     global _atv_app, _logo_cfg, _logo_icons, _logo_clock, _host
+    global _combo, _combo_action, _button_actions, _dry_run
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", type=Path)
     args, _ = parser.parse_known_args()
     config = configmod.normalize(configmod.load(args.config or configmod.ensure_config()))
     _warn_legacy_config(config)
+    _dry_run = "--dry-run" in sys.argv
+    try:
+        made = combomod.from_config(config.get("combo"))
+    except (TypeError, ValueError) as err:
+        print(f"combo: disabled ({err})", flush=True)
+        made = None
+    if made is not None:
+        _combo, _combo_action = made
+        _button_actions = configmod.action_map(config)
+        print(f"combo: buttons {list(_combo.buttons)}, {_combo.gap_s * 1000:.0f} ms apart", flush=True)
 
     entities: set[str] = set()
     _core = CoreAPI()

@@ -27,6 +27,15 @@ and placed on a coloured background.
 Not used: `cbi` (Custom Brand Icons, CC BY-NC-SA 4.0). Simple Icons has removed
 Hulu and Prime Video from its set, so those are taken from selfh.st.
 
+## Service icons
+
+Cat faces (`services/cats/icons/cat_<n>.png`, `cat_<n>_blink.png`,
+`cat_<n>_tongue.png`, six cats, 112×112): original drawings made with Pillow
+by `homeassistant/tools/icons/build_cat_icons.py` from shapes in that script,
+no source images. Licence: CC0 1.0 (public domain dedication,
+https://creativecommons.org/publicdomain/zero/1.0/). Rebuild with
+`python homeassistant/tools/icons/build_cat_icons.py`.
+
 ## Trademarks
 
 Netflix, YouTube, Prime Video, Apple TV, HBO Max, Hulu, Disney+, Paramount+,

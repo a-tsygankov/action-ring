@@ -3,7 +3,8 @@
 The dock shows either a context page ("context:<layout>", chosen from what the
 TV/room is doing) or a temporary page opened by a round button (a cycle of
 pages that closes on its own after a timeout, or when the context layout
-changes). All time is passed in, so this
+changes). A page may set its own "open_s" (how long it stays open, instead of
+the "open" timeout). All time is passed in, so this
 is a pure, deterministic module: no clocks, no threads of its own, no device
 or Home Assistant. Callers (SDK input thread, a ticker, the HA state thread)
 share one engine; every public method takes the same internal lock.
@@ -48,6 +49,13 @@ class TabEngine:
     def _close(self) -> None:
         self._temp = None
 
+    def _open_for(self, page: str) -> float:
+        """How long `page` stays open: its own "open_s", else the engine's."""
+        try:
+            return float(self._pages.get(page, {}).get("open_s", self._open_s))
+        except (TypeError, ValueError):
+            return self._open_s
+
     # -- public API ----------------------------------------------------------
 
     @property
@@ -81,7 +89,7 @@ class TabEngine:
                 self._temp = cycle[(cycle.index(before) + 1) % len(cycle)]
             else:
                 self._temp = cycle[0]
-            self._deadline = now + self._open_s
+            self._deadline = now + self._open_for(self._temp)
             self._bump_if_changed(before, now)
             return True
 
@@ -92,7 +100,7 @@ class TabEngine:
                 return False
             before = self._visible()
             self._temp = page
-            self._deadline = now + self._open_s
+            self._deadline = now + self._open_for(page)
             self._bump_if_changed(before, now)
             return True
 

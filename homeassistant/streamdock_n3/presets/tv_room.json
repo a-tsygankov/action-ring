@@ -93,8 +93,18 @@
         "com.hulu.plus":         { "picker": false },
         "com.cbsvideo.app":      { "picker": false }
       }
+    },
+    "cats": {
+      "atv": "media_player.vugitv_4k_vugitv_4k",
+      "atv_remote": "remote.vugitv_4k_vugitv_4k",
+      "lg": "media_player.lg_tv_2",
+      "atv_source": "Apple OTT",
+      "power_on_wait": 25,
+      "screen": "atv",
+      "videos": ["J---aiyznGQ", "0Bmhjf0rKe8", "z3U0udLH974", "hY7m5jjJ9mM", "5dsGWM5XGdg"]
     }
   },
+  "combo": { "buttons": [7, 8, 9], "gap_ms": 600, "action": { "service": "cats", "do": "show" } },
   "metrics": { "log_every_s": 600 },
   "tabs": {
     "timeouts": { "open": 5, "after_press": 5, "context_debounce": 1 },

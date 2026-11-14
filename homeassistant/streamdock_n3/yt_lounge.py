@@ -65,6 +65,7 @@ class Screen(EventListener):
         self.position_at = 0.0
         self.in_ad = False
         self.subtitles: str | None = None  # current caption language; None = off
+        self.wanted_until = 0.0  # monotonic; want(): connect even though HA does not show the app
 
     def position_now(self) -> float:
         elapsed = time.monotonic() - self.position_at if self.state == State.Playing else 0
@@ -150,7 +151,18 @@ class YouTubeScreens:
         return {c["entity"] for s in self.screens.values() for c in s.match}
 
     def active(self, screen: Screen) -> bool:
+        if time.monotonic() < screen.wanted_until:
+            return True
         return any(matches(self._state_of, c) for c in screen.match)
+
+    def want(self, screen: str, seconds: float) -> None:
+        """Try to connect to `screen` for the next `seconds`, retrying every
+        2 s, even though HA does not report its YouTube app. HA shows the
+        Apple TV's now-playing app, so YouTube open with nothing playing is
+        never "active"; a caller about to send a video asks here."""
+        s = self.screens.get(screen)
+        if s is not None:
+            s.wanted_until = max(s.wanted_until, time.monotonic() + seconds)
 
     def any_active(self) -> bool:
         return any(self.active(s) for s in self.screens.values())
@@ -163,6 +175,15 @@ class YouTubeScreens:
         if name not in COMMANDS:
             raise ValueError(f"unknown YouTube command {name!r}")
         asyncio.run_coroutine_threadsafe(self._command(name), self._loop).result(20)
+
+    def connected(self, screen: str) -> bool:
+        """Whether a Lounge session to `screen` is up (its YouTube app is open and linked)."""
+        s = self.screens.get(screen)
+        return s is not None and s.api is not None
+
+    def play_video(self, video_id: str, screen: str) -> None:
+        """Start `video_id` on `screen`; raises when no session to it is up."""
+        asyncio.run_coroutine_threadsafe(self._play_video(video_id, screen), self._loop).result(20)
 
     def probe(self, method: str, args: list[Any]) -> Any:
         """Diagnostics (probe.py): await api.<method>(*args) on the playing screen.
@@ -246,6 +267,15 @@ class YouTubeScreens:
             await self._toggle_subtitles(screen)
         log(f"{screen.name}: {name}")
 
+    async def _play_video(self, video_id: str, name: str) -> None:
+        screen = self.screens.get(name)
+        api = screen.api if screen is not None else None
+        if api is None:
+            raise RuntimeError(f"{name}: no YouTube session")
+        if not await api.play_video(video_id):
+            raise RuntimeError(f"{name}: play {video_id} refused")
+        log(f"{name}: play {video_id}")
+
     async def _probe(self, method: str, args: list[Any]) -> Any:
         screen = self._pick()
         if screen is None:
@@ -313,7 +343,7 @@ class YouTubeScreens:
                 await self._session(screen)
             except Exception as err:
                 log(f"{screen.name}: {type(err).__name__}: {err}")
-                await asyncio.sleep(10)
+                await asyncio.sleep(2 if time.monotonic() < screen.wanted_until else 10)
 
     async def _session(self, screen: Screen) -> None:
         async with YtLoungeApi(DEVICE_NAME, screen) as api:

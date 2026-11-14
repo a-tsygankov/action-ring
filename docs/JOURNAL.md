@@ -46,7 +46,7 @@ Design reference: [ActionRing_Home_Assistant_Developer_Handoff.md](ActionRing_Ho
 | Large knob | `knob.3.left/right/press` | Apple TV, speed-adaptive. While playing/paused: tvOS preview scrubbing (touch drag, finger travel 12 / 60 per 2 / 150 per 3 units per click); seek fallback 10 s per click / 30 s per 2 / 90 s per 3 when touch is unavailable. 3 s without knob activity after a scrub commits it and resumes playback. Otherwise focus left/right 1 / 2 / 3 steps per click · press = OK (`select`; commits a scrub and cancels the auto-resume) |
 | Small knob 1 | `knob.1.left/right/press` | Sonos Arc volume down/up · mute toggle (script) |
 | Small knob 2 | `knob.2.left/right/press` | Apple TV focus up/down, 1 / 2 / 3 steps per click · press = OK (`select`) |
-| Round 1 / 2 / 3 | `button.7/8/9.press` | Apple TV Menu (back) / Home / Power on (wakes LG via CEC) |
+| Round 1 / 2 / 3 | `button.7/8/9.press` | Apple TV Menu (back) / Home / Power on (wakes LG via CEC); 1 → 2 → 3 in a row: cat easter egg (Round 1 reacts 0.6 s late, see DOCS "Cat easter egg") |
 | Key 1 "Night" | `button.1.press` | Toggle `switch.tv_room_tv_room_night_sound`; LCD shows live state (blue ON / grey OFF / amber ?) |
 | Key 2 "Speech" | `button.2.press` | Toggle `switch.tv_room_tv_room_speech_enhancement`; LCD shows live state (green ON / grey OFF / amber ?) |
 | Key 3 "TV" | `button.3.press` | Power toggle (`script.tv_room_power_toggle`): on → LG off + Apple TV sleep; off → wake Apple TV (LG follows via CEC). LCD shows LG state (red ON / grey OFF), or amber "TV / MUTED" while the Arc is muted |
@@ -1523,6 +1523,82 @@ com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
   copies the `services/` tree; the `Dockerfile` lists the two new core
   modules (`atv_clients.py`, `dock_input.py`).
 - Tests: 619 passing.
+
+### 2026-11-14 — Cat easter egg: Round 1 → 2 → 3 (0.6.4-2)
+
+- Pressing Round 1, 2, 3 in a row (each within 0.6 s of the one before)
+  shows a cat's face on every key for 10 s, then the page comes back.
+  Pressing a cat plays a cat video in YouTube on the Apple TV. The cats
+  blink and stick their tongues out (dynamic-key phases, staggered per key).
+- First tried as a chord, all three pressed together (0.6.4-1, deployed on
+  arpi). It never fired: each attempt reached the app as **one** button,
+  pressed and released, and nothing at all for the other two (upstream log,
+  e.g. `round button 1 pressed` 15:35:08.70, `released` 09.52, no other
+  button in between). The N3 reports only the first button held. The HID
+  report carries one key code (`decode_input_event(data[9], data[10])`), so
+  the dock cannot do chords.
+- Core: `combo.py`, hooked on the upstream `daemon.event_key()` (a held
+  press maps to no action). A press that starts or continues the combo is
+  held; the combo completing drops the held presses and runs the combo's
+  action; the gap running out (or any other press) replays them in order.
+  `run_actions` alone could not do this: it gets the mapped action, not the
+  button (Round 3 maps to a plain shell string). Cost: Round 1 reacts 0.6 s
+  late; Round 2 waits only right after Round 1, Round 3 never.
+- Tabs: a page may set its own `open_s` (the cat page stays 10 s; the
+  preset's `open` timeout is 5 s).
+- `yt_lounge.py`: `connected(screen)` and `play_video(id, screen)`
+  (pyytlounge `play_video`, the Lounge `setPlaylist` command). The existing
+  `_pick()` path needs a playing video, which a freshly opened app has not.
+- Service `cats`: `show` opens the page, `play` sends a random video (not
+  the last one) over the Lounge session to `atv`, else starts YouTube on the
+  Apple TV and waits up to 20 s for the session, else hands the Apple TV the
+  `youtube.com/watch` URL. Videos checked public with YouTube oEmbed on
+  2026-11-14: Keyboard Cat, Surprised Kitty, The two talking cats, two cat
+  compilations.
+- Images: six original cat faces drawn with Pillow
+  (`tools/icons/build_cat_icons.py`), 112×112, three frames each, CC0.
+- Stacked on PR #41 (0.6.3-1).
+
+### 2026-11-14 — Cats on the dock: the combo works; YouTube's profile picker (0.6.4-3)
+
+- 0.6.4-2 on arpi: Round 1 → 2 → 3 shows the cats (`combo: 7-8-9`, the
+  three presses 0.39 s and 0.38 s apart). Pressing a cat started YouTube on
+  the Apple TV, which stopped on "Who's watching". The Lounge session never
+  connected (20 s), and the URL fallback failed: `play_media` with
+  `media_content_type: url` and a `youtube.com/watch` URL answered HTTP 500
+  (HA traceback: pyatv companion `launch_app` → `exchange_opack`).
+- Fix (0.6.4-3): the profiles service's technique, one select on the
+  picker. YouTube is not in `profiles.apps`, so `atv_clients` does not track
+  it; the cats service uses its own signal instead: no Lounge session
+  `picker_after_s` (6 s) after the launch means the picker. Select is sent
+  once under the profiles service's guards (YouTube in front and not
+  playing, LG on the Apple TV input, no dock input since the cat press),
+  then the video goes over the session once it connects. The URL fallback
+  is gone.
+
+### 2026-11-14 — Cats: the Lounge never tried to connect (0.6.4-4)
+
+- 0.6.4-3 on arpi: YouTube cold-started without a profile picker this time,
+  and still no video: `cats: no profile click (YouTube not in front)`, then
+  `no YouTube link session, not sent`.
+- Cause: HA's `media_player.vugitv_4k_vugitv_4k` reports the Apple TV's
+  **now-playing** app (`np:` lines showed Paramount+ paused while YouTube
+  was on screen). `yt_lounge.py` opens a session only while that matches
+  YouTube, so it never tried. The guard in 0.6.4-3 read the same field. The
+  0.6.4-3 entry's reading ("the session connects only past the picker") was
+  not shown: the session never attempted at all.
+- Fix: `YouTubeScreens.want(screen, seconds)` makes a screen count as active
+  for a while (retry every 2 s instead of 10). The cats service calls it
+  before launching YouTube. The select guard drops "YouTube in front" (not
+  knowable from HA) and keeps: LG on the Apple TV input, no app playing, no
+  dock input since the press.
+- Works on arpi (0.6.4-4): cat press 15:48:19.8 (YouTube not open), Lounge
+  `atv: connected` 22.1, `play 5dsGWM5XGdg` 22.8, `now playing` 23.1: about
+  3 s from the press to the video. No select was needed (no picker on that
+  launch). A second combo with YouTube open sent the next video over the
+  open session at once (`0Bmhjf0rKe8 via the YouTube link`).
+- Open: whether the Lounge connects while YouTube shows its picker. If it
+  does, the 6 s select never fires and the picker may swallow the video.
 
 ## Open items
 

@@ -830,6 +830,65 @@ Reasons: `warm` (running), `cold`, `unknown`, `maybe alive` (reports only at
 playback and no process end was seen), `not listed`. The last 100 opens are
 kept in `/data/services/profiles/history.json`.
 
+### Cat easter egg (key combo)
+
+Press **Round 1, Round 2, Round 3 in a row** (each within 0.6 s of the one
+before) and every key turns into a cat's face for 10 seconds; the cats blink
+and stick their tongues out now and then. Then the page that was there comes
+back. Pressing any cat plays a cat video in YouTube on the Apple TV (a random
+one from `videos`, never the same one twice in a row) and ends it.
+
+Two parts: a key combo in the core (`combo.py`) and the `cats` service
+(`services/cats/`), whose page has its own 10 s `open_s`.
+
+```json
+"combo": { "buttons": [7, 8, 9], "gap_ms": 600, "action": { "service": "cats", "do": "show" } },
+"services": { "cats": {
+  "atv": "media_player.vugitv_4k_vugitv_4k", "atv_remote": "remote.vugitv_4k_vugitv_4k",
+  "lg": "media_player.lg_tv_2", "atv_source": "Apple OTT", "power_on_wait": 25,
+  "screen": "atv",
+  "videos": ["J---aiyznGQ", "0Bmhjf0rKe8", "z3U0udLH974", "hY7m5jjJ9mM", "5dsGWM5XGdg"]
+} }
+```
+
+- **The combo.** `buttons` pressed in that order, each within `gap_ms` of
+  the one before. Pressing them together does not work: the N3 reports only
+  the first button held and nothing for the others. The combo's own presses
+  never do what those buttons normally do: a press that starts or continues
+  the combo waits; if the next one does not come within `gap_ms` (or another
+  key or button is pressed), the waiting presses run as usual, in order.
+- **The cost: Round 1 reacts 0.6 s later** (it may start the combo). Round 2
+  waits only right after Round 1; Round 3 never waits. Remove the section
+  (or `"enabled": false`) to get Round 1 back at once. The action is any key
+  action.
+- **Playing the video.** Over the YouTube Lounge session to `screen` (the
+  link `pair.sh` sets up, which next chapter uses). The daemon opens that
+  session only while HA reports YouTube as the Apple TV's app, and HA reports
+  the *now-playing* app: YouTube open with nothing playing never shows. So
+  the cats service asks for the session itself (`want`: try to connect for
+  the next ~30 s, every 2 s), and starts YouTube on the Apple TV (turning the
+  TV on if needed).
+- **Profile picker.** YouTube may open on "Who's watching". If there is still
+  no session `picker_after_s` (6) after the launch, the dock presses **select
+  once**, which picks the first profile (it has the focus), the same press the
+  profiles service sends after a cold launch. Not when the LG is off the Apple
+  TV input, another app is playing, or the dock was used since the cat
+  press. The video is sent once the session connects (`connect_wait_s`, 20).
+  A `youtube.com/watch` URL handed to the Apple TV (`play_media`, type `url`)
+  fails in HA (HTTP 500 from pyatv `launch_app`), so there is no fallback
+  without the session.
+- **Restore.** The cat page is a temporary page: it closes after 10 s, on a
+  cat press, or when the TV changes what is in the foreground, and the keys
+  go back to the context page as it was.
+- The faces are original drawings (`homeassistant/tools/icons/build_cat_icons.py`,
+  CC0), three frames per cat (`cat_<n>`, `_blink`, `_tongue`).
+
+Log lines: `combo: buttons [7, 8, 9], 600 ms apart` at start, `combo: 7-8-9`
+on each combo, `cats: meow`, `cats: <id> via the YouTube link` (or `… after
+starting YouTube`, `… after the profile picker`), `cats: no YouTube link
+yet: profile picker, select sent`, `cats: no profile click (<why>)`,
+`cats: <id>: no YouTube link session, not sent`.
+
 ### Now-playing log (ad research)
 
 `"now_playing_log": { "entities": ["media_player.…"] }` records what changes
