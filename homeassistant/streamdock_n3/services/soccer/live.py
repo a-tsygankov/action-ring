@@ -16,7 +16,7 @@ import threading
 import time
 import urllib.error
 import urllib.parse
-from typing import Callable
+from typing import Any, Callable
 
 from keyspec import StateLookup
 from media_actions import Call, ensure_on, select_atv_input
@@ -71,12 +71,16 @@ class LiveSoccer:
         notify: Callable[..., None] | None = None,
         on_pick: Callable[[], None] | None = None,
         quit_app: Callable[[], None] | None = None,
+        shared: Callable[[str], Any] | None = None,
     ):
         """`notify(message, channel=...)` shows a short message to the viewer (a TV toast);
         `on_pick()` runs after each pick (its CYCLE_S window ends unannounced);
         `quit_app()` quits the Apple TV's front app (atv_quit.py), raising
-        when it can't (no Companion connection)."""
+        when it can't (no Companion connection); `shared(name)` gives the
+        daemon's "atv_clients" (which Apple TV apps run) and "dock_input"
+        (last dock event) handles, or None (services/README.md)."""
         self._quit_app = quit_app
+        self._shared = shared or (lambda name: None)
         self._toast = notify or (lambda message, channel=None: None)
         self._on_pick = on_pick or (lambda: None)
         self._call = call
@@ -350,8 +354,9 @@ class LiveSoccer:
         stale here, so only "this app is playing" stops the presses.
         """
         game = games[i]
+        t0 = self._monotonic()
         with self._play_lock:
-            self._started, self._started_at, self._seen = game, self._monotonic(), False
+            self._started, self._started_at, self._seen = game, t0, False
         log(f"playing {i + 1}/{len(games)}: {game.title} ({game.provider})")
         if game.provider == lgchannels.PROVIDER:
             self._tune(game, gen)
@@ -371,6 +376,10 @@ class LiveSoccer:
         for n in range(COLD_SELECTS if cold else 1):
             if gen != self._gen:
                 return  # picked again: that game's switch takes over
+            why = self._stand_down(t0)
+            if why:
+                log(f"{game.app}: no select ({why})")
+                return
             st = self._state_of(atv) or {}
             app, state = (st.get("a") or {}).get("app_id"), st.get("s")
             if app == game.app and state == "playing":
@@ -382,21 +391,54 @@ class LiveSoccer:
             if cold and n + 1 < COLD_SELECTS:
                 self._sleep(float(self._cfg.get("cold_select_gap_s", 5)))
 
+    def _stand_down(self, t0: float) -> str | None:
+        """Why the presses after a link must stop: the viewer moved on (as services/profiles)."""
+        dock = self._shared("dock_input")
+        if dock is not None and dock.last() > t0 + float(self._cfg.get("input_grace_s", 1.0)):
+            return "dock input"
+        lg = (self._state_of(self._cfg["lg"]) or {}).get("a") or {}
+        if lg.get("source") is not None and lg.get("source") != self._cfg.get("atv_source"):
+            return "input changed"
+        return None
+
     def _cold_start(self, game: Game) -> None:
-        """Bring the game's app to the front and quit it, so the link starts it cold."""
+        """Bring the game's app to the front and quit it, so the link starts it cold.
+
+        Always: Paramount+ registers with the Apple TV only once it plays, so
+        "not running" (atv_clients "gone") can't be trusted; it may sit on a
+        menu unseen. When it was seen running, its removal confirms the quit
+        hit Paramount+ and not another app (logged either way).
+        """
         if self._quit_app is None:
             log("no Apple TV touch connection; opening without a cold start")
             return
+        clients = self._shared("atv_clients")
+        status = clients.status(game.app) if clients is not None else "unknown"
         atv = self._cfg["atv"]
         self._call("media_player", "play_media",
                    {"entity_id": atv, "media_content_type": "app", "media_content_id": game.app})
         self._sleep(float(self._cfg.get("cold_open_s", 4)))
+        quit_at = self._monotonic()
         try:
             self._quit_app()
-            log(f"quit {game.app} for a cold start")
         except Exception as err:
             log(f"quit {game.app} failed: {type(err).__name__}: {err}")
-        self._sleep(float(self._cfg.get("cold_quit_s", 2)))
+            self._sleep(float(self._cfg.get("cold_quit_s", 2)))
+            return
+        if status != "alive":
+            log(f"quit {game.app} for a cold start (was {status})")
+            self._sleep(float(self._cfg.get("cold_quit_s", 2)))
+            return
+        deadline = self._monotonic() + float(self._cfg.get("cold_confirm_s", 5))
+        while True:
+            removed = clients.removed_at(game.app)
+            if removed is not None and removed >= quit_at:
+                log(f"quit {game.app} for a cold start (confirmed)")
+                return
+            if self._monotonic() >= deadline:
+                log(f"quit {game.app}: not confirmed ({clients.status(game.app)}); opening anyway")
+                return
+            self._sleep(0.25)
 
     def _tune(self, game: Game, gen: int) -> None:
         """(Re)open LG Channels on the LG and type the game's channel number.

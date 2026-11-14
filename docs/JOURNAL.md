@@ -1456,6 +1456,20 @@ PC only (fixtures, no live requests in tests).
   (`play_media` app), quits it (`services/soccer/atv_quit.py`), opens the
   link and presses `select` up to twice, 5 s apart, until Paramount+
   reports playing.
+- The MRP client messages (PR #40's `atv_clients`) for Paramount+:
+  pid 8423 alive at the key press (removed 09:23:14), 8458 added 09:24:58
+  (Exeter by hand) and alive through every failed link test, removed
+  09:40:58 (the user's force-quit); the cold link + picker + "Live" (09:41
+  to 09:43) sent nothing until playback (8473 added 09:43:08); the swipe
+  quit logged its removal (09:44:43). So Paramount+ registers at playback:
+  "gone" can't be trusted, but a quit of a running Paramount+ is confirmed.
+- 0.6.3-1: PR #40 merged into this branch (both had used 0.6.2-1; this
+  branch's 0.6.2-1 / 0.6.2-2 deploys had replaced #40's dry-run build on
+  arpi). Soccer's cold start now reads `atv_clients` (confirms the quit)
+  and stops its presses on `dock_input` like `services/profiles`, without
+  its `picker` / `dry_run` switches or its "already playing" guard
+  (Paramount+ reports "paused" with a title on the screens that need the
+  press).
 
 ### 2026-11-14 — Profile picker: OK after a cold launch (0.6.2-1)
 

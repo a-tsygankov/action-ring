@@ -43,7 +43,7 @@ class SoccerService(Service):
             on_change=ctx.changed, monotonic=ctx.monotonic, notify=ctx.toast,
             # The pick's CYCLE_S window ends without an event: redraw just after it.
             on_pick=lambda: ctx.redraw_in(CYCLE_S + 0.1),
-            quit_app=self._quit_app,
+            quit_app=self._quit_app, shared=ctx.shared,
         )
 
     def _quit_app(self) -> None:

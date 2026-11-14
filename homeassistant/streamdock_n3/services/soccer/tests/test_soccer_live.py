@@ -703,3 +703,86 @@ def test_no_live_games_is_toasted():
                       monotonic=t.clock, notify=lambda m, channel=None: shown.append((m, channel)))
     live.start()
     assert shown == [("No live soccer games", "soccer")]
+
+
+# -- Paramount+ cold start with the daemon's app tracker and dock input (PR #40) ----
+
+
+class FakeClients:
+    """atv_clients: Paramount+ alive until `quit()`, then removed at that time."""
+
+    def __init__(self, t, status="alive", removes=True):
+        self.t, self._status, self.removes, self._removed = t, status, removes, None
+
+    def status(self, bundle):
+        return self._status
+
+    def removed_at(self, bundle):
+        return self._removed
+
+    def quit(self):
+        if self.removes:
+            self._status, self._removed = "gone", self.t.now
+
+
+class FakeDock:
+    def __init__(self):
+        self.at = 0.0
+
+    def last(self):
+        return self.at
+
+
+def _shared_live(clients=None, dock=None):
+    live, rec, st, t = _live()
+    clients = clients(t) if callable(clients) else clients
+    handles = {"atv_clients": clients, "dock_input": dock}
+    live._shared = handles.get
+    live._quit_app = clients.quit if clients is not None else (lambda: None)
+    live.refresh()
+    st[ATV] = {"s": "idle", "a": {"app_id": P_PLUS}}
+    return live, rec, st, t
+
+
+def test_cold_start_waits_for_the_quit_to_be_confirmed(capsys):
+    live, rec, st, t = _shared_live(FakeClients)
+    live.play(0)
+    out = capsys.readouterr().out
+    assert "quit com.cbsvideo.app for a cold start (confirmed)" in out
+    assert [d["media_content_type"] for _, s, d in rec.calls if s == "play_media"] == ["app", "url"]
+
+
+def test_cold_start_logs_an_unconfirmed_quit_and_opens_anyway(capsys):
+    live, rec, st, t = _shared_live(lambda t: FakeClients(t, removes=False))
+    live.play(0)
+    assert "quit com.cbsvideo.app: not confirmed (alive); opening anyway" in capsys.readouterr().out
+    assert [d["media_content_type"] for _, s, d in rec.calls if s == "play_media"] == ["app", "url"]
+
+
+def test_cold_start_when_not_seen_running(capsys):
+    # Paramount+ registers only once it plays: "gone" may still be running, so it is quit anyway.
+    live, rec, st, t = _shared_live(lambda t: FakeClients(t, status="gone", removes=False))
+    live.play(0)
+    assert "quit com.cbsvideo.app for a cold start (was gone)" in capsys.readouterr().out
+
+
+def test_dock_input_stops_the_selects(capsys):
+    dock = FakeDock()
+    live, rec, st, t = _shared_live(FakeClients, dock)
+    real_sleep = t.sleep
+
+    def sleep(seconds):
+        real_sleep(seconds)
+        if seconds == CFG["select_after_s"]:
+            dock.at = t.now  # a key or knob while Paramount+ opens
+    live._sleep = sleep
+    live.play(0)
+    assert ("remote", "send_command") not in rec.names()
+    assert "com.cbsvideo.app: no select (dock input)" in capsys.readouterr().out
+
+
+def test_input_change_stops_the_selects():
+    live, rec, st, t = _shared_live(FakeClients)
+    st["media_player.lg"] = {"s": "on", "a": {"source": "HDMI 3"}}
+    live.play(0)
+    assert ("remote", "send_command") not in rec.names()

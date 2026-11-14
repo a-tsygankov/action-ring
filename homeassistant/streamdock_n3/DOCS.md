@@ -616,7 +616,14 @@ saved.
   up to twice, 5 s apart (the profile picker, then "Live"), stopping once
   Paramount+ reports playing. The Apple TV's now-playing can stay stale
   ("idle, no app") on these screens, so a stale report doesn't stop the
-  presses.
+  presses. It uses the profile service's helpers (see "Profile picker"):
+  `atv_clients` tells whether Paramount+ was running and confirms the quit
+  (its removal within `cold_confirm_s`, default 5 s; logged either way;
+  Paramount+ registers only once it plays, so it is quit even when not seen
+  running), and the presses stop after any dock key or knob event
+  (`dock_input`, `input_grace_s` 1 s), when the LG leaves `atv_source`, or
+  on a newer pick. The profile service's `picker` / `dry_run` switches do
+  not apply to soccer.
 - LG Channels (`lg_channels`: channel numbers; empty or missing turns it
   off). The list also takes LG's public guide
   (`api.lgchannels.com/api/v1.0/schedulelist`, country `lg_country`),
