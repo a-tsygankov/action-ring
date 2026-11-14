@@ -125,6 +125,7 @@ from context import AtvApp, foreground_layout
 from keyspec import Look, changed_keys, entities_of, format_label, icon_path, resolve_action, resolve_look
 from knob_accel import AppleTVKnobs
 from logo import LogoClock, app_icons, logo_for
+from dock_input import DockInput
 from media_actions import launch, next_playing
 from services.host import ServiceHost, ServiceUnavailable
 from streamdock_n3 import config as configmod
@@ -153,7 +154,9 @@ _np_log: Any = None  # np_log.NowPlayingLog
 _host: ServiceHost | None = None  # set in main(); without a "services" section it has none
 # Handles services may borrow (ctx.shared); filled in main() as they are made.
 # The services' contexts keep this very dict and read it per call.
-_shared: dict[str, Any] = {"atv_touch": None, "youtube": None}
+_dock_input = DockInput()  # when the dock was last used (any key or knob)
+_shared: dict[str, Any] = {"atv_touch": None, "youtube": None, "atv_clients": None,
+                           "dock_input": _dock_input}
 _engine = TabEngine({}, {})  # replaced in main() before the device starts
 _ctx_cfg: dict | None = None  # config "tabs.context"; None = no context detection
 _atv_app: AtvApp | None = None  # with _ctx_cfg; under _ctx_lock
@@ -238,6 +241,8 @@ def _run_actions(actions: Any, *, dry_run: bool) -> None:
     # Runs on the SDK reader thread: tab presses only update the engine and
     # wake the renderer, they never draw here. A bad config (a non-numeric
     # key, a spec that fails to resolve) is logged, never raised into the SDK.
+    if not dry_run:
+        _dock_input.touch()
     if isinstance(actions, dict) and ("tab_key" in actions or "key_action" in actions):
         try:
             key = int(actions.get("tab_key", actions.get("key_action")))
@@ -715,6 +720,23 @@ def _watch(entities: list[str]) -> None:
         time.sleep(RETRY_SECONDS)
 
 
+def _install_atv_clients(config: dict[str, Any]) -> Callable[[], None] | None:
+    """Track which Apple TV apps are alive (ctx.shared("atv_clients")); returns
+    the tracker's connection-lost callback. Must run before the Apple TV
+    connection is made: it hooks the MRP session."""
+    try:
+        import atv_clients
+
+        apps = ((config.get("services") or {}).get("profiles") or {}).get("apps") or {}
+        tracker = atv_clients.AtvClients(watch=list(apps) if isinstance(apps, dict) else [])
+        atv_clients.install(tracker)
+        _shared["atv_clients"] = tracker
+        return tracker.on_lost
+    except Exception as err:
+        print(f"atv-clients: disabled ({err!r})", flush=True)
+        return None
+
+
 def _warn_legacy_config(config: dict[str, Any]) -> None:
     """One line for a config section that is no longer read where it is."""
     if "soccer" in config:
@@ -820,7 +842,7 @@ def main() -> int:
         try:  # direct Companion connection for preview scrubbing (pairing via files)
             from atv_touch import AppleTVTouch
 
-            touch = AppleTVTouch()
+            touch = AppleTVTouch(on_lost=_install_atv_clients(config))
             _shared["atv_touch"] = touch
         except Exception as err:
             print(f"atv-touch: disabled ({err!r}); scrubbing uses seek", flush=True)

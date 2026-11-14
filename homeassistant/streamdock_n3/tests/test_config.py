@@ -225,12 +225,14 @@ def test_buttons_routed():
 
 def test_launch_ids_match_constraints():
     for (page, key), (device, app) in LAUNCH_IDS.items():
-        assert PAGES[page]["keys"][key]["action"] == {"launch": {"device": device, "app": app}}
+        want = ({"service": "profiles", "do": "open", "args": {"app": app}} if device == "atv"
+                else {"launch": {"device": device, "app": app}})  # Apple TV apps open through the profiles service
+        assert PAGES[page]["keys"][key]["action"] == want
 
 
 def test_every_launch_action_is_well_formed():
     launches = [a["launch"] for a in all_actions() if isinstance(a, dict) and "launch" in a]
-    assert len(launches) == len(LAUNCH_IDS)
+    assert len(launches) == sum(1 for device, _ in LAUNCH_IDS.values() if device == "lg")
     for req in launches:
         assert req["device"] in {"atv", "lg"}
         assert isinstance(req["app"], str) and req["app"]
@@ -331,7 +333,8 @@ def test_toast_config():
     assert toast["lg"] == LG
     # every event the app sends is on, except ad mute / unmute (too noisy);
     # "scenes" is the scenes service's temporary lookup toast (toast_lookup)
-    assert set(toast["events"]) == (set(EVENTS) - {"ad"}) | {"scenes"}
+    # "profiles" is the profiles service's undo toast
+    assert set(toast["events"]) == (set(EVENTS) - {"ad"}) | {"scenes", "profiles"}
     for action in all_actions():
         if isinstance(action, dict) and "toast" in action:
             assert isinstance(action["toast"], str) and action["toast"].strip()
