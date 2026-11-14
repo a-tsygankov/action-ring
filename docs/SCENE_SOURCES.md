@@ -30,35 +30,69 @@ natural keys for the local database.
   `videoskip.herokuapp.com`). A free, open-source browser extension; users
   share "skip files". Login is needed only to upload or request.
 - **Protection**: none seen. `robots.txt` not checked.
-- **Search**: `GET /exchange/search/?q=<title>`. The result lists films with
-  skip files and films with requests only. A miss says "No videos matching
-  your search with a skip file". Not yet seen: the markup of a result with
-  hits (the one test query, "babylon", had none).
-- **Film page**: `/exchange/videos/<id>/`. Title, content rating, release
-  date, genres, a link to `imdb.com/title/tt…`, the list of skip files, and
-  pending requests.
+- **Search**: `GET /exchange/search/?q=<title>`. Captured 2026-11-13 with
+  hits ("tuner"): the page has the sections "Series with existing videos",
+  "Videos with skip files", "Videos with requests" and "Series without videos".
+  Each hit is a table row `<tr><td><a href="/exchange/videos/<id>/">Title
+  (year)</a></td></tr>` under the `<h3>Videos with skip files </h3>` heading,
+  before the "Videos with requests" heading (rows there have no skip file: do
+  not read them). A miss says "No videos matching your search with a skip
+  file". The title text carries the year, which separates remakes.
+- **Film page**: `/exchange/videos/<id>/`. `<h1>` title, content rating,
+  release date, genres, a link to `imdb.com/title/tt<digits>` (and its
+  `/parentalguide`), then `<h3>Skip Files:</h3>` followed by a table with one
+  `<tr>` per skip file: `<a href="/exchange/skip/<id>/">` , uploader link,
+  upload date, `Filters: <text>` (for example "Sex and Nudity for Adults"),
+  "<n> downloads", and a form whose action is `/exchange/skip/<id>/download/`.
+  A film without skip files has no such table (see the noskips fixture). The
+  film page does NOT say which streaming service a skip file is for.
 - **Skip page**: `/exchange/skip/<id>/`. Uploader, upload date, download
   count, "Synced with: Amazon Prime Video", "Filters: Sex and Nudity for
-  Adults", a free-text note.
+  Adults", a free-text note. Only this page names the sync service; the
+  download carries the same in the offsets line.
 - **Skip file**: `GET /exchange/skip/<id>/download/`, `text/plain`, named like
-  `Tuner_2026_amazon.skp`, about 30 KB (mostly an embedded image). Layout:
+  `Tuner_2026_amazon.skp`, about 18-30 KB (mostly an embedded image). Layout:
 
   ```
   0:00:03.95                      <- time of the sync screenshot
+  <optional sync note line>
 
   0:49:03 --> 0:49:06             <- one block per edit: start --> end
-  Nudity 3 video                  <- category, severity 1-3, what to hide
+  Nudity 3 video                  <- category, severity 1-3, optional handling word
+  
+  0:54:46 --> 0:55:29
+  Sex 3                           <- handling word may be absent (= skip)
 
   {"amazon":0}                    <- offset in seconds per streaming service
 
   data:image/jpeg;base64,...      <- the sync screenshot (ignore; do not store)
   ```
 
-- **Parsing notes**: read blocks until the JSON line; stop before the `data:`
-  line. Categories follow IMDb's parents guide (sex/nudity, violence,
-  profanity, ...), so keep only the nudity/sex blocks. A film may have several
-  skip files from different users and services: prefer the one synced with
-  the playing service, else apply the per-service offset, else use it as is.
+- **Parsing notes**: split the text at `data:image/jpeg;base64,` and then at the
+  first `{`: before it are the skip blocks, after it the offsets JSON (the
+  extension does exactly this). Categories follow IMDb's parents guide, so
+  keep only the nudity/sex blocks. Block text is free: in the extension
+  (`content2.js`, `setActions`) a text containing `//` means "ignore this
+  block", words starting `aud|sou|spe|wor|mut` mean mute, `vid|ima|img|bla`
+  blank the picture, `blu` blur, `fas` fast-forward, none of them = skip; for
+  locating a scene all of these still mark the scene. Two files seen
+  (Tuner, Weapons) have one and one block each; the Weapons block is a 43 s
+  range.
+- **Offsets line (from the extension source, fruiz500/VideoSkip-extension)**:
+  `{"<service>": seconds}`. When the extension loads a file on service S it
+  adds `offsets[S]` to every start and end time (`cuts[i].startTime +=
+  offset`). So the times in the file are for the service that made the file
+  (its own entry is 0) and `time_on_S = file_time + offsets[S]`: a positive
+  offset means the scene is LATER on S than in the file. A service not listed
+  has no known offset: the extension then makes the user sync by hand against
+  the screenshot; the service must not guess. Exception hard-coded in the
+  extension: on `disneyplus` with no entry, offset = +20 s. Service name =
+  the second-level domain of the page host (`amazon`, `netflix`, `disneyplus`,
+  `hulu`, `apple`, `pluto`, `max`/`hbomax` presumably for max.com; also
+  `local` and `IPnumber`). Seen in captures: only `amazon` (value 0, both
+  files). The download name's `[a-b]` tag in older files lists the service keys.
+  Not established: values for Max / Disney+ in real files (no such skip file
+  was found in the 6 requests made).
 - **Quality**: user-made; download counts are a rough trust signal. Skips are
   often short (a few seconds). Aimed at hiding content, so coverage leans to
   family-audience titles.
