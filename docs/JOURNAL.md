@@ -1369,6 +1369,10 @@ PC only (fixtures, no live requests in tests).
 - A mangled `\b` (a backspace character) in the fixture privacy test made
   its e-mail check match nothing since Task 2; repaired, and the check
   passes for real.
+- Max works (0.6.1-6): HBO Max sends an empty `media_title` and the film's
+  name as `media_artist`, so no film was noticed; the service now falls back
+  to the artist when the title is empty. Weapons: 1 scene (`Sex 3`,
+  0:54:46, file timed on Prime), one press landed near 0:54:41, key gray.
 - Films with known times for further checks (VideoSkip; service per TMDB's
   US listings on 11-13): Fight Club on Pluto (0:48:38, 0:55:42, 0:58:43),
   Titanic on Paramount+ (1:22:04, 1:30:34, 1:31:12), Weapons on Max
@@ -1388,8 +1392,7 @@ PC only (fixtures, no live requests in tests).
       `secrets.json`); Gemini Pro with search as a low-confidence last
       resort. Trial results and analysis: `docs/SCENE_SOURCES.md`.
 
-- [ ] Scene jump, TV checks left: Max and Disney+ (a film known to
-      VideoSkip); Tubi (no film with known times found yet); Pluto outside
+- [ ] Scene jump, TV checks left: Disney+ (a film known to VideoSkip); Tubi (no film with known times found yet); Pluto outside
       an ad break; whether the position reported after a seek ever lags more than
       `seek_hold_s` (5 s) (in Prime it arrived within 1-3 s).
 - [ ] Scene jump: keep the key gray while an ad break runs (Pluto, Tubi):
