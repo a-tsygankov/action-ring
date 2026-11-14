@@ -16,7 +16,7 @@ Last checked: 2026-11-13, from a home connection, about 20 requests in total
 | [nudidex](#nudidex) | Reported exact (not seen) | Reported small | Cloudflare challenge blocks curl and a real browser | Unknown | **Not usable** now |
 | [AZNude](#aznude) | None: clip lengths only | Very many | Behind Cloudflare, no challenge seen | No; a search form | Scene count only; key stays gray |
 | [Web image search](#web-search-google--duckduckgo) | None | n/a | Search engines block automated queries | Paid APIs only | Not planned |
-| [Gemini with a screenshot](#gemini-query-with-a-screenshot-proposed) (proposed) | Model's estimate; unverified | Any film with a still | None (official API, needs a key) | Yes | Candidate for a later version; needs a trial first |
+| [Gemini with a screenshot](#gemini-query-with-a-screenshot-tried-2026-11-13) (tried) | Model's estimate; minutes off, sometimes an hour | Any well-known film | None (official API, paid key) | Yes | Not usable alone; maybe a low-confidence last resort |
 | [IMDb parents guide](#imdb-parents-guide-new) (new) | Occasional, free text | Very many | Strong (WAF) | No free API | Not planned |
 
 Only sources with timecodes can light the key. A film known only to AZNude
@@ -157,33 +157,57 @@ natural keys for the local database.
 - Not planned: finding a time from a still means matching it against the
   playing picture, which is a separate project.
 
-## Gemini query with a screenshot (proposed)
+## Gemini query with a screenshot (tried 2026-11-13)
 
-Proposed by the owner on 2026-11-13; not analysed with real queries yet (no
-API key in the project).
+Proposed by the owner. Tried by hand with the owner's Gemini API key (about
+25 requests, `gemini-pro-latest` and `gemini-flash-latest`, temperature 0).
+Reference times are VideoSkip skip files fetched for the test.
 
-- **Idea**: for a film with no timecodes anywhere, send Gemini a still of the
-  scene (AZNude thumbnails are the obvious supply) with the film's name and
-  year, and ask when in the film it occurs.
 - **API**: official Gemini API (`generativelanguage.googleapis.com`), image +
-  text in one request, JSON answers possible. Needs a key in
-  `/config/secrets.json`; free tier with rate limits. No scraping, no bot
-  protection.
-- **What must be tested before relying on it**:
-  - Accuracy. A model answering from memory has no timeline of the film; it
-    can return a confident time that is simply wrong. Check against films
-    whose times are known (VideoSkip, NSFWhen) and measure the error. With
-    Google Search grounding it may instead find a page that states the time,
-    which is then the real source.
-  - Refusals. Nude stills are likely to be blocked by the API's safety
-    filters; the answer may be empty for exactly the images that matter.
-  - Cost and volume: one request per still, several stills per film.
-- **How it would fit**: its own source module, after an `aznude` module that
-  supplies the stills. Its scenes must be stored as low confidence (start
-  only, no end) and used only when no source with real timecodes has the
-  film; a wider lead before the jump (for example 30 s).
-- **Status**: candidate for a later version. First step is a manual trial on
-  5-10 films with known timecodes.
+  text in one request, optional Google Search grounding. Needs a key with
+  credits (a depleted prepaid project answers 402). No bot protection. One
+  request with search took up to a minute or more (one timed out at 90 s).
+
+**Film name and year only, no image**
+
+| Film | Reference (VideoSkip) | Pro, from memory | Pro, with search | Flash, from memory |
+|---|---|---|---|---|
+| Titanic (1997), drawing scene | 1:22:04 | 1:22:50 (46 s late) | 1:21:19 (45 s early) | 1:25:30 (3.5 min late) |
+| Titanic, car scene | 1:30:34 | 1:28:40 (2 min early) | 1:34:31 (4 min late) | 1:36:15 (5.5 min late) |
+| Oppenheimer (2023), first | 0:23:13 | 0:28:40 (5.5 min late) | 0:23:11 (exact) | 0:28:40 |
+| Oppenheimer, second | 1:14:49 | 1:14:20 (30 s early) | 0:29:07 (wrong) | 1:34:10 (20 min off) |
+| Oppenheimer, third | 1:15:29 | 2:15:45 (an hour off) | 1:15:30 (exact) | 2:19:45 (an hour off) |
+| Tuner (2026), Weapons (2025), Dracula (2025) | known | no times given | no times given ("scene exists, times not published") | not run |
+
+- From memory the model is minutes off and sometimes an hour off, with
+  "medium" or "high" confidence either way: its confidence says nothing.
+- With search it is exact only when it finds a page that lists times (here a
+  Reddit thread); that page is then the real source. For recent films it
+  found none and said so instead of inventing times, when the prompt allowed
+  an empty answer.
+- Flash is clearly worse than Pro.
+
+**With a still (AZNude thumbnail) plus name and year**
+
+- Three answers for two Titanic stills of the drawing scene (reference
+  1:22:04-1:24:09): 1:24:10, 1:24:42, 1:26:25. So it recognises the scene and
+  lands within about 0-2.5 min after it; no better than the text-only
+  question, and late rather than early.
+- No refusal: the nude stills were accepted (3 of 3).
+- AZNude: the Titanic page listed stills (`data-thumb`); the Oppenheimer page
+  listed none in that markup, so stills are not always available.
+
+**Verdict**
+
+- Not good enough to light the key on its own: an error of minutes, in either
+  direction, with no usable confidence signal.
+- Possible later use, as a last-resort source: Pro with search, name and year
+  only (the still adds nothing), stored as low confidence, used only when no
+  timecode source has the film, and with a lead of a few minutes so the jump
+  lands before the scene. One request per film.
+- Cheaper and more exact for the same films: Reddit threads with timestamps
+  are what search found; a direct search of such threads would be a source of
+  its own (not analysed).
 
 ## IMDb parents guide (new)
 
