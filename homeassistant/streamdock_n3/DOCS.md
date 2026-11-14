@@ -645,8 +645,8 @@ once, second-press memory included; after longer it is noticed anew.
   their film looked up, but the key stays gray. The TV Room preset lists
   Max and Disney+ (exact seek checked on the TV on 10-25) and, added on
   11-13 at the owner's request before any check, Prime Video, Paramount+,
-  Tubi, Pluto and Netflix: see the journal's open items for what the TV
-  showed. Two limits known from the now-playing log:
+  Tubi, Pluto and Netflix, then the Apple TV app (`com.apple.TVWatchList`):
+  see the journal for what the TV showed in each. Two limits known from the now-playing log:
   - **Netflix** reports no title, duration or position to the Apple TV, so
     the service cannot tell which film is on or where it is: the key stays
     gray there whatever this list says.
