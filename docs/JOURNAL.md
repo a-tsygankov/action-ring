@@ -1379,6 +1379,11 @@ PC only (fixtures, no live requests in tests).
   (into the scene), then started an ad break (HA `paused` at 3933 s). So on
   Tubi a long jump can be followed by a break a few seconds after landing;
   after the break the film resumed where it had stopped (owner watching).
+- Tuner in Paramount+: 1 scene (`Nudity 3`, 0:49:03, file timed on Prime);
+  the press went to 0:48:58 and the position was reported as 0:48:59.
+- The Apple TV app works (0.6.1-7, `com.apple.TVWatchList` added to
+  `seek_apps`): Pulp Fiction, 5 blocks in the file, 3 used (two `nudity 1`,
+  one `sex 3`); first press `jump 31s -> 4859s`, reported 4859.
 - Films with known times for further checks (VideoSkip; service per TMDB's
   US listings on 11-13): Fight Club on Pluto (0:48:38, 0:55:42, 0:58:43),
   Titanic on Paramount+ (1:22:04, 1:30:34, 1:31:12), Weapons on Max
