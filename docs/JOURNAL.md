@@ -1275,7 +1275,52 @@ announced by a TV toast via `system.notifications/createToast`):
   token page) went over its 2 s budget. `services/**/tests` stay out of the
   image (`.dockerignore`).
 
+### 2026-11-13 — Scene jump service (0.6.1-1)
+
+Status: **not deployed yet; not checked on the TV.** Built and tested on the
+PC only (fixtures, no live requests in tests).
+
+- What it is: a `services/scenes/` service and one key (`context:streaming`
+  slot 4, `scenes.next`). In Max or Disney+ it jumps the film to a few seconds
+  before the next scene marked as nudity or sex in public lists. Gray key =
+  nothing to jump to, colour = a press moves the picture. Design:
+  `docs/superpowers/specs/2026-11-13-scene-jump-design.md`; sources:
+  `docs/SCENE_SOURCES.md`.
+- How it works: a job watches the Apple TV state; a film (>= 50 min or typed
+  movie) is noticed after 10 s; TMDB identifies it (`tmdb_key` in
+  `/config/secrets.json`); VideoSkip, NSFWhen and nudidex are asked once per
+  film with a 3 s gap and a daily cap of 30 films, hits and misses cached in
+  `scenes.sqlite`; the lists are merged (scenes within 20 s join); the key is
+  lit only while a scene's lead-in point is ahead of the position.
+- Press: `media_seek` to `start - lead_s` (5 s). Right after a jump the
+  position counts as the scene's start, so a second press goes to the next
+  scene instead of repeating.
+- Decisions made during the build (in the design, section 6): a scene is
+  "ahead" only if `start - max(guard_s, lead_s)` is later than the position;
+  VideoSkip offsets only when the file lists the service (no implicit
+  Disney+ +20 s).
+- Icons: the owner's silhouette (`services/scenes/icons/source.gif`) built
+  by `homeassistant/tools/icons/build_scene_icons.py` into `scene.png`
+  (white on red) and `scene_off.png` (gray). Only checked by eye as images.
+- Not done: deploy (`restore.sh`) and the TV check; `tmdb_key` is not on the
+  device; no real offsets for Max or Disney+ (see open items); no toasts.
+
 ## Open items
+
+- [ ] Scene jump: deploy (`restore.sh`, with the owner) and check on the TV
+      in Max or Disney+: a film known to VideoSkip, the `scenes:` log
+      lines, the key turns to colour, one press lands about 5 s before the
+      scene. Record any `lead_s` / offset finding.
+- [ ] Scene jump: put `{"scenes": {"tmdb_key": "..."}}` into
+      `/config/secrets.json` on the device (without it VideoSkip matches are
+      not accepted).
+- [ ] Scene jump: check `media_seek` in more apps before adding them to
+      `seek_apps`.
+- [ ] Scene jump: no Max or Disney+ VideoSkip file seen yet, so those
+      offsets (`app_services`) are unverified.
+- [ ] Scene jump: a Gemini-with-screenshot source needs a trial before it is
+      built.
+- [ ] Scene jump: recheck nudidex (coverage, blocking) before relying on it.
 
 - [ ] Services: watch for `render calls off` / `SLOW soccer cond:` lines
       over a few evenings (the breaker counts wall time, so lock waits

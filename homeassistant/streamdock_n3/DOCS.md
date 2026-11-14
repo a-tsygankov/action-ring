@@ -614,6 +614,57 @@ saved.
 The log shows `soccer: 3 live: …`, `soccer: picked 2/3: …`, `soccer: playing 2/3: …` and fetch
 errors. After an error the last list is kept.
 
+### Scene jump
+
+The `services.scenes` section turns on a key that jumps to the next scene
+of a film that is marked in public scene lists (`services/scenes/`; the
+sources and their rules are in [docs/SCENE_SOURCES.md](../../docs/SCENE_SOURCES.md),
+the design in `docs/superpowers/specs/2026-11-13-scene-jump-design.md`).
+
+The key is `{"service_key": "scenes.next"}`, slot 4 of `context:streaming`.
+It is gray, and turns to colour when a film is playing in one of the
+`seek_apps`, the film is in the lists, and a scene starts later than the
+current position. One press seeks (`media_player.media_seek`) to `lead_s`
+seconds before that scene. A second press during the lead-in goes to the
+scene after it; with none left the key goes gray again.
+
+```json
+"services": { "scenes": {
+  "atv": "media_player.vugitv_4k_vugitv_4k",
+  "seek_apps": ["com.wbd.stream", "com.disney.disneyplus"],
+  "exclude_apps": ["com.google.ios.youtube"],
+  "sources": ["videoskip", "nsfwhen", "nudidex"],
+  "app_services": { "com.wbd.stream": "max", "com.disney.disneyplus": "disneyplus" } } }
+```
+
+- **`seek_apps`**: the apps where the jump is allowed (Max and Disney+ to
+  start with). Other apps still get their film looked up, but the key stays
+  gray; add an app only after a seek has been checked on the TV in it.
+- **`lead_s`** (5): how many seconds before the scene the jump lands.
+  `guard_s` (2) and `join_gap_s` (20, nearby scenes merged into one) tune
+  the same thing.
+- **`categories`** (`["nudity", "sex"]`): which kinds of scene count.
+- **`sources`** (`["videoskip", "nsfwhen", "nudidex"]`): where the lists
+  come from, in this order. `app_services` names the VideoSkip streaming
+  service per app, so the file's time offset for that service is applied.
+- **`max_lookups_per_day`** (30), `request_gap_s` (3) and the TTLs
+  `hit_ttl_days` (90), `miss_ttl_days` (14), `blocked_ttl_days` (1) keep the
+  use of the sites light. Results are cached in `scenes.sqlite`.
+- **Film filter**: only content of at least `min_film_s` (3000 s) or typed
+  as a movie; a film is looked up `settle_s` (10) seconds after it starts.
+
+The TMDB key (to identify the film) goes in `/config/secrets.json` on the
+device: `{"scenes": {"tmdb_key": "..."}}`. Without it VideoSkip matches are
+not accepted (a title alone is not enough to trust a skip file), so the
+key stays gray; the log says `scenes: no tmdb_key in secrets.json`.
+
+Log lines (all start with `scenes:`): `film: "Title" 110 min in <app>` when a
+film is noticed; `"Title": 3 scenes` for the merged result; one line per
+source, `videoskip: hit, 2 scenes, 4 requests` (status `hit`, `miss`, `ambiguous`, `error` or
+`blocked`; no addresses are logged); `daily lookup limit reached`;
+`app cannot seek: key stays gray`; and each press `jump 1203s -> 1388s
+(scene at 1393s)`. No toasts in this version.
+
 ### Now-playing log (ad research)
 
 `"now_playing_log": { "entities": ["media_player.…"] }` records what changes

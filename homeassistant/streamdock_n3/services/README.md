@@ -8,8 +8,9 @@ the config, runs their jobs and actions, calls their key/condition hooks on
 the render path, and measures every operation.
 
 This file is enough to write a new service. `soccer/` is the worked example
-(jobs, actions, conditions, keys, context override, tests); the template below
-is the smallest useful one. Design background:
+(jobs, actions, conditions, keys, context override, tests); `scenes/` is the second
+worked example (a database, several HTTP sources, a condition driven by the clock);
+the template below is the smallest useful one. Design background:
 [the design spec](../../../docs/superpowers/specs/2026-11-13-pluggable-services-design.md).
 
 ## Add a service in five steps

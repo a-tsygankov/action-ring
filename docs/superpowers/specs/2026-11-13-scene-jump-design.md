@@ -197,6 +197,17 @@ fine: no film is playing there.
   after each change the job/action calls `ctx.redraw_in()` for that moment
   and `ctx.changed()`.
 
+**Decided during the build (2026-11-13):**
+
+- A scene counts as "ahead" only when its start minus `max(guard_s, lead_s)`
+  is later than the position. With the lead-in point at or before the
+  position, a press would not move the picture, so the key is not lit for it
+  (it would break the anti-goal of a coloured key that does nothing).
+- VideoSkip per-service offsets are applied only when the skip file lists the
+  playing service explicitly (`app_services` gives the name). The
+  extension's implicit +20 s default for `disneyplus` is not copied: a file
+  that does not list the service is not shifted by a guess.
+
 ### 7. Icons
 
 From the attached silhouette (64×64 GIF, now at

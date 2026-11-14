@@ -203,9 +203,11 @@ API key in the project).
 
 - At most one lookup per film per source, cached (hits and misses) in the
   local database; misses are retried after a long delay, not on every play.
+  Config: `hit_ttl_days` (90), `miss_ttl_days` (14); `max_lookups_per_day`
+  (30) caps new films looked up per day.
 - A fixed pause between requests to the same site and one request at a time
-  per site.
+  per site. Config: `request_gap_s` (3).
 - A challenge page or a 403/429 marks the source as blocked for a day; the
-  other sources are still used.
+  other sources are still used. Config: `blocked_ttl_days` (1).
 - During development, work from saved pages (test fixtures), not the live
   sites.
