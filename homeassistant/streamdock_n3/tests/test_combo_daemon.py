@@ -1,8 +1,8 @@
-"""The key chord in the daemon, end to end with the cats service: the three
-round buttons together show the cats for 10 s (their own actions never run),
-then the page comes back; a cat press plays a video; presses that are not a
-chord still do what they do. The upstream package and the device are stubbed
-as in test_services_daemon.py; the chord timer is driven by hand."""
+"""The key combo in the daemon, end to end with the cats service: Round 1,
+2, 3 in a row show the cats for 10 s (their own actions never run), then the
+page comes back; a cat press plays a video; presses that are not the combo
+still do what they do. The upstream package and the device are stubbed as in
+test_services_daemon.py; the combo timer is driven by hand."""
 
 import importlib
 import sys
@@ -11,10 +11,10 @@ from types import ModuleType, SimpleNamespace
 import pytest
 from PIL import Image
 
-from chord import Chord
+from combo import Combo
 from services.host import ServiceHost
 
-ROUND = frozenset({7, 8, 9})
+SEQ = (7, 8, 9)
 IDLE_KEYS = {"1": {"label": "A", "color": "#123456"}, "2": {"label": "B", "color": "#654321"}}
 CONFIG = {
     "services": {"cats": {"atv": "media_player.atv", "atv_remote": "remote.atv", "lg": "media_player.lg",
@@ -81,7 +81,7 @@ def d(monkeypatch, tmp_path):
     clock = SimpleNamespace(t=100.0)
     monkeypatch.setattr(hd, "time", SimpleNamespace(monotonic=lambda: clock.t))
     timers = []
-    monkeypatch.setattr(hd, "_arm_chord_timer", lambda: timers.append(hd._chord.next_due))
+    monkeypatch.setattr(hd, "_arm_combo_timer", lambda: timers.append(hd._combo.next_due))
     hd._device = Device()
     yt = FakeYouTube()
     hd._shared["youtube"] = yt
@@ -96,7 +96,7 @@ def d(monkeypatch, tmp_path):
     hd._engine, _, _ = hd._make_engine(CONFIG)
     host.start()
     hd._engine.set_context("idle", clock.t)
-    hd._chord, hd._chord_action = Chord(ROUND, 0.3), {"service": "cats", "do": "show"}
+    hd._combo, hd._combo_action = Combo(SEQ, 0.6), {"service": "cats", "do": "show"}
     hd._button_actions = BUTTONS
     yield SimpleNamespace(hd=hd, clock=clock, ran=ran, yt=yt, timers=timers, host=host)
     host.stop()
@@ -112,17 +112,17 @@ def test_event_key_hook_is_installed(d):
     assert sys.modules["streamdock_n3.daemon"].event_key is d.hd._event_key
 
 
-def test_chord_shows_cats_for_ten_seconds_then_restores_the_page(d):
+def test_combo_shows_cats_for_ten_seconds_then_restores_the_page(d):
     hd = d.hd
     hd._render_pass()
     before = dict(hd._drawn)
-    assert [press(d, 7), press(d, 9, 0.05), press(d, 8, 0.05)] == [None, None, None]
+    assert [press(d, 7), press(d, 8, 0.4), press(d, 9, 0.4)] == [None, None, None]
     assert d.ran == []  # neither "echo home" nor "echo power"
     assert hd._engine.visible == "cats.faces"  # not the Round 1 "apps" tab either
     hd._render_pass()
     icons = [hd._drawn[k].icon for k in range(1, 7)]
     assert [i.rsplit("/", 1)[1] for i in icons] == [f"cat_{k}.png" for k in range(1, 7)]
-    assert hd._chord.next_due is None  # nothing left to replay
+    assert hd._combo.next_due is None  # nothing left to replay
     d.clock.t += 9.9
     hd._engine.tick(d.clock.t)
     assert hd._engine.visible == "cats.faces"  # 10 s, not the 5 s "open" timeout
@@ -135,7 +135,7 @@ def test_chord_shows_cats_for_ten_seconds_then_restores_the_page(d):
 
 def test_cats_blink_and_stick_out_tongues(d):
     hd = d.hd
-    press(d, 7), press(d, 8), press(d, 9)
+    press(d, 7), press(d, 8, 0.2), press(d, 9, 0.2)
     seen = set()
     for _ in range(100):  # 10 s in 0.1 s steps
         hd._render_pass()
@@ -147,7 +147,7 @@ def test_cats_blink_and_stick_out_tongues(d):
 
 def test_cat_press_plays_a_cat_video_and_ends_cat_mode(d):
     hd = d.hd
-    press(d, 7), press(d, 8), press(d, 9)
+    press(d, 7), press(d, 8, 0.2), press(d, 9, 0.2)
     d.clock.t += 2
     hd._run_actions({"tab_key": 4}, dry_run=False)
     assert d.yt.played and d.yt.played[0][0] in ("vid1", "vid2")
@@ -156,44 +156,54 @@ def test_cat_press_plays_a_cat_video_and_ends_cat_mode(d):
     assert d.ran == []
 
 
-def test_sequential_presses_run_each_buttons_own_action(d):
+def test_round_1_waits_the_gap_then_opens_its_tab(d):
     hd = d.hd
-    assert press(d, 8) is None  # held for the window
-    assert d.timers == [pytest.approx(100.3)]
-    d.clock.t += 0.31
-    hd._chord_expire()
-    assert d.ran == ["echo home"]
-    assert press(d, 9, 0.5) is None
-    d.clock.t += 0.31
-    hd._chord_expire()
-    assert d.ran == ["echo home", "echo power"]
-    assert press(d, 7, 0.5) is None
-    d.clock.t += 0.31
-    hd._chord_expire()
-    assert hd._engine.visible == "apps"  # Round 1's tab, late by the window
-    assert d.yt.played == []
-
-
-def test_two_of_three_replay_in_order(d):
-    hd = d.hd
-    press(d, 9)
-    press(d, 8, 0.1)
-    d.clock.t += 0.25
-    hd._chord_expire()
-    assert d.ran == ["echo power", "echo home"]
+    assert press(d, 7) is None  # held: it may start the combo
+    assert d.timers == [pytest.approx(100.6)]
     assert hd._engine.visible == "context:idle"
+    d.clock.t += 0.61
+    hd._combo_expire()
+    assert hd._engine.visible == "apps"  # Round 1's tab, late by the gap
+    assert d.yt.played == [] and d.ran == []
+
+
+def test_round_2_and_3_alone_act_at_once(d):
+    assert press(d, 8) == "button.8.press"  # dispatched by the SDK, no wait
+    assert press(d, 9, 1.0) == "button.9.press"
+    assert d.timers == []
+
+
+def test_slow_sequence_runs_each_buttons_own_action(d):
+    hd = d.hd
+    press(d, 7)
+    d.clock.t += 0.61
+    hd._combo_expire()
+    assert hd._engine.visible == "apps"
+    assert press(d, 8, 0.5) == "button.8.press"  # too late to continue: acts at once
+    assert press(d, 9, 0.5) == "button.9.press"
+    assert hd._engine.visible == "apps"  # no cats
+
+
+def test_broken_combo_replays_in_order(d):
+    hd = d.hd
+    press(d, 7)
+    press(d, 8, 0.3)
+    d.clock.t += 0.61  # Round 3 never came
+    hd._combo_expire()
+    assert hd._engine.visible == "apps"  # Round 1's tab
+    assert d.ran == ["echo home"]  # then Round 2's action
 
 
 def test_other_inputs_pass_and_flush_held_presses(d):
     hd = d.hd
-    press(d, 8)
+    press(d, 7)
     assert hd._event_key("button.1.press") == "button.1.press"  # LCD key: dispatched by the SDK
-    assert d.ran == ["echo home"]  # Round 2 first, in press order
-    assert hd._event_key("button.8.release") == "button.8.release"
+    assert hd._engine.visible == "apps"  # Round 1 first, in press order
+    assert hd._event_key("button.7.release") == "button.7.release"
     assert hd._event_key("knob.3.left") == "knob.3.left"
     assert hd._event_key(None) is None
 
 
-def test_without_a_chord_config_nothing_waits(d):
-    d.hd._chord = None
+def test_without_a_combo_config_nothing_waits(d):
+    d.hd._combo = None
     assert press(d, 7) == "button.7.press"

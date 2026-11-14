@@ -91,12 +91,12 @@ Runs the upstream daemon unchanged and adds:
    Companion, HA, Lounge and webOS commands and logs each result as
    "probe: …", for the live test session.
 
-14. Key chords (chord.py): a "chord" section ({"buttons": [7, 8, 9],
-   "window_ms": 300, "action": ...}) runs its action when all its buttons
-   are pressed within the window. Presses of those buttons wait out the
-   window (they are replayed, in order, if the chord does not complete), so
-   a chord never also does what its buttons normally do. Hooked on the
-   upstream daemon's event_key(): a held press maps to no action.
+14. Key combos (combo.py): a "combo" section ({"buttons": [7, 8, 9],
+   "gap_ms": 600, "action": ...}) runs its action when its buttons are
+   pressed in that order, each within the gap of the one before. A press
+   that starts or continues the combo waits (it is replayed, in order, if the
+   combo breaks), so a combo never also does what its buttons normally do.
+   Hooked on the upstream daemon's event_key(): a held press maps to no action.
 
 13. Services (services/): a "services" config section loads plug-in
    services (packages services/<name>/, each its own section; "enabled": false
@@ -129,7 +129,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import badge
-import chord as chordmod
+import combo as combomod
 import dynamic
 from context import AtvApp, foreground_layout
 from keyspec import Look, changed_keys, entities_of, format_label, icon_path, resolve_action, resolve_look
@@ -371,35 +371,35 @@ def _safe(fn) -> None:
         print(f"action failed: {type(err).__name__}: {err}", flush=True)
 
 
-# -- key chords ------------------------------------------------------------------
+# -- key combos ------------------------------------------------------------------
 
 _BUTTON_PRESS = re.compile(r"button\.(\d+)\.press")
-_chord: chordmod.Chord | None = None  # set in main() from the "chord" section
-_chord_action: Any = None
+_combo: combomod.Combo | None = None  # set in main() from the "combo" section
+_combo_action: Any = None
 _button_actions: dict[str, Any] = {}  # the upstream action map, for replaying held presses
 _dry_run = False
 
 
 def _event_key(event) -> str | None:
-    # SDK reader thread. A press the chord holds back maps to no action.
-    return _chord_filter(_upstream_event_key(event))
+    # SDK reader thread. A press the combo holds back maps to no action.
+    return _combo_filter(_upstream_event_key(event))
 
 
-def _chord_filter(key: str | None) -> str | None:
-    """`key` as is, or None while a chord button's press is held (or the chord completed)."""
-    if _chord is None or not isinstance(key, str):
+def _combo_filter(key: str | None) -> str | None:
+    """`key` as is, or None while a press is held for the combo (or completed it)."""
+    if _combo is None or not isinstance(key, str):
         return key
     m = _BUTTON_PRESS.fullmatch(key)
     if m is None:
         return key  # releases and knobs never wait
-    out = _chord.press(int(m.group(1)), time.monotonic())
+    out = _combo.press(int(m.group(1)), time.monotonic())
     _replay(out.replay)
-    if out.chord:
-        print(f"chord: {'+'.join(map(str, sorted(_chord.buttons)))}", flush=True)
-        _run_actions(_chord_action, dry_run=_dry_run)
+    if out.done:
+        print(f"combo: {'-'.join(map(str, _combo.buttons))}", flush=True)
+        _run_actions(_combo_action, dry_run=_dry_run)
         return None
     if out.held:
-        _arm_chord_timer()
+        _arm_combo_timer()
         return None
     return key
 
@@ -409,25 +409,25 @@ def _replay(buttons: tuple[int, ...]) -> None:
         try:
             _run_actions(_button_actions.get(f"button.{b}.press"), dry_run=_dry_run)
         except Exception as err:  # never into the SDK or the timer
-            print(f"chord: button {b}: {type(err).__name__}: {err}", flush=True)
+            print(f"combo: button {b}: {type(err).__name__}: {err}", flush=True)
 
 
-def _arm_chord_timer() -> None:
-    due = _chord.next_due if _chord is not None else None
+def _arm_combo_timer() -> None:
+    due = _combo.next_due if _combo is not None else None
     if due is None:
         return
-    timer = threading.Timer(max(0.0, due - time.monotonic()) + 0.005, _chord_expire)
+    timer = threading.Timer(max(0.0, due - time.monotonic()) + 0.005, _combo_expire)
     timer.daemon = True
     timer.start()
 
 
-def _chord_expire() -> None:
-    # Timer thread: replay the presses whose window ran out (a chord that
-    # completed meanwhile left nothing to replay).
-    if _chord is None:
+def _combo_expire() -> None:
+    # Timer thread: replay the held presses once the next one is overdue (a
+    # combo that completed meanwhile left nothing to replay).
+    if _combo is None:
         return
-    _replay(_chord.expire(time.monotonic()))
-    _arm_chord_timer()  # presses held since are due later
+    _replay(_combo.expire(time.monotonic()))
+    _arm_combo_timer()  # presses held since are due later
 
 
 daemon.apply_icons = _apply_icons
@@ -817,7 +817,7 @@ def _warn_legacy_config(config: dict[str, Any]) -> None:
 def main() -> int:
     global _knobs, _youtube, _rating, _toaster, _np_log, _engine, _ctx_cfg, _launch_cfg, _core
     global _atv_app, _logo_cfg, _logo_icons, _logo_clock, _host
-    global _chord, _chord_action, _button_actions, _dry_run
+    global _combo, _combo_action, _button_actions, _dry_run
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--config", type=Path)
     args, _ = parser.parse_known_args()
@@ -825,14 +825,14 @@ def main() -> int:
     _warn_legacy_config(config)
     _dry_run = "--dry-run" in sys.argv
     try:
-        made = chordmod.from_config(config.get("chord"))
+        made = combomod.from_config(config.get("combo"))
     except (TypeError, ValueError) as err:
-        print(f"chord: disabled ({err})", flush=True)
+        print(f"combo: disabled ({err})", flush=True)
         made = None
     if made is not None:
-        _chord, _chord_action = made
+        _combo, _combo_action = made
         _button_actions = configmod.action_map(config)
-        print(f"chord: buttons {sorted(_chord.buttons)} within {_chord.window_s * 1000:.0f} ms", flush=True)
+        print(f"combo: buttons {list(_combo.buttons)}, {_combo.gap_s * 1000:.0f} ms apart", flush=True)
 
     entities: set[str] = set()
     _core = CoreAPI()

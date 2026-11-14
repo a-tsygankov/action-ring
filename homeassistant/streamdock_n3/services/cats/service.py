@@ -1,5 +1,5 @@
-"""cats: an easter egg. The three round buttons pressed together (the core's
-key chord, config "chord") run {"service": "cats", "do": "show"}: every key
+"""cats: an easter egg. Round 1, 2, 3 pressed in a row (the core's key
+combo, config "combo") run {"service": "cats", "do": "show"}: every key
 turns into a cat's face for 10 s, the cats blink and stick their tongues out,
 then the page that was there comes back. Pressing a cat plays a cat video in
 YouTube on the Apple TV and ends it.

@@ -830,19 +830,19 @@ Reasons: `warm` (running), `cold`, `unknown`, `maybe alive` (reports only at
 playback and no process end was seen), `not listed`. The last 100 opens are
 kept in `/data/services/profiles/history.json`.
 
-### Cat easter egg (key chord)
+### Cat easter egg (key combo)
 
-Press the **three round buttons together** and every key turns into a cat's
-face for 10 seconds; the cats blink and stick their tongues out now and then.
-Then the page that was there comes back. Pressing any cat plays a cat video
-in YouTube on the Apple TV (a random one from `videos`, never the same one
-twice in a row) and ends it.
+Press **Round 1, Round 2, Round 3 in a row** (each within 0.6 s of the one
+before) and every key turns into a cat's face for 10 seconds; the cats blink
+and stick their tongues out now and then. Then the page that was there comes
+back. Pressing any cat plays a cat video in YouTube on the Apple TV (a random
+one from `videos`, never the same one twice in a row) and ends it.
 
-Two parts: a key chord in the core (`chord.py`) and the `cats` service
+Two parts: a key combo in the core (`combo.py`) and the `cats` service
 (`services/cats/`), whose page has its own 10 s `open_s`.
 
 ```json
-"chord": { "buttons": [7, 8, 9], "window_ms": 300, "action": { "service": "cats", "do": "show" } },
+"combo": { "buttons": [7, 8, 9], "gap_ms": 600, "action": { "service": "cats", "do": "show" } },
 "services": { "cats": {
   "atv": "media_player.vugitv_4k_vugitv_4k", "atv_remote": "remote.vugitv_4k_vugitv_4k",
   "lg": "media_player.lg_tv_2", "atv_source": "Apple OTT", "power_on_wait": 25,
@@ -851,14 +851,16 @@ Two parts: a key chord in the core (`chord.py`) and the `cats` service
 } }
 ```
 
-- **The chord.** All of `buttons` pressed within `window_ms` of the first
-  press. The chord's own presses never do what those buttons normally do: a
-  press of a chord button waits out the window, then runs as usual if the
-  chord did not complete (in press order; any other key or button pressed
-  meanwhile sends the waiting presses first). The cost: **Round 1/2/3 react
-  `window_ms` (300 ms) later** while a `chord` section is configured. Remove
-  the section (or `"enabled": false`) to get them back at once. The action is
-  any key action.
+- **The combo.** `buttons` pressed in that order, each within `gap_ms` of
+  the one before. Pressing them together does not work: the N3 reports only
+  the first button held and nothing for the others. The combo's own presses
+  never do what those buttons normally do: a press that starts or continues
+  the combo waits; if the next one does not come within `gap_ms` (or another
+  key or button is pressed), the waiting presses run as usual, in order.
+- **The cost: Round 1 reacts 0.6 s later** (it may start the combo). Round 2
+  waits only right after Round 1; Round 3 never waits. Remove the section
+  (or `"enabled": false`) to get Round 1 back at once. The action is any key
+  action.
 - **Playing the video.** With the YouTube app open and linked on `screen`
   (`pair.sh`, the Lounge session that next chapter uses), the video is sent
   over that session. Otherwise the TV is turned on if needed, YouTube is
@@ -872,8 +874,8 @@ Two parts: a key chord in the core (`chord.py`) and the `cats` service
 - The faces are original drawings (`homeassistant/tools/icons/build_cat_icons.py`,
   CC0), three frames per cat (`cat_<n>`, `_blink`, `_tongue`).
 
-Log lines: `chord: buttons [7, 8, 9] within 300 ms` at start, `chord: 7+8+9`
-on each chord, `cats: meow`, `cats: <id> via the YouTube link` (or `…, after
+Log lines: `combo: buttons [7, 8, 9], 600 ms apart` at start, `combo: 7-8-9`
+on each combo, `cats: meow`, `cats: <id> via the YouTube link` (or `…, after
 starting YouTube`, or `… as a URL (no YouTube link session)`).
 
 ### Now-playing log (ad research)
