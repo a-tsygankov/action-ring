@@ -1392,8 +1392,10 @@ PC only (fixtures, no live requests in tests).
 
 ### 2026-11-14 — Profile picker: OK after a cold launch (0.6.2-1)
 
-Status: **not deployed; not checked on the TV.** Built and tested on the PC.
-Ships switched off (`dry_run: true`, every app `picker: false`).
+Status: **deployed 11-14 04:00 in dry run; not checked on the TV.** It only
+logs what it would do (`dry_run: true`, every app `picker: false`). At start
+the tracker listed the running apps at once (`atv-clients:
+com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
 
 - What it is: a `services/profiles/` service. The Apple TV app keys now use
   `{"service": "profiles", "do": "open", "args": {"app": ...}}` instead of
@@ -1437,7 +1439,7 @@ Ships switched off (`dry_run: true`, every app `picker: false`).
 
 ## Open items
 
-- [ ] Profile picker: deploy 0.6.2-1 (dry run) and survey on the TV, one
+- [ ] Profile picker: survey on the TV (0.6.2-1 runs in dry run), one
       step at a time: per app (Netflix, Prime, Max, Disney+, Paramount+,
       Hulu) a cold and a warm launch from the dock: is there a picker, how
       many seconds until it accepts OK, does the log say `cold` / `warm`,
