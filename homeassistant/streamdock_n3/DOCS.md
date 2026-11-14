@@ -563,14 +563,16 @@ a table ranked by that column.
 ### Live soccer
 
 The `services.soccer` section turns on a live-soccer key for Paramount+ and
-MLS (Apple TV) games (`services/soccer/`):
+MLS (Apple TV) games, and live games on the LG's own LG Channels
+(`services/soccer/`). Only men's games are listed:
 
 ```json
 "services": { "soccer": {
   "atv": "media_player.vugitv_4k_vugitv_4k", "atv_remote": "remote.vugitv_4k_vugitv_4k",
   "lg": "media_player.lg_tv_2", "atv_source": "Apple OTT", "power_on_wait": 25,
   "token_page": "https://tv.apple.com/us/channel/mls/tvs.sbd.7000",
-  "cache_s": 60, "poll_s": 180, "idle_poll_s": 1800, "select_after_s": 8 } }
+  "cache_s": 60, "poll_s": 180, "idle_poll_s": 1800, "select_after_s": 8,
+  "lg_channels": ["109", "807"], "lg_country": "US", "lg_cache_s": 600, "lg_open_s": 12 } }
 ```
 
 The LIVE key is `{"service_key": "soccer.live"}` and the NEXT key on
@@ -586,8 +588,9 @@ its use light. A game counts when it is soccer between two teams (studio
 shows such as MLS Countdown are left out), it is live, and its main provider
 is Paramount+ or Apple TV. Live means the clock is running, or, when there
 is no clock, the game is inside Apple's live window. A running clock stops
-counting 30 minutes after that window ends. Games are ordered by kickoff,
-then league. The
+counting 30 minutes after that window ends. Women's games (a team or
+league named Women's, Femenil, Frauen, NWSL, ...) are left out. Games are
+ordered by kickoff, then league. The
 listing needs two public web-page tokens; the app reads them from
 `token_page` once a day, or again when Apple rejects them. They are never
 saved.
@@ -604,11 +607,28 @@ saved.
   `tv.apple.com/…/sporting-event/…` link for MLS). If that app is in front
   but not playing after `select_after_s` seconds (a profile picker or a
   "watch live" prompt), one `select` is sent.
+- LG Channels (`lg_channels`: channel numbers; empty or missing turns it
+  off). The list also takes LG's public guide
+  (`api.lgchannels.com/api/v1.0/schedulelist`, country `lg_country`),
+  fetched every `lg_cache_s` seconds; which programmes are on is worked out
+  from it on every poll. A programme counts when it is on one of those
+  channels, its title is marked live ("Live:", "(Live)", "En vivo"), it is
+  soccer (the channel name, title or description says so) and not a women's
+  game. Replays ("Full Match") and highlights are left out. A failing guide
+  or Apple listing keeps the other's games. Picking an LG game powers the TV
+  on as above but does not switch to `atv_source`: it closes LG Channels
+  (it keeps running behind other inputs and would resume playback), opens it
+  and waits `lg_open_s` seconds, then
+  types the channel number with remote keys on the app's home page: the
+  first digit, 1.5 s, the other digits, `ENTER`. Over full-screen playback
+  the first digit only wakes the player, hence the relaunch. LG Channels has no deep link to a
+  channel that works. While that game's channel app stays in front the page
+  stays `context:lg_app` (its keys drive the LG).
 - `{"service": "soccer", "do": "next"}` always picks the next game (the NEXT key on
   `context:live_game`).
 - The `soccer.live` condition lights the key while any game is live. Labels
   can show `{soccer_count}` (live games) and `{soccer_pos}` (e.g. `2/3`).
-- While a started game's app stays in front, the context page is
+- While a started Apple TV game's app stays in front, the context page is
   `context:live_game`. It returns to normal once another app opens.
 
 The log shows `soccer: 3 live: …`, `soccer: picked 2/3: …`, `soccer: playing 2/3: …` and fetch

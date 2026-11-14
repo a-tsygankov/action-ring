@@ -47,7 +47,20 @@ class Game:
     kickoff: float  # epoch seconds
     provider: str  # "paramount" | "apple"
     url: str  # deep link for media_player.play_media (media_content_type "url")
-    app: str  # bundle id the Apple TV shows while the game plays
+    app: str  # bundle id the Apple TV shows while the game plays (LG Channels: the LG's app id)
+    channel: str = ""  # LG Channels number to tune ("" for Apple TV games)
+
+
+# Women's matches are left out (the key lists men's soccer only).
+WOMEN = re.compile(
+    r"\bwom[ae]n|\bladies\b|\bfrauen|\bfemenil|\bf[eé]m[ei]nin|\bfemminile|\bnwsl\b|\bwsl\b|\(w\)",
+    re.IGNORECASE,
+)
+
+
+def is_womens(*texts: str) -> bool:
+    """Any of the texts names a women's team or competition."""
+    return any(WOMEN.search(t or "") for t in texts)
 
 
 def parse_tokens(html: str) -> tuple[str, str] | None:
@@ -81,6 +94,8 @@ def _game(item: dict) -> Game | None:
         return None
     if len(item.get("competitors") or []) != 2:
         return None  # studio shows (MLS Countdown, MLS 360, ...) have no teams
+    if is_womens(str(item.get("title") or ""), str(item.get("leagueName") or "")):
+        return None
     playable = (item.get("playables") or [None])[0] or {}
     provider = PROVIDERS.get(playable.get("channelId"))
     if provider is None:

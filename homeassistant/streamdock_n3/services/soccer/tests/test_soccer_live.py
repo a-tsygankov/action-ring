@@ -96,14 +96,13 @@ def test_parse_tokens():
 
 
 def test_parse_games_filters_live_soccer_and_providers():
-    # Paramount+ fixture: Charlton (clock running), Tottenham (inside the live
-    # badge window) are live; Portsmouth ended, the rugby game is not soccer,
-    # Cagliari is on another provider, Napoli has not started.
+    # Paramount+ fixture: Charlton (clock running) is live; Tottenham v Arsenal
+    # (inside the live badge window) is a Women's Super League game, left out;
+    # Portsmouth ended, the rugby game is not soccer, Cagliari is on another
+    # provider, Napoli has not started.
     pplus = parse_games(json.loads(_fixture("uts_search_paramount.json")), NOW)
-    assert [g.id for g in pplus] == [
-        "umc.cse.37en2vfv6drgjmfc8axpibi8a",
-        "umc.cse.7cplj98aglynqjm12kcaj9i11",
-    ]
+    assert [g.id for g in pplus] == ["umc.cse.37en2vfv6drgjmfc8axpibi8a"]
+    assert "umc.cse.7cplj98aglynqjm12kcaj9i11" not in {g.id for g in pplus}
     charlton = pplus[0]
     assert charlton.provider == "paramount" and charlton.app == P_PLUS
     assert charlton.league == "EFL Championship"
@@ -171,7 +170,7 @@ def test_start_powers_on_and_plays_first_game():
             "media_content_id": live.games()[0].url,
         },
     )
-    assert live.vars() == {"soccer_count": "3", "soccer_pos": "1/3"}
+    assert live.vars() == {"soccer_count": "2", "soccer_pos": "1/2"}
 
 
 def test_start_switches_lg_input_first():
@@ -213,13 +212,12 @@ def test_next_wraps():
     live, rec, st, t = _live()
     live.start()
     live.next()
+    assert live.vars()["soccer_pos"] == "2/2"
     live.next()
-    assert live.vars()["soccer_pos"] == "3/3"
-    live.next()
-    assert live.vars()["soccer_pos"] == "1/3"
+    assert live.vars()["soccer_pos"] == "1/2"
     played = [d["media_content_id"] for _, s, d in rec.calls if s == "play_media"]
     urls = [g.url for g in live.games()]
-    assert played == [urls[0], urls[1], urls[2], urls[0]]
+    assert played == [urls[0], urls[1], urls[0]]
 
 
 def test_play_sends_select_when_not_playing():
@@ -317,7 +315,7 @@ def test_fetch_error_keeps_last_list(capsys):
     live, rec, st, t = _live(fetch=fetch)
     live.refresh()
     first = live.games()
-    assert len(first) == 3
+    assert len(first) == 2
     fetch.fail = OSError("network down")
     t.now += 600
     live.refresh()  # must not raise
@@ -334,7 +332,7 @@ def test_stale_list_ages_out(capsys):
     fetch.fail = OSError("network down")
     t.now += 1799
     live.refresh()
-    assert len(live.games()) == 3
+    assert len(live.games()) == 2
     t.now += 2
     assert live.games() == []
     assert live.vars() == {"soccer_count": "0", "soccer_pos": "0/0"}
@@ -351,7 +349,7 @@ def test_stale_after_scales_with_poll_s():
     live = LiveSoccer(Recorder(), {}.get, cfg, fetch=fetch, clock=t.clock, sleep=t.sleep, monotonic=t.clock)
     live.refresh()
     t.now += 2399
-    assert len(live.games()) == 3
+    assert len(live.games()) == 2
     t.now += 2
     assert live.games() == []
 
@@ -472,7 +470,7 @@ def test_vars():
     live, rec, st, t = _live()
     assert live.vars() == {"soccer_count": "0", "soccer_pos": "0/0"}
     live.refresh()
-    assert live.vars() == {"soccer_count": "3", "soccer_pos": "1/3"}
+    assert live.vars() == {"soccer_count": "2", "soccer_pos": "1/2"}
 
 
 def test_on_change_after_refresh_and_play():
@@ -515,7 +513,7 @@ def test_a_press_shows_the_pick_before_any_switching():
     live._on_change = lambda: seen.append(live.vars()["soccer_pos"])
     live.refresh()
     assert live.select() is not None
-    assert seen[-1] == "1/3" and live.picking() and rec.calls == []
+    assert seen[-1] == "1/2" and live.picking() and rec.calls == []
 
 
 def test_presses_cycle_through_the_list_and_wrap():
@@ -525,7 +523,7 @@ def test_presses_cycle_through_the_list_and_wrap():
     for _ in range(4):
         live.select()
         picks.append(live.vars()["soccer_pos"])
-    assert picks == ["1/3", "2/3", "3/3", "1/3"]
+    assert picks == ["1/2", "2/2", "1/2", "2/2"]
 
 
 def test_the_cycle_restarts_after_a_quiet_minute():
@@ -536,7 +534,7 @@ def test_the_cycle_restarts_after_a_quiet_minute():
     t.now += soccer.CYCLE_S + 1
     assert not live.picking()
     live.select()
-    assert live.vars()["soccer_pos"] == "1/3"
+    assert live.vars()["soccer_pos"] == "1/2"
 
 
 def test_while_a_started_game_is_on_screen_a_press_moves_on():
@@ -546,7 +544,7 @@ def test_while_a_started_game_is_on_screen_a_press_moves_on():
     t.now += soccer.CYCLE_S + 1
     assert live.watching(st.get) and live.picking()
     live.select()
-    assert live.vars()["soccer_pos"] == "2/3"
+    assert live.vars()["soccer_pos"] == "2/2"
 
 
 def test_next_always_moves_on():
@@ -554,7 +552,7 @@ def test_next_always_moves_on():
     live.refresh()
     t.now += soccer.CYCLE_S + 1
     live.select(advance=True)
-    assert live.vars()["soccer_pos"] == "2/3"
+    assert live.vars()["soccer_pos"] == "2/2"
 
 
 def test_rapid_presses_switch_once_to_the_last_pick():
@@ -595,10 +593,10 @@ def test_the_pick_follows_its_game_when_the_list_changes():
     live, rec, st, t = _live()
     live.refresh()
     live.select()
-    live.select()  # game 2 of 3
+    live.select()  # game 2 of 2
     picked = live.games()[1]
     live._games = [g for g in live._games if g is not live._games[0]]  # game 1 ended
-    assert live.vars()["soccer_pos"] == "1/2"
+    assert live.vars()["soccer_pos"] == "1/1"
     live.switch(live._gen)
     assert rec.calls[-1][2]["media_content_id"] == picked.url
 
@@ -606,7 +604,7 @@ def test_the_pick_follows_its_game_when_the_list_changes():
 def test_a_press_with_nothing_cached_fetches_first():
     live, rec, st, t = _live()
     live.press()
-    assert live.vars()["soccer_pos"] == "1/3"
+    assert live.vars()["soccer_pos"] == "1/2"
     assert [s for _, s, _ in rec.calls] == ["play_media"]
 
 

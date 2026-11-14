@@ -1390,6 +1390,46 @@ PC only (fixtures, no live requests in tests).
   (0:54:46), After the Hunt on Prime (1:25:58), Tuner on Paramount+
   (0:49:03). Nothing found on Tubi yet.
 
+### 2026-11-14 — LG Channels live soccer on the LIVE key (0.6.2-1)
+
+- The LG has no antenna channels (`tv/getChannelList`: count 0, "tuner
+  channel map does not exist"). Its live channels are **LG Channels**
+  (`com.webos.app.lgchannels`, HA source `LG Channels`).
+- Guide: `GET https://api.lgchannels.com/api/v1.0/schedulelist` with
+  headers `x-device-country: US`, `x-device-language: en`; no key. The body
+  is base64 of zlib JSON: `categories[].channels[]` (`channelId`,
+  `channelNumber`, `channelName`) with `programs[]` (`programTitle`,
+  `description`, `startDateTime`/`endDateTime` UTC), about 6 h ahead.
+  Soccer channels: 109 German Soccer Network (live games titled
+  "... Live: A - B"; otherwise "Full Match" replays) and 807 ITV Deportes
+  (Liga Expansión MX; titles don't say live vs. replay). 447 SportsGrid
+  only has talk shows.
+- Tuning (probes `lg_channels_*`, `lg_tune*`, all accepted by the TV):
+  - Deep link `system.launcher/launch` with `params.contentTarget`: the app
+    loads `/homeapp/v2/?channelId=<contentTarget>`. The guide's `channelId`
+    opened the home page on some other channel; JSON in it gives Tomcat
+    "HTTP 400 Invalid character". The ID the app wants is unknown.
+  - `tv/getCurrentChannel` / `tv/getChannelProgramInfo` fail (500) even in
+    LG Channels: no read-back of the channel.
+  - **Number keys work, from a fresh launch**: `system.launcher/close`
+    LG Channels, 3 s, `launch`, 12 s (the app's home page), then the
+    digits and `ENTER` (`webostv.button`). Over full-screen playback the
+    first digit only wakes the player (109 -> "09", 807 -> "07"), and on
+    the home page a doubled first digit counts (-> "1109"), so the app is
+    always closed first. Closing matters with another input in front too:
+    the app keeps running behind HDMI and a launch resumes its playback.
+    Without `ENTER` the number shows but nothing tunes.
+  - **Screen capture checks it**: `tv/executeOneShot` returns an
+    `imageUri` (`https://<tv>:3001/resources/.../capture.jpg`, 960x540,
+    self-signed TLS) of what is on screen, video and overlays included
+    (the number box shows "807 · IP-807 ITV Deportes"). It also worked on
+    the Apple TV's HDMI input (the Apple TV screensaver came through);
+    DRM/HDCP video there is untested. The code's exact `_tune` calls,
+    replayed as probes, tuned 807 -> 109 with LG Channels in front and
+    Apple OTT -> 807, both confirmed by captures.
+- qoool.xyz (asked first) was dropped: its stream links are unlicensed
+  restreams.
+
 ## Open items
 
 - [ ] Scenes, left from the final review (small, not fixed): a film that an
@@ -1461,5 +1501,12 @@ PC only (fixtures, no live requests in tests).
       chapter there (Apple TV done).
 - [ ] Decide whether to track the HA-created script `netflix_on_apple_tv`
       in the repo.
+- [ ] Live soccer from LG Channels (11-14 entry): implemented
+      (`services/soccer/lgchannels.py`, `lg_channels` 109/807, men's only),
+      tuning checked on the TV by screen captures; left: power-on from off
+      (does the Apple TV's CEC wake pull the input back to Apple OTT?) and
+      a press of the real key during a live game. First live
+      game: 11-14 17:00-19:30 UTC on 109. 807's titles carry no live marker,
+      so it may never list a game.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.

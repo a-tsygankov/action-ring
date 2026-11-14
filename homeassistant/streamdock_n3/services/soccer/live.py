@@ -1,7 +1,8 @@
 """Live soccer key: the live game list, a cursor through it, and switching to a pick.
 
-Polls the Apple TV app listing (listing.py) for live Paramount+ / MLS games;
-a press picks a game at once (the key shows it) and, once presses settle,
+Polls the Apple TV app listing (listing.py) for live Paramount+ / MLS games
+and, when "lg_channels" lists channel numbers, LG's own guide (lgchannels.py)
+for live games on those LG Channels; a press picks a game at once (the key shows it) and, once presses settle,
 powers on and plays the last pick. LiveSoccer takes an injected service
 `call`, state lookup, `fetch`, `clock` and `sleep`, so it is testable without
 the network, Home Assistant or the device. Research: docs/superpowers/specs/
@@ -19,6 +20,8 @@ from typing import Callable
 
 from keyspec import StateLookup
 from media_actions import Call, ensure_on, select_atv_input
+
+from . import lgchannels
 
 from .listing import (
     CYCLE_S,
@@ -47,7 +50,9 @@ class LiveSoccer:
     """The live game list, a cursor through it, and whether a started game is on screen.
 
     cfg ("soccer" section): atv, atv_remote, lg, atv_source, power_on_wait,
-    token_page, cache_s, poll_s, idle_poll_s, select_after_s. `clock` is wall
+    token_page, cache_s, poll_s, idle_poll_s, select_after_s; LG Channels:
+    lg_channels (numbers, e.g. ["109"]; empty = off), lg_country, lg_cache_s,
+    lg_open_s. `fetch(url, headers=None)` returns the body. `clock` is wall
     time (Apple's listing is in epoch ms); `monotonic` times waits.
     """
 
@@ -56,7 +61,7 @@ class LiveSoccer:
         call: Call,
         state_of: StateLookup,
         cfg: dict,
-        fetch: Callable[[str], str],
+        fetch: Callable[..., str],
         clock: Callable[[], float] = time.time,
         sleep: Callable[[float], None] = time.sleep,
         on_change: Callable[[], None] | None = None,
@@ -81,6 +86,12 @@ class LiveSoccer:
         self._fetched_at: float | None = None  # last successful fetch (wall clock)
         self._errors = 0  # consecutive failed fetches
         self._next_start: float | None = None  # next listed game's live window opens (epoch s)
+        # Each source's last good result: one failing keeps the other's games.
+        self._uts_games: list[Game] = []
+        self._uts_at: float | None = None
+        self._uts_start: float | None = None
+        self._lg_payload: dict | None = None  # the LG guide; live games are worked out from it each poll
+        self._lg_at: float | None = None
         self._tokens: tuple[str, str] | None = None
         self._tokens_at = 0.0
         self._cursor = 0
@@ -115,24 +126,74 @@ class LiveSoccer:
             now = self._clock()
             if self._fetched_at is not None and now - self._fetched_at < max_age:
                 return
+            ok = False
             try:
                 payloads = self._shelves()
-                games = order([g for p in payloads for g in parse_games(p, now)])
+                self._uts_games = [g for p in payloads for g in parse_games(p, now)]
                 starts = [t for t in (next_start(p, now) for p in payloads) if t is not None]
+                self._uts_start = min(starts, default=None)
+                self._uts_at = ok = now
             except Exception as err:  # never let a key press or the poller die on this
                 self._errors += 1
                 log(f"refresh failed: {type(err).__name__}: {err}")
+            if self._lg_refresh(now):
+                ok = True
+            if not ok:
                 if not (self._games and self._stale(now)):
                     return
                 self._games = []  # games() already hides it; this signals the change once
                 log("live list expired")
             else:
-                self._errors = 0
+                if self._uts_at == now:
+                    self._errors = 0
+                games, start = self._merged(now)
                 if [g.id for g in games] != [g.id for g in self._games]:
                     log(f"{len(games)} live: " + "; ".join(f"{g.title} ({g.provider})" for g in games))
                 self._games, self._fetched_at = games, now
-                self._next_start = min(starts, default=None)
+                self._next_start = start
         self._on_change()
+
+    def _merged(self, now: float) -> tuple[list[Game], float | None]:
+        """Both sources' live games (each while fresh) and the next listed start."""
+        games: list[Game] = []
+        starts: list[float] = []
+        if self._uts_at is not None and not self._source_stale(now, self._uts_at):
+            games += self._uts_games
+            if self._uts_start is not None:
+                starts.append(self._uts_start)
+        numbers = self._lg_numbers()
+        if self._lg_payload is not None and self._lg_at is not None and not self._source_stale(now, self._lg_at):
+            games += lgchannels.parse_games(self._lg_payload, now, numbers)
+            lg_start = lgchannels.next_start(self._lg_payload, now, numbers)
+            if lg_start is not None:
+                starts.append(lg_start)
+        return order(games), min(starts, default=None)
+
+    def _source_stale(self, now: float, at: float) -> bool:
+        max_age = max(2 * float(self._cfg.get("poll_s", 180)), STALE_MIN, 2 * self._lg_cache_s())
+        return now - at > max_age
+
+    def _lg_numbers(self) -> list[str]:
+        return [str(n) for n in self._cfg.get("lg_channels") or []]
+
+    def _lg_cache_s(self) -> float:
+        return float(self._cfg.get("lg_cache_s", 600))
+
+    def _lg_refresh(self, now: float) -> bool:
+        """Refetch the LG guide when older than lg_cache_s; True if a usable guide is held.
+
+        The guide covers hours ahead, so it is fetched rarely and the live
+        games are worked out from it on every poll.
+        """
+        if not self._lg_numbers():
+            return False
+        if self._lg_at is None or now - self._lg_at >= self._lg_cache_s():
+            try:
+                body = self._fetch(lgchannels.GUIDE, headers=lgchannels.headers(self._cfg.get("lg_country", "US")))
+                self._lg_payload, self._lg_at = lgchannels.decode(body), now
+            except Exception as err:
+                log(f"LG guide failed: {type(err).__name__}: {err}")
+        return self._lg_at is not None and not self._source_stale(now, self._lg_at)
 
     def poll_once(self) -> float:
         """One background refresh for the key's live look; never raises.
@@ -247,7 +308,8 @@ class LiveSoccer:
                 return
             if gen != self._gen:
                 return  # picked again while the TV came on
-            select_atv_input(self._call, self._state_of, self._cfg)
+            if games[i].provider != lgchannels.PROVIDER:
+                select_atv_input(self._call, self._state_of, self._cfg)
             self._play(games, i, gen)
 
     def play(self, i: int) -> None:
@@ -278,6 +340,9 @@ class LiveSoccer:
         with self._play_lock:
             self._started, self._started_at, self._seen = game, self._monotonic(), False
         log(f"playing {i + 1}/{len(games)}: {game.title} ({game.provider})")
+        if game.provider == lgchannels.PROVIDER:
+            self._tune(game, gen)
+            return
         atv = self._cfg["atv"]
         self._call(
             "media_player",
@@ -292,6 +357,34 @@ class LiveSoccer:
             log(f"{game.app} is {st.get('s')}; sending select")
             self._call("remote", "send_command", {"entity_id": self._cfg["atv_remote"], "command": "select"})
 
+    def _tune(self, game: Game, gen: int) -> None:
+        """(Re)open LG Channels on the LG and type the game's channel number.
+
+        Always from a fresh launch: on the app's home page every digit
+        counts, while over full-screen playback the first one only wakes the
+        player (109 became "09"). The app is closed first even when another
+        input is in front: it keeps running in the background, and a launch
+        resumes its playback.
+        """
+        lg = self._cfg["lg"]
+        try:
+            self._call("webostv", "command",
+                       {"entity_id": lg, "command": "system.launcher/close", "payload": {"id": lgchannels.APP}})
+        except Exception as err:  # not running: nothing to close
+            log(f"close LG Channels: {type(err).__name__}: {err}")
+        self._sleep(lgchannels.CLOSE_S)
+        if gen != self._gen:
+            return
+        self._call("webostv", "command",
+                   {"entity_id": lg, "command": "system.launcher/launch", "payload": {"id": lgchannels.APP}})
+        self._sleep(float(self._cfg.get("lg_open_s", 12)))
+        for key, wait in lgchannels.tune_keys(game.channel):
+            if gen != self._gen:
+                return  # picked again: that game's switch takes over
+            self._call("webostv", "button", {"entity_id": lg, "button": key})
+            if wait:
+                self._sleep(wait)
+
     # -- state -----------------------------------------------------------------
 
     def watching(self, state_of: StateLookup) -> bool:
@@ -302,10 +395,12 @@ class LiveSoccer:
         the app changes). A game whose app never came up within OPEN_TIMEOUT
         is forgotten.
         """
-        app = ((state_of(self._cfg["atv"]) or {}).get("a") or {}).get("app_id")
         with self._play_lock:
             if self._started is None:
                 return False
+            # An LG Channels game plays on the LG itself, the others on the Apple TV.
+            device = "lg" if self._started.provider == lgchannels.PROVIDER else "atv"
+            app = ((state_of(self._cfg[device]) or {}).get("a") or {}).get("app_id")
             if app == self._started.app:
                 self._seen = True
                 return True

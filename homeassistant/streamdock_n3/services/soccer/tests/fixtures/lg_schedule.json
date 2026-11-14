@@ -1,0 +1,164 @@
+{
+ "timestamp": "2026-11-14T12:03:00Z",
+ "categories": [
+  {
+   "categoryCode": "C2",
+   "categoryName": "News",
+   "channels": [
+    {
+     "channelId": "foxlivenow_foxlivenow_US",
+     "channelNumber": "123",
+     "channelName": "LiveNOW from FOX",
+     "channelGenreName": "News",
+     "providerId": "AMG",
+     "programs": [
+      {
+       "programId": "FOXLIVENOW_Liv11142026060000LiveNOW_US",
+       "programTitle": "LiveNOW from FOX",
+       "description": "Always LIVE. 24/7. Raw & unfiltered breaking news, live events and stories from across the nation.",
+       "engGenreName": "News",
+       "startDateTime": "2026-11-14T11:00:00Z",
+       "endDateTime": "2026-11-14T15:00:00Z"
+      },
+      {
+       "programId": "FOXLIVENOW_Liv11142026100000LiveNOW_US",
+       "programTitle": "LiveNOW from FOX",
+       "description": "Always LIVE. 24/7. Raw & unfiltered breaking news, live events and stories from across the nation.",
+       "engGenreName": "News",
+       "startDateTime": "2026-11-14T15:00:00Z",
+       "endDateTime": "2026-11-14T19:00:00Z"
+      },
+      {
+       "programId": "FOXLIVENOW_Liv11142026140000LiveNOW_US",
+       "programTitle": "LiveNOW from FOX",
+       "description": "Always LIVE. 24/7. Raw & unfiltered breaking news, live events and stories from across the nation.",
+       "engGenreName": "News",
+       "startDateTime": "2026-11-14T19:00:00Z",
+       "endDateTime": "2026-11-14T23:00:00Z"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "categoryCode": "C6",
+   "categoryName": "Sports",
+   "channels": [
+    {
+     "channelId": "us-cinedigm_entertainment_corp_germansoccerleague_1",
+     "channelNumber": "109",
+     "channelName": "German Soccer Network",
+     "channelGenreName": "Sport",
+     "providerId": "WRL",
+     "programs": [
+      {
+       "programId": "US-CineverseEntertainmentCorp-120492439-56872027-56846918",
+       "programTitle": "Women's Football Weekly Highlight Show Episode 9",
+       "description": "Watch Episode 9 of the Women's Football Weekly Highlight Show, featuring Top European Women's Football Competitions!",
+       "engGenreName": "Sport",
+       "startDateTime": "2026-11-14T12:40:00Z",
+       "endDateTime": "2026-11-14T13:00:00Z"
+      },
+      {
+       "programId": "US-CineverseEntertainmentCorp-120492455-56871764-56846671",
+       "programTitle": "U-19 Junioren Bundesliga 2025/2026 Full Match: Borussia Dortmund - VfL Osnabrueck",
+       "description": "Full match between Borussia Dortmund - VfL Osnabrueck on Matchday 11 of the 2026/27 U-19 Junioren Bundesliga season!",
+       "engGenreName": "Sport",
+       "startDateTime": "2026-11-14T13:00:00Z",
+       "endDateTime": "2026-11-14T15:00:00Z"
+      },
+      {
+       "programId": "US-CineverseEntertainmentCorp-120492469-56872147-56847034",
+       "programTitle": "U19 Euro Qualifier 2025/26 Full Match: Germany - Greece",
+       "description": "Full match of UEFA Euro Qualifier between Germany (U19) - Greece (U19) during the 2025/2026 season!",
+       "engGenreName": "Sport",
+       "startDateTime": "2026-11-14T15:00:00Z",
+       "endDateTime": "2026-11-14T17:00:00Z"
+      },
+      {
+       "programId": "US-CineverseEntertainmentCorp-120492484-56872148-56847035",
+       "programTitle": "U19 EURO Qualifier 2026/27 Live: Portugal - Germany",
+       "description": "Live Match of UEFA Euro Qualifier between Portugal (U-19) - Germany (U-19) during the 2026/2027 season!",
+       "engGenreName": "Sport",
+       "startDateTime": "2026-11-14T17:00:00Z",
+       "endDateTime": "2026-11-14T19:30:00Z"
+      },
+      {
+       "programId": "US-CineverseEntertainmentCorp-120492500-56870141-56845129",
+       "programTitle": "Regionalliga Bayern 2026/27 Full Match: FV Illertissen - TSV 1860 München",
+       "description": "Full match between FV Illertissen - TSV 1860 München on Matchday 13 of the 2026/27 Regionalliga Bayern season!",
+       "engGenreName": "Sport",
+       "startDateTime": "2026-11-14T19:30:00Z",
+       "endDateTime": "2026-11-14T21:20:00Z"
+      }
+     ]
+    },
+    {
+     "channelId": "itvdeportes_itvdep_US",
+     "channelNumber": "807",
+     "channelName": "ITV Deportes",
+     "channelGenreName": "Sport",
+     "providerId": "AMG",
+     "programs": [
+      {
+       "programId": "ITVDEP_amg-EP035956111845_US",
+       "programTitle": "Fútbol Mexicano Liga Expansión",
+       "description": "Cuartos de final, partido de vuelta del Apertura 2026. Desde el estadio Jalisco.",
+       "engGenreName": "Sport",
+       "startDateTime": "2026-11-14T11:00:00Z",
+       "endDateTime": "2026-11-14T13:00:00Z"
+      },
+      {
+       "programId": "ITVDEP_amg-EP018711112260_US",
+       "programTitle": "Baloncesto Mexicano LNBP",
+       "description": "Tercer juego de las finales de Zona de la LNBP 2026. Desde el Auditorio Hermanos Carreón.",
+       "engGenreName": "Sport",
+       "startDateTime": "2026-11-14T13:00:00Z",
+       "endDateTime": "2026-11-14T15:00:00Z"
+      },
+      {
+       "programId": "TEST-BOXING-1",
+       "programTitle": "Boxeo En Vivo",
+       "description": "Emiliano Rojo (20-0) se enfrenta a Erik Humberto Castillo (9-7) en un combate peso medio.",
+       "engGenreName": "Sport",
+       "startDateTime": "2026-11-14T15:00:00Z",
+       "endDateTime": "2026-11-14T18:00:00Z"
+      },
+      {
+       "programId": "ITVDEP_amg-EP043585970034_US",
+       "programTitle": "Fútbol Mexicano Liga Expansión",
+       "description": "Los momentos más destacados del partido de la fecha 15 del Torneo Apertura 2026.",
+       "engGenreName": "Sport",
+       "startDateTime": "2026-11-14T18:00:00Z",
+       "endDateTime": "2026-11-14T18:30:00Z"
+      },
+      {
+       "programId": "ITVDEP_amg-EP064021220017_US",
+       "programTitle": "Diamantes",
+       "description": "Entrevista con la periodista y cronista mexicana con más de 25 años de experiencia.",
+       "engGenreName": "Sport",
+       "startDateTime": "2026-11-14T18:30:00Z",
+       "endDateTime": "2026-11-14T19:00:00Z"
+      },
+      {
+       "programId": "TEST-LIGAEXP-1",
+       "programTitle": "Fútbol Mexicano Liga Expansión (En Vivo)",
+       "description": "Jornada 15 del Torneo Apertura 2026 de la Liga Expansión MX. Desde el estadio Guaycura.",
+       "engGenreName": "Sport",
+       "startDateTime": "2026-11-14T19:00:00Z",
+       "endDateTime": "2026-11-14T21:00:00Z"
+      },
+      {
+       "programId": "TEST-WOMEN-1",
+       "programTitle": "Liga MX Femenil Live: América - Chivas",
+       "description": "Partido en vivo.",
+       "engGenreName": "Sport",
+       "startDateTime": "2026-11-14T21:00:00Z",
+       "endDateTime": "2026-11-14T23:00:00Z"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -64,8 +64,8 @@ def test_refresh_job_fetches_and_reports_live():
     assert svc.conditions()["live"]() is False  # nothing fetched yet
     assert job.fn() == 180  # games live: poll_s
     assert svc.conditions()["live"]() is True
-    assert svc.vars()["soccer_count"] == "3"
-    assert svc.vars()["soccer_pos"] == "1/3"
+    assert svc.vars()["soccer_count"] == "2"
+    assert svc.vars()["soccer_pos"] == "1/2"
 
 
 def test_http_ops_are_named():
@@ -80,7 +80,7 @@ def test_start_action_picks_toasts_and_plays():
     svc, ctx = started()
     svc.actions()["start"]({})
     game = svc.live.games()[0]
-    assert ctx.fakes.toasts[0] == (f"1/3 {game.title}", "soccer")
+    assert ctx.fakes.toasts[0] == (f"1/2 {game.title}", "soccer")
     assert ctx.fakes.calls[-1] == (
         "media_player", "play_media",
         {"entity_id": ATV, "media_content_type": "url", "media_content_id": game.url},
@@ -91,8 +91,8 @@ def test_next_action_moves_on():
     svc, ctx = started()
     svc.actions()["start"]({})
     svc.actions()["next"]({})
-    assert svc.vars()["soccer_pos"] == "2/3"
-    assert [t for t, _ in ctx.fakes.toasts][1].startswith("2/3 ")
+    assert svc.vars()["soccer_pos"] == "2/2"
+    assert [t for t, _ in ctx.fakes.toasts][1].startswith("2/2 ")
 
 
 def test_pick_schedules_redraw_after_cycle():
