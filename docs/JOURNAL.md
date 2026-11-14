@@ -1592,6 +1592,11 @@ com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
   before launching YouTube. The select guard drops "YouTube in front" (not
   knowable from HA) and keeps: LG on the Apple TV input, no app playing, no
   dock input since the press.
+- Works on arpi (0.6.4-4): cat press 15:48:19.8 (YouTube not open), Lounge
+  `atv: connected` 22.1, `play 5dsGWM5XGdg` 22.8, `now playing` 23.1: about
+  3 s from the press to the video. No select was needed (no picker on that
+  launch). A second combo with YouTube open sent the next video over the
+  open session at once (`0Bmhjf0rKe8 via the YouTube link`).
 - Open: whether the Lounge connects while YouTube shows its picker. If it
   does, the 6 s select never fires and the picker may swallow the video.
 
