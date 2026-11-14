@@ -10,6 +10,7 @@ the render path, and measures every operation.
 This file is enough to write a new service. `soccer/` is the worked example
 (jobs, actions, conditions, keys, context override, tests); `scenes/` is the second
 worked example (a database, several HTTP sources, a condition driven by the clock);
+`cats/` is the smallest real one (a page, animated keys, opened by a key chord);
 `profiles/` is an action-only service (it waits and watches after a key press);
 the template below is the smallest useful one. Design background:
 [the design spec](../../../docs/superpowers/specs/2026-11-13-pluggable-services-design.md).
@@ -52,7 +53,7 @@ class MyService(Service):
     def entities(self) -> set[str]: ...       # HA entities to subscribe to
     def vars(self) -> dict[str, str]: ...     # label variables; names must start "my_"
     def key(self, name, args) -> dict | None: ...   # spec for {"service_key": "my.<name>"}
-    def pages(self) -> dict[str, dict]: ...   # {"slip": {"keys": {...}, "close_on_press": False}}; before start()
+    def pages(self) -> dict[str, dict]: ...   # {"slip": {"keys": {...}, "close_on_press": False, "open_s": 10}}; before start()
     def context(self, layout) -> str | None: ...    # override the context layout, or None
     def on_state(self, changed: set[str]): ...      # HA entities (yours) changed
     def stop(self): ...                       # not called yet: see below
@@ -96,7 +97,8 @@ class MyService(Service):
 - **`pages()`** is read once at startup, **before `start()`**: there is no
   `ctx` yet, so build the pages without it. Page names become
   `<service>.<page>` and are used in the preset's `round` cycles or opened
-  with `ctx.show_page(page)`.
+  with `ctx.show_page(page)`. A page's `open_s` sets how long it stays open
+  (default: the preset's `tabs.timeouts.open`).
 - **`entities()`** is read once, after `start()`. It must include every
   entity your key specs read (`state_entity`, the entities in a `when`
   list): a `service_key` slot is opaque to the daemon's entity scan, so

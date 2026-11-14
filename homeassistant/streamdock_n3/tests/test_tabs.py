@@ -130,3 +130,21 @@ def test_tabs_show_opens_known_page_only():
     assert e.show("x.p", 0.0) is True and e.visible == "x.p"
     assert e.show("nope", 0.0) is False
     e.tick(10.1); assert e.visible == "context:idle"
+
+
+def test_a_page_may_set_how_long_it_stays_open():
+    pages = {"context:idle": {"keys": {}}, "cats": {"open_s": 10, "keys": {}},
+             "apps": {"keys": {}}, "odd": {"open_s": "x", "keys": {}}}
+    e = TabEngine(pages, {7: ["apps"]}, open_s=5)
+    e.set_context("idle", 0.0)
+    assert e.show("cats", 0.0)
+    e.tick(9.9)
+    assert e.visible == "cats"
+    e.tick(10.1)
+    assert e.visible == "context:idle"
+    e.round_press(7, 20.0)
+    e.tick(25.1)
+    assert e.visible == "context:idle"  # the engine's own 5 s
+    e.show("odd", 30.0)  # a garbled open_s falls back to it
+    e.tick(35.1)
+    assert e.visible == "context:idle"

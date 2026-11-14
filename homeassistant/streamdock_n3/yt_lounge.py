@@ -164,6 +164,15 @@ class YouTubeScreens:
             raise ValueError(f"unknown YouTube command {name!r}")
         asyncio.run_coroutine_threadsafe(self._command(name), self._loop).result(20)
 
+    def connected(self, screen: str) -> bool:
+        """Whether a Lounge session to `screen` is up (its YouTube app is open and linked)."""
+        s = self.screens.get(screen)
+        return s is not None and s.api is not None
+
+    def play_video(self, video_id: str, screen: str) -> None:
+        """Start `video_id` on `screen`; raises when no session to it is up."""
+        asyncio.run_coroutine_threadsafe(self._play_video(video_id, screen), self._loop).result(20)
+
     def probe(self, method: str, args: list[Any]) -> Any:
         """Diagnostics (probe.py): await api.<method>(*args) on the playing screen.
 
@@ -245,6 +254,15 @@ class YouTubeScreens:
         else:
             await self._toggle_subtitles(screen)
         log(f"{screen.name}: {name}")
+
+    async def _play_video(self, video_id: str, name: str) -> None:
+        screen = self.screens.get(name)
+        api = screen.api if screen is not None else None
+        if api is None:
+            raise RuntimeError(f"{name}: no YouTube session")
+        if not await api.play_video(video_id):
+            raise RuntimeError(f"{name}: play {video_id} refused")
+        log(f"{name}: play {video_id}")
 
     async def _probe(self, method: str, args: list[Any]) -> Any:
         screen = self._pick()

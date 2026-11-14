@@ -830,6 +830,52 @@ Reasons: `warm` (running), `cold`, `unknown`, `maybe alive` (reports only at
 playback and no process end was seen), `not listed`. The last 100 opens are
 kept in `/data/services/profiles/history.json`.
 
+### Cat easter egg (key chord)
+
+Press the **three round buttons together** and every key turns into a cat's
+face for 10 seconds; the cats blink and stick their tongues out now and then.
+Then the page that was there comes back. Pressing any cat plays a cat video
+in YouTube on the Apple TV (a random one from `videos`, never the same one
+twice in a row) and ends it.
+
+Two parts: a key chord in the core (`chord.py`) and the `cats` service
+(`services/cats/`), whose page has its own 10 s `open_s`.
+
+```json
+"chord": { "buttons": [7, 8, 9], "window_ms": 300, "action": { "service": "cats", "do": "show" } },
+"services": { "cats": {
+  "atv": "media_player.vugitv_4k_vugitv_4k", "atv_remote": "remote.vugitv_4k_vugitv_4k",
+  "lg": "media_player.lg_tv_2", "atv_source": "Apple OTT", "power_on_wait": 25,
+  "screen": "atv",
+  "videos": ["J---aiyznGQ", "0Bmhjf0rKe8", "z3U0udLH974", "hY7m5jjJ9mM", "5dsGWM5XGdg"]
+} }
+```
+
+- **The chord.** All of `buttons` pressed within `window_ms` of the first
+  press. The chord's own presses never do what those buttons normally do: a
+  press of a chord button waits out the window, then runs as usual if the
+  chord did not complete (in press order; any other key or button pressed
+  meanwhile sends the waiting presses first). The cost: **Round 1/2/3 react
+  `window_ms` (300 ms) later** while a `chord` section is configured. Remove
+  the section (or `"enabled": false`) to get them back at once. The action is
+  any key action.
+- **Playing the video.** With the YouTube app open and linked on `screen`
+  (`pair.sh`, the Lounge session that next chapter uses), the video is sent
+  over that session. Otherwise the TV is turned on if needed, YouTube is
+  started on the Apple TV and the video is sent once its session connects
+  (`connect_wait_s`, default 20). If it never connects, the URL
+  `https://www.youtube.com/watch?v=<id>` goes to the Apple TV
+  (`media_player.play_media`, type `url`).
+- **Restore.** The cat page is a temporary page: it closes after 10 s, on a
+  cat press, or when the TV changes what is in the foreground, and the keys
+  go back to the context page as it was.
+- The faces are original drawings (`homeassistant/tools/icons/build_cat_icons.py`,
+  CC0), three frames per cat (`cat_<n>`, `_blink`, `_tongue`).
+
+Log lines: `chord: buttons [7, 8, 9] within 300 ms` at start, `chord: 7+8+9`
+on each chord, `cats: meow`, `cats: <id> via the YouTube link` (or `…, after
+starting YouTube`, or `… as a URL (no YouTube link session)`).
+
 ### Now-playing log (ad research)
 
 `"now_playing_log": { "entities": ["media_player.…"] }` records what changes
