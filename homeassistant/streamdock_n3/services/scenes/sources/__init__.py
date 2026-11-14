@@ -6,8 +6,10 @@ from typing import Callable
 
 from ..fetch import Fetcher
 from ..model import Film, SourceResult
-from . import videoskip
+from . import nsfwhen, nudidex, videoskip
 
 SOURCES: dict[str, Callable[[Fetcher, Film, dict], SourceResult]] = {
     "videoskip": videoskip.lookup,
+    "nsfwhen": nsfwhen.lookup,
+    "nudidex": nudidex.lookup,
 }
