@@ -22,13 +22,14 @@ def test_film_roundtrip_and_runtime_match():
     assert db.find_film("dracula", 7800)[1] == Film("Dracula", "dracula", 7800, 2025, "X", ("A", "B"), 1, "tt1")
 
 
-def test_save_film_fills_in_but_overwrites_with_new_known_values():
+def test_save_film_is_fill_in_only():
     db = Db(mem()); fid = db.save_film(Film("D", "d", None, None), 1.0)
     assert db.save_film(Film("D", "d", 7800, 2025, None, (), 5, None), 2.0) == fid   # unknown runtime matches any
     assert db.save_film(Film("D", "d", 7800, None, "Y", ("A",)), 3.0) == fid
     assert db.find_film("d", None)[1] == Film("D", "d", 7800, 2025, "Y", ("A",), 5, None)
-    db.save_film(Film("D", "d", 7800, 2024), 4.0)
-    assert db.find_film("d", None)[1].year == 2024
+    # stored known values win over different new ones
+    assert db.save_film(Film("D2", "d", 7900, 2024, "Z", ("B",), 6, "tt9"), 4.0) == fid
+    assert db.find_film("d", None)[1] == Film("D", "d", 7800, 2025, "Y", ("A",), 5, "tt9")
 
 
 def test_find_film_picks_closest_runtime_else_latest():

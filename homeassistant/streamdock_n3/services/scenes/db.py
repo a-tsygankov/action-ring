@@ -83,29 +83,33 @@ class Db:
 
     def save_film(self, film: Film, now: float) -> int:
         with self._lock:
-            found = self._find_film(film.norm, film.runtime_s)
-            if found is None:
-                cur = self._conn.execute(
-                    "INSERT INTO films (norm_title, title, year, runtime_s, director, cast_json, tmdb_id, imdb_id,"
-                    " updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (film.norm, film.title, film.year, film.runtime_s, film.director,
-                     json.dumps(list(film.cast)), film.tmdb_id, film.imdb_id, now),
+            try:
+                found = self._find_film(film.norm, film.runtime_s)
+                if found is None:
+                    cur = self._conn.execute(
+                        "INSERT INTO films (norm_title, title, year, runtime_s, director, cast_json, tmdb_id,"
+                        " imdb_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        (film.norm, film.title, film.year, film.runtime_s, film.director,
+                         json.dumps(list(film.cast)), film.tmdb_id, film.imdb_id, now),
+                    )
+                    self._conn.commit()
+                    return cur.lastrowid
+                film_id, old = found
+                # Fill-in only: a stored known value wins; only missing ones are filled from the new film.
+                merged = Film(**{
+                    f.name: getattr(old, f.name) or getattr(film, f.name) for f in dataclasses.fields(Film)
+                })
+                self._conn.execute(
+                    "UPDATE films SET title = ?, year = ?, runtime_s = ?, director = ?, cast_json = ?,"
+                    " tmdb_id = ?, imdb_id = ?, updated_at = ? WHERE id = ?",
+                    (merged.title, merged.year, merged.runtime_s, merged.director,
+                     json.dumps(list(merged.cast)), merged.tmdb_id, merged.imdb_id, now, film_id),
                 )
                 self._conn.commit()
-                return cur.lastrowid
-            film_id, old = found
-            # Fill-in only: a missing value in the new film never erases a known one.
-            merged = Film(**{
-                f.name: getattr(film, f.name) or getattr(old, f.name) for f in dataclasses.fields(Film)
-            })
-            self._conn.execute(
-                "UPDATE films SET title = ?, year = ?, runtime_s = ?, director = ?, cast_json = ?, tmdb_id = ?,"
-                " imdb_id = ?, updated_at = ? WHERE id = ?",
-                (merged.title, merged.year, merged.runtime_s, merged.director, json.dumps(list(merged.cast)),
-                 merged.tmdb_id, merged.imdb_id, now, film_id),
-            )
-            self._conn.commit()
-            return film_id
+                return film_id
+            except Exception:
+                self._conn.rollback()
+                raise
 
     def lookup_state(self, film_id: int) -> dict[str, tuple[str, float]]:
         with self._lock:
