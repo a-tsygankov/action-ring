@@ -3,7 +3,7 @@ from pathlib import Path
 from services.scenes.fetch import Fetcher
 from services.scenes.model import Film, norm_title
 from services.scenes.sources import SOURCES
-from services.scenes.sources.videoskip import (lookup, parse_film, parse_search, parse_skip_file,
+from services.scenes.sources.videoskip import (lookup, synced_with_service, parse_film, parse_search, parse_skip_file,
                                                parse_skip_page)
 from services.testing import fake_context
 
@@ -85,3 +85,11 @@ def test_offsets_applied_only_for_listed_service():
 
 def test_registered():
     assert SOURCES["videoskip"] is lookup
+
+
+def test_synced_with_loose_match():
+    assert synced_with_service("Amazon Prime Video", "amazon")
+    assert synced_with_service("Disney+", "disneyplus")
+    assert synced_with_service("HBO Max", "max")
+    assert not synced_with_service("Netflix", "amazon")
+    assert not synced_with_service("Netflix", None)

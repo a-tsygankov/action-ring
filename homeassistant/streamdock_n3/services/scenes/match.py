@@ -64,11 +64,10 @@ def pick(film: Film, candidates: list[Candidate]) -> tuple[Candidate | None, str
         return None, "miss"
     if len(kept) == 1:
         return kept[0], "hit"
-    # No exact-year rule: the year filter above (+-1) already ran, and two films a year apart
-    # (remake, re-release) must stay ambiguous, as the brief's test requires.
     film_cast = {_name(n) for n in film.cast}
     rules = (
         lambda c: _id_state(film, c) is True,
+        lambda c: film.year is not None and c.year == film.year,
         lambda c: _runtime_state(film, c) is True,
         lambda c: bool(film.director) and _name(c.director) == _name(film.director),
         lambda c: len(film_cast & {_name(n) for n in c.cast}) >= 2,

@@ -114,6 +114,14 @@ def parse_skip_file(text: str) -> tuple[list[Scene], dict]:
     return scenes, offsets
 
 
+def synced_with_service(synced_with: str, service: str | None) -> bool:
+    """Loose match of a skip page's "Synced with" text against an offsets key like "disneyplus"."""
+    if not service:
+        return False
+    norm = re.sub(r"[^a-z0-9]", "", synced_with.lower().replace("+", "plus"))
+    return service.lower() in norm
+
+
 def _wants(filters: str) -> bool:
     low = filters.lower()
     return "sex" in low or "nud" in low
@@ -146,7 +154,7 @@ def _lookup(fetch: Fetcher, film: Film, service: str | None) -> SourceResult:
             pages.append((ref, info))
     if not pages:
         return done("miss", meta=meta)
-    pages.sort(key=lambda p: (bool(service) and p[1]["synced_with"].lower() == service.lower(),
+    pages.sort(key=lambda p: (synced_with_service(p[1]["synced_with"], service),
                               p[1]["downloads"]), reverse=True)
     ref, info = pages[0]
     found, offsets = parse_skip_file(fetch.get(SITE, BASE + ref + "download/", op="videoskip_download"))

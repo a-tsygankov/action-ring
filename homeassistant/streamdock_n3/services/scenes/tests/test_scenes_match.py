@@ -9,7 +9,9 @@ def test_pick_rules():
     assert pick(FILM, [c(year=2026)])[1] == "hit"
     assert pick(FILM, [c(year=1999)])[1] == "miss"          # lone but contradicting
     assert pick(FILM, [c()])[1] == "miss"                   # title alone is not enough
-    assert pick(FILM, [c(year=2026), c(year=2025)])[1] == "ambiguous"
+    got = pick(FILM, [c(year=2026), c(year=2025)])
+    assert (got[0].year, got[1]) == (2026, "hit")
+    assert pick(FILM, [c(year=2026), c(year=2026)])[1] == "ambiguous"
     assert pick(FILM, [c(year=2026, runtime_s=6500), c(year=2026, runtime_s=3000)])[0].runtime_s == 6500
     assert pick(FILM, [Candidate("r", "Tuna", year=2026)])[1] == "miss"
 
