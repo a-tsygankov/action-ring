@@ -1312,8 +1312,40 @@ PC only (fixtures, no live requests in tests).
 - Icons: the owner's silhouette (`services/scenes/icons/source.gif`) built
   by `homeassistant/tools/icons/build_scene_icons.py` into `scene.png`
   (white on red) and `scene_off.png` (gray). Only checked by eye as images.
-- Not done: deploy (`restore.sh`) and the TV check; `tmdb_key` is not on the
-  device; no real offsets for Max or Disney+ (see open items); no toasts.
+- No real offsets for Max or Disney+ yet (see open items); no toasts.
+
+### 2026-11-13 — Scene jump on the TV: works in Prime (0.6.1-3)
+
+- Deployed from `feat/scene-jump`. `tmdb_key` is in `/config/secrets.json`
+  on arpi (`{"scenes": {"tmdb_key": ...}}`, mode 600). The PC's copy is
+  `services/scenes/sources/action-ring-tmdb.local.json`: `*.local.json` is
+  git-ignored, kept out of the image and removed from `restore.sh`'s staging
+  copy, so it never leaves the PC. Putting the key on a new device stays a
+  manual step.
+- Checked with Novocaine (2025) in Prime Video (VideoSkip file timed on
+  Paramount+, scenes 0:19:06-0:23:26 and 1:18:37): lookup 4 requests, 10 s;
+  the key turned to colour; first press `jump 231s -> 1142s (scene at
+  1147s)` and the Apple TV reported 1142 a second later; second press, at
+  the end of the first scene, `jump 1407s -> 4713s`, reported 4713; the key
+  then went gray. So `media_seek` is exact in Prime and the 5 s lead is as
+  designed. No ad played on the jumps.
+- Two fixes found by the test:
+  - Prime reports titles as "Novocaine (2025)". TMDB's search returns
+    nothing for that, so the film was never identified and VideoSkip was
+    skipped. The trailing year is now split off (`model.split_title`): the
+    bare title is used for TMDB and the sources, and the year identifies the
+    film even when TMDB has no match.
+  - A VideoSkip file labelled its scene "Nude ..." and parsed to nothing
+    (After the Hunt, 2025). The category word is now matched as people write
+    it (Nude / Nudity / Sex / Sexual).
+- `seek_apps` now also lists Prime (checked above), Paramount+, Tubi, Pluto
+  and Netflix, added at the owner's request before a check. Netflix cannot
+  work: the now-playing log shows it reports no title, duration or position.
+- Films with known times for further checks (VideoSkip; service per TMDB's
+  US listings on 11-13): Fight Club on Pluto (0:48:38, 0:55:42, 0:58:43),
+  Titanic on Paramount+ (1:22:04, 1:30:34, 1:31:12), Weapons on Max
+  (0:54:46), After the Hunt on Prime (1:25:58), Tuner on Paramount+
+  (0:49:03). Nothing found on Tubi yet.
 
 ## Open items
 
@@ -1328,18 +1360,15 @@ PC only (fixtures, no live requests in tests).
       `secrets.json`); Gemini Pro with search as a low-confidence last
       resort. Trial results and analysis: `docs/SCENE_SOURCES.md`.
 
-- [ ] Scene jump: deploy (`restore.sh`, with the owner) and check on the TV
-      in Max or Disney+: a film known to VideoSkip, the `scenes:` log
-      lines, the key turns to colour, one press lands about 5 s before the
-      scene. Record any `lead_s` / offset finding.
-- [ ] Scene jump: put `{"scenes": {"tmdb_key": "..."}}` into
-      `/config/secrets.json` on the device (without it VideoSkip is not
-      asked; NSFWhen can still match by runtime).
-- [ ] Scene jump, TV check: does the position reported after a seek lag
-      more than `seek_hold_s` (5 s)? If so the key lights again for the
-      same scene.
-- [ ] Scene jump: check `media_seek` in more apps before adding them to
-      `seek_apps`.
+- [ ] Scene jump, TV checks left: Max and Disney+ (a film known to
+      VideoSkip); Paramount+, Tubi and Pluto (first press is the seek check;
+      on Tubi and Pluto watch what an ad break does to the jump and to the
+      key); whether the position reported after a seek ever lags more than
+      `seek_hold_s` (5 s) (in Prime it arrived within 1-3 s).
+- [ ] Scene jump: Netflix reports nothing to the Apple TV; it would need a
+      different design (film chosen by hand, timing from a known point).
+- [ ] Scene jump: one `SLOW scenes cond:ready 7ms` line seen (budget 5 ms);
+      three in a minute would switch the service's keys off for 5 min. Watch.
 - [ ] Scene jump: no Max or Disney+ VideoSkip file seen yet, so those
       offsets (`app_services`) are unverified.
 - [ ] Scene jump: a Gemini-with-screenshot source needs a trial before it is
