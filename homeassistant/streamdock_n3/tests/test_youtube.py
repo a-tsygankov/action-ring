@@ -245,3 +245,57 @@ def test_rewind_seeks_ten_seconds_back_and_not_before_zero(yt):
     a._set(4.0, None)
     yt.command("rewind")
     assert a.api.calls[-1] == ("seek_to", 0.0)
+
+
+# -- linking while a session is open ------------------------------------------------
+
+
+class SessionApi:
+    """A linked, connected Lounge api whose subscription never ends."""
+
+    def __init__(self, *args):
+        self.disconnected = False
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    def load_auth_state(self, state):
+        pass
+
+    def linked(self):
+        return True
+
+    async def connect(self):
+        return True
+
+    async def subscribe(self):
+        await asyncio.sleep(3600)
+
+    async def disconnect(self):
+        self.disconnected = True
+
+
+def test_session_ends_when_a_tv_code_arrives(yt, monkeypatch, tmp_path):
+    # pair.sh writes yt_pair_<screen> while YouTube is in the foreground (the
+    # user is on Settings > Link with TV code): the open session must end so
+    # _run_screen reads the code, or the code expires unread.
+    monkeypatch.setattr(yt_lounge, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(yt_lounge, "YtLoungeApi", SessionApi)
+    real_sleep = asyncio.sleep
+    monkeypatch.setattr(yt_lounge.asyncio, "sleep", lambda s: real_sleep(0.01 if s <= 2 else s))
+    monkeypatch.setattr(yt, "active", lambda screen: True)
+    screen = yt.screens["a"]
+    yt._auth["a"] = {}
+
+    async def run():
+        session = asyncio.create_task(yt._session(screen))
+        await real_sleep(0.05)
+        assert not session.done()  # stays open while YouTube is in front
+        (tmp_path / "yt_pair_a").write_text("123456789012\n")
+        await asyncio.wait_for(session, 1)
+
+    asyncio.run(run())
+    assert screen.api is None

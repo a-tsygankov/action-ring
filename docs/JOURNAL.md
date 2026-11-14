@@ -1600,23 +1600,130 @@ com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
 - Open: whether the Lounge connects while YouTube shows its picker. If it
   does, the 6 s select never fires and the picker may swallow the video.
 
+### 2026-11-14 — Profile picker on for six apps (0.6.5-1)
+
+- Survey on the TV in two sittings (the user pressed the dock keys and
+  force-quit apps; the dock app ran 0.6.4-4 in dry run; LG screen captures
+  every ~2 s through `tv/executeOneShot`, matched to the log by time). Apple
+  TV menus capture fine; only protected video is black.
+- Cold launches: Prime showed its picker by 3 s; Max, Hulu, Paramount+ by
+  6 s; Netflix ran its intro to 5 s, picker by 7 s; Disney+ showed "Who's
+  watching?" at 9 s and its profiles at 11 s. Every picker waited (until the
+  user pressed Home). Select takes the highlighted profile (the user agreed).
+- Warm launches: Disney+ went to its home screen, Paramount+ back to the
+  paused game. YouTube showed its account picker on a warm launch (running
+  since 10:45) and none on a cold one after a force-quit; the cats combo with
+  YouTube warm connected the Lounge in 3 s and played, no picker seen.
+- No picker: Tubi, the Apple TV app. Pluto opens on a sign-up promo
+  ("Watch Anywhere Free" highlighted).
+- Registration (`mrp_raw.log` and `atv-clients:` lines): Prime, the TV app
+  and YouTube register at launch; Netflix, Max, Disney+, Hulu, Paramount+
+  only at playback.
+- Found: Hulu and Disney+ were cold but logged `gone -> maybe alive`. They
+  had not played since the dock app started, so no process end was ever
+  seen. Separately, `atv_clients` dropped its list on every reconnect, so an
+  app that ended while the Apple TV slept never got a removal time, and the
+  first open of the evening came out "maybe alive".
+- Fix: `atv_clients` keeps the apps that were alive before a gap; once the
+  new session's list is complete, those not listed again (or listed with a
+  new process id) count as removed at the new session's start (logged
+  `atv-clients: <app> gone (not listed after reconnect)`).
+  Checked against the 22 reconnects in `mrp_raw.log` (11-13 20:49 to 11-14
+  10:48): every new session listed all its apps within 1 s of its first
+  message, inside the 3 s settle time.
+- Preset: `dry_run: false`; `picker: true` for Netflix (`delay_s` 9, undo
+  off), Prime (6, registers at launch), Max, Hulu, Paramount+ (8, the new
+  default), Disney+ (13). YouTube, Pluto, Tubi, the TV app left out.
+- Tests: 691 passing.
+- **Checked on arpi (0.6.5-1, 16:19 UTC):** Prime force-quit, then its key:
+  `gone -> cold, click in 6.0s`, `atv-clients: ... alive` 2 s after the
+  press, `click sent` at +6 s. Captures: the picker was up at +3 and +5 s;
+  at +7 s it was loading, and Prime's home screen came at +12 s. Then warm presses of
+  Netflix and Prime: `alive (pid ...) -> warm, no click`. Each clicking open
+  logs `metrics: SLOW profiles action:open` (it waits `delay_s` on its own
+  thread on purpose; actions only log, they never trip the breaker).
+
+### 2026-11-14 — Apple TV replaced (AppleTV18,1, tvOS 27.2.1)
+
+- New box: "TV Room", AppleTV18,1, tvOS 27.2.1, 192.168.1.91 (old: Apple TV
+  4K, 192.168.1.159, off the network). Same LG input; the LG still names it
+  `Apple OTT`, so no mapping changed.
+- HA: old `vugiTV 4K` entry deleted, the discovered "TV Room (2)" added
+  (three PINs). The box was not renamed first, so the entities came out as
+  `media_player.tv_room_2_tv_room_2`, `remote.tv_room_2_tv_room_2` and
+  `binary_sensor.tv_room_2_tv_room_2_keyboard_focus`; renamed to the
+  `vugitv_4k_vugitv_4k` IDs (entity registry). The HA device is renamed
+  to "vugiTV 4K" (user name only; the integration entry and the box itself
+  are still "TV Room (2)" / "TV Room").
+- `restore.sh` alone does nothing for a new box while the old HA entry and
+  `atv_companion.json` are there (address from the old entry, "already
+  paired"). Order that worked: HA entry, entity IDs, move
+  `atv_companion.json` aside, `restore.sh`, then the pairings.
+- `restore.sh homeassistant` from the 0.6.5-1 checkout: live config already
+  equal to the preset, scripts and automations present, app rebuilt and
+  running. Run it from the branch that holds the live version: the main
+  checkout was on 0.6.2-1 and would have rolled the app back.
+- App pairings with pyatv 0.18.0 against tvOS 27: Companion and AirPlay both
+  paired first try; `connected to TV Room (companion, airplay)`. Old
+  credentials kept on the Pi as `atv_companion.json.oldbox-20261114`.
+- pyatv's broadcast scan from the app container finds no Apple TV;
+  `atvremote --scan-hosts <ip> scan` does. The host's `avahi-browse -rtp
+  _companion-link._tcp` lists the box and its address.
+- HA keeps offering the old box under Discovered ("vugiTV 4K (Apple TV
+  4K)"); do not add it.
+- YouTube, screen `atv`: re-linked with a TV code from the new box
+  (`linked to 'YouTube on TV'`, then `connected`); the old link is kept as
+  `yt_lounge.json.oldbox-20261114`. `pair.sh youtube atv <code>` failed
+  with "the app did not pick the code up": `_run_screen` reads
+  `yt_pair_<screen>` only between sessions, and a session was open (YouTube
+  in the foreground, old link still in `yt_lounge.json`). Restarting the app
+  with the code file in place linked it.
+- Fix (0.6.5-2, deployed with `restore.sh homeassistant`; app running,
+  Apple TV connected on both protocols; the linking itself not retried
+  on the TV): `_session` also ends when
+  `yt_pair_<screen>` appears, so `_run_screen` reads the code at once.
+  Test: `test_session_ends_when_a_tv_code_arrives`. `pair.sh` unchanged.
+- On Windows two `test_combo_daemon.py` cat tests fail on icon paths
+  (`...\cat_1.png.png` instead of `cat_1.png`), in code this change
+  does not touch. Not looked into.
+- On the TV (user, on 0.6.5-2): next chapter and next video work in
+  YouTube on the new box.
+- Not done: the rest of the "Retest on the TV" list in
+  [Replacing the Apple TV](#replacing-the-apple-tv): Key 3 power over
+  CEC, knob scrubbing (touch window measured on the old box), Pluto /
+  Peacock ad muting, the soccer key, the tabs.
+
 ## Open items
 
-- [ ] Profile picker: survey on the TV (0.6.2-1 runs in dry run), one
-      step at a time: per app (Netflix, Prime, Max, Disney+, Paramount+,
-      Hulu) a cold and a warm launch from the dock: is there a picker, how
-      many seconds until it accepts OK, does the log say `cold` / `warm`,
-      does the app register at launch or at playback; what Menu does in each
-      app's player (only in a film started for the check). Then per app
-      `picker: true` and `dry_run: false`, and a cold and a warm launch each.
+- [ ] New Apple TV (11-14 entry), still to retest on the TV:
+  - Key 3 both ways (LG off + box asleep; the box wakes the LG over
+    CEC), Round 1-3, keys 5 and 6, both knobs in menus.
+  - Knob scrubbing with previews in the Apple TV app, Max, Netflix;
+    YouTube (scrubs without pausing) and Disney+ (`seek`). The touch
+    window (`touch_min_x` 300 / `touch_max_x` 800) and steps were
+    measured on the old box.
+  - Ad muting on a Pluto TV channel and a Peacock episode (pre-roll and
+    mid-roll); `mrp_raw.log` shows what the new box sends if a rule
+    misses.
+  - The soccer key; the tabs following the app; the profile picker
+    clicks (timings were surveyed on the old box).
+  - Done: YouTube next chapter and next video.
+- [ ] Profile picker, 0.6.5-1 (Prime checked): a real cold launch clicked per app;
+      a warm launch of each sends nothing; whether Menu undoes a film
+      started by a stray click (Max, Hulu, Disney+, Paramount+).
 - [ ] Profile picker: the first launch after a night off: does a fresh
       connection come up within `sync_wait_s` (5 s), and was the app still
       running? This decides how often the feature acts in the evening.
 - [ ] Profile picker, from normal use: an app left for hours and opened
       again (does it ask for the profile although it was running?); an app
       opened with the Siri Remote first.
-- [ ] Profile picker: YouTube's account picker is not covered (its key goes
-      through the service but it is not in `apps`); Peacock has no app key.
+- [ ] Profile picker: YouTube's account picker is not covered (left out of
+      `apps`: picker seen warm, not cold). Open: does the Lounge connect while
+      the picker is up? If not, "no Lounge session" could gate one select.
+      Peacock has no app key.
+- [ ] Profile picker: apps quit before they ever played, or before the dock
+      app started, stay "maybe alive" (no click). Persisting the tracker's
+      times across restarts would cover the second.
 - [ ] Scenes, left from the final review (small, not fixed): a film that an
       app reports as content type `movie` and whose duration drops out for a
       tick is treated as another film (key gray ~15 s, served from cache

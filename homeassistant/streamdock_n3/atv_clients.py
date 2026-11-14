@@ -10,6 +10,11 @@ cold app launch from a warm one (services/profiles).
 they start: an app that registers at playback (Hulu) is "gone" while it sits
 alive in its menus. "unknown" means there is no session to ask.
 
+A removal can fall in a gap between sessions (the Apple TV asleep, the
+connection down). An app that was alive before the gap and is not listed again
+once the new session's list is complete (or is listed with another process
+id) counts as removed at the new session's start.
+
 Needs the app's own MRP session (the AirPlay pairing, see atv_touch.py).
 """
 
@@ -39,14 +44,18 @@ class AtvClients:
         self._alive: dict[str, int] = {}
         self._seen: dict[str, float] = {}
         self._removed: dict[str, float] = {}
+        self._unconfirmed: dict[str, int] = {}  # alive before the last gap, not listed since
 
     # -- events (pyatv loop) -------------------------------------------------
     def on_session(self) -> None:
         """A new MRP session: the Apple TV is about to list its live clients."""
         with self._lock:
+            ended = self._confirm()  # the previous session's list, before it is lost
+            self._unconfirmed.update(self._alive)
             self._session_at = self._monotonic()
             self._first_at = None
             self._alive = {}
+        self._log_ended(ended)
 
     def on_message(self) -> None:
         """Any message of the session: the list is complete settle_s after the first."""
@@ -61,6 +70,9 @@ class AtvClients:
             if not pid and bundle in self._alive:
                 pid = self._alive[bundle]  # a message without a process id: keep the known one
             changed = self._alive.get(bundle) != pid
+            before = self._unconfirmed.pop(bundle, None)
+            if before is not None and pid and before != pid:
+                self._removed[bundle] = self._session_at  # the old process ended in the gap
             self._alive[bundle] = pid
             self._seen[bundle] = now
         if changed and bundle in self._watch:
@@ -75,6 +87,7 @@ class AtvClients:
             if current is not None and current != pid:
                 return  # an old process, reported after the app restarted
             self._alive.pop(bundle, None)
+            self._unconfirmed.pop(bundle, None)
             self._removed[bundle] = now
         if bundle in self._watch:
             self._log(f"atv-clients: {bundle} gone")
@@ -82,9 +95,31 @@ class AtvClients:
     def on_lost(self) -> None:
         """The connection dropped: nothing is known until the next session."""
         with self._lock:
+            ended = self._confirm()  # the previous session's list, before it is lost
+            self._unconfirmed.update(self._alive)
             self._session_at = None
             self._first_at = None
             self._alive = {}
+        self._log_ended(ended)
+
+    def _settled(self) -> bool:
+        return (self._session_at is not None and self._first_at is not None
+                and self._monotonic() - self._first_at >= self._settle_s)
+
+    def _confirm(self) -> list[str]:
+        """Once the list is complete: apps alive before the gap and not listed
+        again ended in it. Returns the watched ones, for the log. Under the lock."""
+        if not self._unconfirmed or not self._settled():
+            return []
+        ended = [b for b in self._unconfirmed if b not in self._alive]
+        for bundle in ended:
+            self._removed[bundle] = self._session_at
+        self._unconfirmed = {}
+        return [b for b in ended if b in self._watch]
+
+    def _log_ended(self, ended: list[str]) -> None:
+        for bundle in ended:
+            self._log(f"atv-clients: {bundle} gone (not listed after reconnect)")
 
     def _touch(self) -> float:
         now = self._monotonic()
@@ -96,13 +131,15 @@ class AtvClients:
     def status(self, bundle: str) -> str:
         """"alive", "gone" or "unknown"."""
         with self._lock:
+            ended = self._confirm()
             if self._session_at is None:
-                return "unknown"
-            if bundle in self._alive:
-                return "alive"
-            if self._first_at is None or self._monotonic() - self._first_at < self._settle_s:
-                return "unknown"
-            return "gone"
+                status = "unknown"
+            elif bundle in self._alive:
+                status = "alive"
+            else:
+                status = "gone" if self._settled() else "unknown"
+        self._log_ended(ended)
+        return status
 
     def pid(self, bundle: str) -> int | None:
         with self._lock:
@@ -110,7 +147,10 @@ class AtvClients:
 
     def removed_at(self, bundle: str) -> float | None:
         with self._lock:
-            return self._removed.get(bundle)
+            ended = self._confirm()
+            removed = self._removed.get(bundle)
+        self._log_ended(ended)
+        return removed
 
     def seen_at(self, bundle: str) -> float | None:
         with self._lock:

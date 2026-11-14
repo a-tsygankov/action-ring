@@ -1,4 +1,5 @@
-"""The TV Room preset opens Apple TV apps through the service, switched off."""
+"""The TV Room preset opens Apple TV apps through the service, clicking on
+the apps that showed a picker on a cold launch (survey of 2026-11-14)."""
 
 import json
 from pathlib import Path
@@ -9,18 +10,37 @@ ROOT = Path(__file__).resolve().parents[3]
 PRESET = json.loads((ROOT / "presets" / "tv_room.json").read_text(encoding="utf-8"))
 PAGES = PRESET["tabs"]["pages"]
 CFG = PRESET["services"]["profiles"]
-NO_PICKER = {"tv.pluto.ios", "com.adrise.tubitv", "com.apple.TVWatchList"}
+PICKER = {"com.netflix.Netflix", "com.amazon.aiv.AIVApp", "com.wbd.stream",
+          "com.disney.disneyplus", "com.hulu.plus", "com.cbsvideo.app"}
+# No picker (Tubi, the TV app), a sign-up promo where select signs up (Pluto),
+# or a picker only sometimes, warm or cold, over a feed where select plays (YouTube).
+LEFT_OUT = {"tv.pluto.ios", "com.adrise.tubitv", "com.apple.TVWatchList", "com.google.ios.youtube"}
 
 
 def _app_keys():
     return [spec for page in ("apps", "apps_more") for spec in PAGES[page]["keys"].values()]
 
 
-def test_ships_switched_off():
-    assert CFG["dry_run"] is True
-    assert CFG["apps"] and all(entry["picker"] is False for entry in CFG["apps"].values())
-    assert not NO_PICKER & set(CFG["apps"])
+def test_clicks_on_the_apps_with_a_picker():
+    assert CFG["dry_run"] is False
+    assert {app for app, entry in CFG["apps"].items() if entry["picker"] is True} == PICKER
+    assert not LEFT_OUT & set(CFG["apps"])
     assert CFG["apps"]["com.netflix.Netflix"]["undo"] is False   # it reports no duration
+
+
+def test_delays_wait_for_the_picker():
+    """Seconds from the press to the picker on the TV: Prime 3, Max, Hulu,
+    Paramount+ 6, Netflix 7, Disney+ 11 (its avatars last)."""
+    delay = {app: entry.get("delay_s", CFG["delay_s"]) for app, entry in CFG["apps"].items()}
+    shown = {"com.amazon.aiv.AIVApp": 3, "com.wbd.stream": 6, "com.hulu.plus": 6,
+             "com.cbsvideo.app": 6, "com.netflix.Netflix": 7, "com.disney.disneyplus": 11}
+    for app, seconds in shown.items():
+        assert seconds + 1.5 <= delay[app] <= seconds + 3, app
+
+
+def test_only_prime_registers_at_launch():
+    """Max, Hulu, Disney+, Paramount+ and Netflix register only at playback."""
+    assert [a for a, e in CFG["apps"].items() if e.get("registers") == "launch"] == ["com.amazon.aiv.AIVApp"]
 
 
 def test_apple_tv_app_keys_open_through_the_service():
