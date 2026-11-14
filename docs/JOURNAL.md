@@ -1317,6 +1317,17 @@ PC only (fixtures, no live requests in tests).
 
 ## Open items
 
+- [ ] Scenes, left from the final review (small, not fixed): a film that an
+      app reports as content type `movie` and whose duration drops out for a
+      tick is treated as another film (key gray ~15 s, served from cache
+      again); identity folded into a same-title row when the stored film has
+      no runtime (fix: update by id); a film still settling that blinks out
+      can be looked up slightly early.
+- [ ] Scenes sources to add: Reddit timestamp threads through the official
+      API (needs a Reddit "script" app: client id and secret in
+      `secrets.json`); Gemini Pro with search as a low-confidence last
+      resort. Trial results and analysis: `docs/SCENE_SOURCES.md`.
+
 - [ ] Scene jump: deploy (`restore.sh`, with the owner) and check on the TV
       in Max or Disney+: a film known to VideoSkip, the `scenes:` log
       lines, the key turns to colour, one press lands about 5 s before the
