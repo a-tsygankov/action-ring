@@ -370,3 +370,18 @@ def test_lookup_toast_is_off_by_default_and_reports_the_count_when_on():
     svc, ctx, lk = make(scenes=(), states=atv(pos=60), cfg={"toast_lookup": True})
     svc.watch(); ctx.fakes.time.now += 10; svc.watch()
     assert ctx.fakes.toasts == [("Scenes: none found for Tuner", None)]
+
+
+def test_max_reports_the_film_name_as_artist_with_an_empty_title():
+    # Seen live 2026-11-13: HBO Max sends media_title='' and media_artist='Weapons'.
+    st = atv(title="", dur=7709, pos=60)
+    st[ATV]["a"]["media_artist"] = "Weapons"
+    svc, ctx, lk = make(scenes=((3286, 3329),), states=st)
+    svc.watch(); ctx.fakes.time.now += 10; svc.watch()
+    assert lk.calls == [("Weapons", 7709, "com.wbd.stream")]
+
+    st = atv(title="Tuner", dur=6600, pos=60)                  # a real title always wins over the artist
+    st[ATV]["a"]["media_artist"] = "Someone"
+    svc, ctx, lk = make(scenes=(), states=st)
+    svc.watch(); ctx.fakes.time.now += 10; svc.watch()
+    assert lk.calls == [("Tuner", 6600, "com.wbd.stream")]

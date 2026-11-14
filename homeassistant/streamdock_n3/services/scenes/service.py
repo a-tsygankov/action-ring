@@ -92,7 +92,8 @@ class ScenesService(Service):
             return None
         a = st.get("a") or {}
         app = a.get("app_id") or ""
-        title = a.get("media_title") or ""
+        # HBO Max sends an empty title and the film's name as the artist.
+        title = a.get("media_title") or a.get("media_artist") or ""
         if app in self._cfg("exclude_apps") or not isinstance(title, str) or not title.strip():
             return None
         dur = _num(a.get("media_duration"))
