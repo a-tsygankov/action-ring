@@ -1686,8 +1686,12 @@ com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
 - On Windows two `test_combo_daemon.py` cat tests fail on icon paths
   (`...\cat_1.png.png` instead of `cat_1.png`), in code this change
   does not touch. Not looked into.
-- Not done: the whole "Retest on the TV" list in
-  [Replacing the Apple TV](#replacing-the-apple-tv).
+- On the TV (user, on 0.6.5-2): next chapter and next video work in
+  YouTube on the new box.
+- Not done: the rest of the "Retest on the TV" list in
+  [Replacing the Apple TV](#replacing-the-apple-tv): Key 3 power over
+  CEC, knob scrubbing (touch window measured on the old box), Pluto /
+  Peacock ad muting, the soccer key, the tabs.
 
 ## Open items
 
