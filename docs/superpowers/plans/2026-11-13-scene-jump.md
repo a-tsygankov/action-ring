@@ -18,7 +18,7 @@
 - No test and no development step requests a live site, except Task 2 Step 1 (at most 8 requests to VideoSkip, 3 s apart).
 - Never try to pass a bot check. A challenge page, 403 or 429 means status `blocked`.
 - Time comes from `ctx.clock()` / `ctx.monotonic()` / `ctx.sleep()`, never `time`.
-- Defaults (all overridable in config): `min_film_s` 3000, `settle_s` 10, `lead_s` 5, `guard_s` 2, `join_gap_s` 20, `seek_hold_s` 5, `request_gap_s` 3, `max_lookups_per_day` 30, `hit_ttl_days` 90, `miss_ttl_days` 14, `blocked_ttl_days` 1, `categories` `["nudity", "sex"]`, `sources` `["videoskip", "nsfwhen", "nudidex"]`, `seek_apps` `["com.wbd.stream", "com.disney.disneyplus"]`, `exclude_apps` `["com.google.ios.youtube"]`.
+- Defaults (all overridable in config): `min_film_s` 3000, `settle_s` 10, `lead_s` 5, `guard_s` 2, `join_gap_s` 20, `seek_hold_s` 5, `request_gap_s` 3, `max_lookups_per_day` 30, `hit_ttl_days` 90, `miss_ttl_days` 14, `blocked_ttl_days` 1, `categories` `["nudity", "sex"]`, `sources` `["videoskip", "nsfwhen"]` (nudidex stays registered but is off by default: without a parser it only wrote `blocked` rows that counted against the daily cap), `seek_apps` `["com.wbd.stream", "com.disney.disneyplus"]`, `exclude_apps` `["com.google.ios.youtube"]`.
 - Run tests from the repo root: `python -m pytest homeassistant/streamdock_n3 -q`. Test files live in `services/scenes/tests/` with unique names (`test_scenes_*.py`).
 - Commit after each task on a branch `feat/scene-jump` (create it before Task 1; the design, plan and `docs/SCENE_SOURCES.md` go in the first commit). End commit messages with `Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>`.
 

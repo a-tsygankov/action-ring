@@ -142,14 +142,15 @@ new module plus its name there.
 - **videoskip** (primary): search → film page → the best skip file whose
   filters include sex/nudity: prefer one synced with the playing app's
   service (`app_services` config maps `app_id` to VideoSkip's names), else
-  the most downloaded. One download per film. Parse `start --> end` blocks
+  the most downloaded, among the film's 3 newest skip files (see Decided).
+  One download per film. Parse `start --> end` blocks
   and their category line; apply the per-service offset line when it names
   the playing service; ignore everything from the `data:` line on.
 - **nsfwhen** (secondary): search → film page → the embedded `film` JSON.
   Keep times, category, verification status; drop everything else.
 - **nudidex**: a module that returns `blocked` without a request unless
   `probe` is enabled in its config; kept so the list and the document stay in
-  step **(call)**.
+  step **(call)**. Not in the default `sources` (see Decided).
 - **aznude**: not built in this version **(call)**; documented only.
 
 Shared helper for all sources: a per-site minimum gap between requests
@@ -174,7 +175,7 @@ and is updated. The key is absent on soccer's `live_game` page, which is
 fine: no film is playing there.
 
 - Condition `scenes.ready`: a film is on, the app is in `seek_apps`, and a
-  scene starts later than position + `guard_s` (2 s).
+  scene starts later than position + max(`guard_s`, `lead_s`) (see Decided).
 - `seek_apps` **(call)**: the apps where `media_seek` has been checked on the
   TV, initially Max (`com.wbd.stream`) and Disney+ (`com.disney.disneyplus`).
   The `supported_features` seek bit alone is not trusted: an app may set it
@@ -207,6 +208,23 @@ fine: no film is playing there.
   playing service explicitly (`app_services` gives the name). The
   extension's implicit +20 s default for `disneyplus` is not copied: a file
   that does not list the service is not shifted by a guess.
+- VideoSkip reads only the 3 newest skip pages of a film (highest ids) and
+  picks the best of those (synced with the playing service, else the most
+  downloaded among the three), not the most downloaded file overall: it caps
+  the requests per film at 6.
+- Default `sources` is `["videoskip", "nsfwhen"]`. nudidex stays registered
+  (named in `sources` it is used, with `source_cfg.nudidex.probe` for its one
+  home-page request), but by default it only wrote a `blocked` row per film
+  with no request, and those rows counted against `max_lookups_per_day`.
+- TMDB identification is recorded as a `lookups` row with source `tmdb`
+  (`hit`/`miss`/`error`, same TTLs; no row without a key, so it is retried
+  as soon as a key exists) and repeated while the film has no TMDB id. Newly
+  gained identity re-asks sources that missed or were ambiguous. VideoSkip
+  is not asked for a film with no year or id (it could not accept any
+  match). The `tmdb` row does not count against the daily cap.
+- A tick without the film (loading after a seek, title briefly missing)
+  grays the key but keeps the snapshot and jump memory for `settle_s`; the
+  same film back within that time carries on with no settle wait or lookup.
 
 ### 7. Icons
 

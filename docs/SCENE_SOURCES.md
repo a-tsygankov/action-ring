@@ -98,8 +98,13 @@ natural keys for the local database.
 - **Quality**: user-made; download counts are a rough trust signal. Skips are
   often short (a few seconds). Aimed at hiding content, so coverage leans to
   family-audience titles.
-- **Cost per film**: search + film page + one download per skip file = 3 or
-  more requests.
+- **How the service picks a file**: it reads the skip pages of the film's 3
+  newest skip files only (highest ids) and picks the best of those whose
+  filters include sex or nudity: one synced with the playing service first,
+  else the most downloaded of the three. An older file with more downloads
+  is not considered.
+- **Cost per film**: search + film page + up to 3 skip pages + one download =
+  at most 6 requests (2 when nothing matches or there are no skip files).
 
 ## NSFWhen
 
@@ -133,6 +138,12 @@ natural keys for the local database.
   for curl and for a real desktop browser. `robots.txt` is empty.
 - **Status**: not analysed further. The service must not try to get past the
   challenge. Recheck occasionally (one request) in case the setting is relaxed.
+- **In the service**: registered as `nudidex` but not in the default
+  `sources` (`["videoskip", "nsfwhen"]`): with no parser it could only store a
+  `blocked` row per film, and those rows counted against
+  `max_lookups_per_day`. Named in `sources`, it makes no request unless
+  `source_cfg` has `{"nudidex": {"probe": true}}` (one home-page request per
+  film: `blocked` while the challenge is there, `miss` once it is gone).
 - Not indexed by the web search used, so nothing is known beyond the owner's
   note: exact timecodes, a small number of films.
 
@@ -278,5 +289,9 @@ Reference times are VideoSkip skip files fetched for the test.
   per site. Config: `request_gap_s` (3).
 - A challenge page or a 403/429 marks the source as blocked for a day; the
   other sources are still used. Config: `blocked_ttl_days` (1).
+- Default sources: `["videoskip", "nsfwhen"]` (nudidex off, see its section).
+- The TMDB identification is cached like a source (row `tmdb`, same TTLs,
+  not counted in the daily cap). VideoSkip is not asked for a film with no
+  year or id, since without a runtime it could accept no match.
 - During development, work from saved pages (test fixtures), not the live
   sites.

@@ -1288,10 +1288,12 @@ PC only (fixtures, no live requests in tests).
   `docs/SCENE_SOURCES.md`.
 - How it works: a job watches the Apple TV state; a film (>= 50 min or typed
   movie) is noticed after 10 s; TMDB identifies it (`tmdb_key` in
-  `/config/secrets.json`); VideoSkip, NSFWhen and nudidex are asked once per
-  film with a 3 s gap and a daily cap of 30 films, hits and misses cached in
-  `scenes.sqlite`; the lists are merged (scenes within 20 s join); the key is
-  lit only while a scene's lead-in point is ahead of the position.
+  `/config/secrets.json`; retried until it answers); VideoSkip and NSFWhen
+  are asked once per film with a 3 s gap and a daily cap of 30 films, hits
+  and misses cached in `scenes.sqlite` (nudidex is registered but off by
+  default; VideoSkip is skipped for a film TMDB has not identified); the
+  lists are merged (scenes within 20 s join); the key is lit only while a
+  scene's lead-in point is ahead of the position.
 - Press: `media_seek` to `start - lead_s` (5 s). Right after a jump the
   position counts as the scene's start, so a second press goes to the next
   scene instead of repeating.
@@ -1299,6 +1301,14 @@ PC only (fixtures, no live requests in tests).
   "ahead" only if `start - max(guard_s, lead_s)` is later than the position;
   VideoSkip offsets only when the file lists the service (no implicit
   Disney+ +20 s).
+- Final review fixes: TMDB identification is cached as a `tmdb` lookups row
+  and retried (gaining it re-asks sources that missed); each source logs its
+  own request count; a film that drops out for a tick (loading after a seek)
+  keeps its snapshot and second-press memory for `settle_s`; "nan"/"inf"
+  numbers are ignored; nudidex left out of the default sources; a chain test
+  runs the real sources, Fetcher, Db and service on fixtures. The first
+  lookup of a new film runs inside the 5 s `watch` job (20-30 s), so one
+  `metrics: SLOW scenes job:watch` line per new film is expected.
 - Icons: the owner's silhouette (`services/scenes/icons/source.gif`) built
   by `homeassistant/tools/icons/build_scene_icons.py` into `scene.png`
   (white on red) and `scene_off.png` (gray). Only checked by eye as images.
@@ -1312,8 +1322,11 @@ PC only (fixtures, no live requests in tests).
       lines, the key turns to colour, one press lands about 5 s before the
       scene. Record any `lead_s` / offset finding.
 - [ ] Scene jump: put `{"scenes": {"tmdb_key": "..."}}` into
-      `/config/secrets.json` on the device (without it VideoSkip matches are
-      not accepted).
+      `/config/secrets.json` on the device (without it VideoSkip is not
+      asked; NSFWhen can still match by runtime).
+- [ ] Scene jump, TV check: does the position reported after a seek lag
+      more than `seek_hold_s` (5 s)? If so the key lights again for the
+      same scene.
 - [ ] Scene jump: check `media_seek` in more apps before adding them to
       `seek_apps`.
 - [ ] Scene jump: no Max or Disney+ VideoSkip file seen yet, so those
