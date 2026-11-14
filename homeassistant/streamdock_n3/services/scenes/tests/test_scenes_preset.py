@@ -22,3 +22,5 @@ def test_icons_exist_and_preset_places_the_key():
     preset = json.loads((ROOT / "presets" / "tv_room.json").read_text())
     assert preset["tabs"]["pages"]["context:streaming"]["keys"]["4"] == {"service_key": "scenes.next"}
     assert preset["services"]["scenes"]["atv"].startswith("media_player.")
+    # nudidex has no parser: asking it would only write "blocked" rows that count against the daily cap
+    assert preset["services"]["scenes"]["sources"] == ["videoskip", "nsfwhen"]

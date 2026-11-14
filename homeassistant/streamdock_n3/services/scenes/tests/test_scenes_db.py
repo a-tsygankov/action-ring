@@ -92,3 +92,13 @@ def test_shared_connection_across_threads():
     for t in threads:
         t.join()
     assert not errors and db.lookups_since(-1.0) == 8
+
+
+def test_lookups_since_can_leave_out_a_source():
+    db = Db(mem())
+    a = db.save_film(Film("A", "a"), 0.0); b = db.save_film(Film("B", "b"), 0.0)
+    db.save_result(a, "tmdb", SourceResult("hit"), 10.0)
+    db.save_result(b, "tmdb", SourceResult("miss"), 10.0)
+    db.save_result(b, "videoskip", SourceResult("miss"), 10.0)
+    assert db.lookups_since(0.0) == 2
+    assert db.lookups_since(0.0, exclude=("tmdb",)) == 1

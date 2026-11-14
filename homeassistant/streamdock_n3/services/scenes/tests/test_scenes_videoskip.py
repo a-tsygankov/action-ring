@@ -101,3 +101,16 @@ def test_garbage_film_or_skip_page_is_error_not_miss():
     http = {"/search/": fx("videoskip_search_hits.html"), "/exchange/videos/": fx("videoskip_film_skips.html"),
             "/exchange/skip/": "<html><body>x</body></html>"}
     assert _run(http).status == "error"
+
+
+def test_requests_are_this_lookups_own():
+    http = {"/search/": fx("videoskip_search_hits.html"), "/exchange/videos/": fx("videoskip_film_skips.html"),
+            "/download/": fx("videoskip_tuner.skp"), "/exchange/skip/": fx("videoskip_skip.html")}
+    fetch = Fetcher(fake_context("scenes", {}, http=http), gap_s=0)
+    fetch.count = 5                                # requests made earlier by other sources
+    assert lookup(fetch, FILM, {}).requests == 4
+
+
+def test_non_finite_offset_is_ignored():
+    skp = '0:00:01\n\n0:10:00 --> 0:10:05\nSex 3\n\n{"amazon":NaN,"max":Infinity,"disneyplus":7}\n'
+    assert parse_skip_file(skp)[1] == {"disneyplus": 7}

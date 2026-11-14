@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from html import unescape
 from urllib.parse import quote_plus
@@ -94,7 +95,7 @@ def parse_skip_file(text: str) -> tuple[list[Scene], dict]:
             raw = json.loads(head[brace:head.rfind("}") + 1])
             if isinstance(raw, dict):
                 offsets = {k: v for k, v in raw.items()
-                           if isinstance(v, (int, float)) and not isinstance(v, bool)}
+                           if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)}
         except ValueError:
             offsets = {}
         head = head[:brace]
@@ -131,18 +132,20 @@ def _wants(filters: str) -> bool:
 
 
 def lookup(fetch: Fetcher, film: Film, cfg: dict) -> SourceResult:
-    """cfg["service"]: the VideoSkip service key/name the film is played on, or None."""
+    """cfg["service"]: the VideoSkip service key/name the film is played on, or None.
+    `requests` counts this lookup's own requests (the Fetcher is shared by all sources)."""
+    first = fetch.count
     try:
-        return _lookup(fetch, film, cfg.get("service"))
+        return _lookup(fetch, film, cfg.get("service"), first)
     except Blocked:
-        return SourceResult("blocked", requests=fetch.count)
+        return SourceResult("blocked", requests=fetch.count - first)
     except Exception:
-        return SourceResult("error", requests=fetch.count)
+        return SourceResult("error", requests=fetch.count - first)
 
 
-def _lookup(fetch: Fetcher, film: Film, service: str | None) -> SourceResult:
+def _lookup(fetch: Fetcher, film: Film, service: str | None, first: int) -> SourceResult:
     def done(status: str, scenes=(), meta=None) -> SourceResult:
-        return SourceResult(status, tuple(scenes), meta or {}, fetch.count)
+        return SourceResult(status, tuple(scenes), meta or {}, fetch.count - first)
 
     html = fetch.get(SITE, f"{BASE}/exchange/search/?q={quote_plus(film.title)}", op="videoskip_search")
     cand, status = pick(film, parse_search(html))

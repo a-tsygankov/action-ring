@@ -148,9 +148,12 @@ class Db:
             ).fetchall()
         return [Scene(*row) for row in rows]
 
-    def lookups_since(self, since: float) -> int:
+    def lookups_since(self, since: float, exclude: tuple[str, ...] = ()) -> int:
+        """Films with a lookup row newer than `since`, not counting rows of the `exclude` sources."""
+        marks = ", ".join("?" * len(exclude))
         with self._lock:
             (count,) = self._conn.execute(
-                "SELECT COUNT(DISTINCT film_id) FROM lookups WHERE fetched_at > ?", (since,)
+                f"SELECT COUNT(DISTINCT film_id) FROM lookups WHERE fetched_at > ? AND source NOT IN ({marks})",
+                (since, *exclude),
             ).fetchone()
         return count

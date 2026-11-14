@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from urllib.parse import quote
 
@@ -61,7 +62,8 @@ def _film_object(html: str) -> dict:
 
 
 def _num(value) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+    """A finite JSON number (json.loads also accepts NaN and Infinity)."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
 def parse_film(html: str) -> tuple[Candidate, list[Scene]]:
@@ -96,17 +98,19 @@ def parse_film(html: str) -> tuple[Candidate, list[Scene]]:
 
 
 def lookup(fetch: Fetcher, film: Film, cfg: dict) -> SourceResult:
+    """`requests` counts this lookup's own requests (the Fetcher is shared by all sources)."""
+    first = fetch.count
     try:
-        return _lookup(fetch, film)
+        return _lookup(fetch, film, first)
     except Blocked:
-        return SourceResult("blocked", requests=fetch.count)
+        return SourceResult("blocked", requests=fetch.count - first)
     except Exception:
-        return SourceResult("error", requests=fetch.count)
+        return SourceResult("error", requests=fetch.count - first)
 
 
-def _lookup(fetch: Fetcher, film: Film) -> SourceResult:
+def _lookup(fetch: Fetcher, film: Film, first: int) -> SourceResult:
     def done(status: str, scenes=(), meta=None) -> SourceResult:
-        return SourceResult(status, tuple(scenes), meta or {}, fetch.count)
+        return SourceResult(status, tuple(scenes), meta or {}, fetch.count - first)
 
     urls = parse_search(fetch.get(SITE, f"{BASE}/browse?q={quote(film.title, safe='')}", op="nsfwhen_search"))
     found: list[tuple[Candidate, list[Scene]]] = []

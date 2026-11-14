@@ -120,13 +120,13 @@ def test_daily_cap():
 
 
 def test_tmdb_failure_and_missing_key_do_not_raise():
-    lk, calls, ctx = make(sources={"videoskip": miss()}, identify=raises(TimeoutError("http://t?api_key=" + KEY)))
+    lk, calls, ctx = make(sources={"nsfwhen": miss()}, identify=raises(TimeoutError("http://t?api_key=" + KEY)))
     assert lk.run("Tuner", 6600, "a") == ()
     assert "test: tmdb failed: TimeoutError" in ctx.logs
-    assert calls == ["videoskip"]
+    assert calls == ["nsfwhen"]
     assert not any("http" in l or KEY in l for l in ctx.logs)
     lookup_mod._warned_no_key = False
-    lk, calls, ctx = make(sources={"videoskip": miss()}, secrets=None)
+    lk, calls, ctx = make(sources={"nsfwhen": miss()}, secrets=None)
     assert lk.run("Tuner", 6600, "a") == ()
     assert "test: no tmdb_key in secrets.json" in ctx.logs
     lk.run("Other", 6600, "a")
@@ -149,7 +149,7 @@ def test_service_name_passed_to_source():
 
 def test_meta_fills_missing_film_fields():
     meta = {"year": 1999, "director": "D", "cast": ("A", "B"), "imdb_id": "tt1"}
-    lk, calls, ctx = make(sources={"videoskip": hit([(1, 2)], meta)}, identify=lambda *a: None)
+    lk, calls, ctx = make(sources={"nsfwhen": hit([(1, 2)], meta)}, identify=lambda *a: None)
     lk.run("Tuner", 6600, "a")
     _, film = ctx.db.find_film("tuner", 6600)
     assert (film.year, film.director, film.cast, film.imdb_id) == (1999, "D", ("A", "B"), "tt1")
@@ -187,3 +187,138 @@ def test_database_errors_do_not_raise():
     assert lk.run("Tuner", 6600, "a") == ()
     assert any("OperationalError" in l for l in ctx.logs)
     assert not any("http" in l for l in ctx.logs)
+
+
+# --- identity is recorded and retried (I1) -----------------------------------
+
+class Identify:
+    """identify fake: returns (or raises) the next planned answer and counts calls."""
+
+    def __init__(self, *answers):
+        self.answers = list(answers)
+        self.calls = 0
+
+    def __call__(self, http, key, title, runtime_s):
+        self.calls += 1
+        answer = self.answers.pop(0) if len(self.answers) > 1 else self.answers[0]
+        if isinstance(answer, BaseException):
+            raise answer
+        return answer if answer is None else Film(title, norm_title(title), runtime_s, 2026, tmdb_id=7)
+
+
+IDENTIFIED = "identified"
+
+
+def tmdb_state(ctx):
+    fid, _ = ctx.db.find_film("tuner", 6600)
+    return ctx.db.lookup_state(fid).get("tmdb")
+
+
+def test_identity_error_is_recorded_and_retried_after_blocked_ttl():
+    ident = Identify(TimeoutError("x"), IDENTIFIED)
+    lk, calls, ctx = make(sources={"videoskip": miss(), "nsfwhen": miss()}, identify=ident)
+    lk.run("Tuner", 6600, "a")
+    assert tmdb_state(ctx)[0] == "error" and ident.calls == 1
+    assert calls == ["nsfwhen"]                                   # videoskip cannot match an unknown film
+    assert "test: videoskip: skipped (film not identified)" in ctx.logs
+    lk.run("Tuner", 6600, "a")
+    assert ident.calls == 1                                       # not due yet
+    ctx.fakes.time.now += 86400 + 1
+    lk.run("Tuner", 6600, "a")
+    assert ident.calls == 2 and tmdb_state(ctx)[0] == "hit"
+    assert ctx.db.find_film("tuner", 6600)[1].tmdb_id == 7
+    assert calls == ["nsfwhen", "videoskip", "nsfwhen"]           # identity gained: the miss is asked again
+    ctx.fakes.time.now += 1000 * 86400
+    lk.run("Tuner", 6600, "a")
+    assert ident.calls == 2                                       # identified: never asked again
+
+
+def test_identity_miss_is_retried_after_miss_ttl():
+    ident = Identify(None)
+    lk, calls, ctx = make(sources={"nsfwhen": miss()}, identify=ident)
+    lk.run("Tuner", 6600, "a")
+    assert tmdb_state(ctx)[0] == "miss"
+    ctx.fakes.time.now += 13 * 86400; lk.run("Tuner", 6600, "a")
+    assert ident.calls == 1
+    ctx.fakes.time.now += 2 * 86400; lk.run("Tuner", 6600, "a")
+    assert ident.calls == 2
+
+
+def test_no_key_writes_no_row_and_identity_follows_once_a_key_exists():
+    lookup_mod._warned_no_key = False
+    ident = Identify(IDENTIFIED)
+    lk, calls, ctx = make(sources={"videoskip": miss()}, identify=ident, secrets=None)
+    lk.run("Tuner", 6600, "a")
+    assert tmdb_state(ctx) is None and ident.calls == 0 and calls == []
+    ctx._secrets_path.write_text('{"test": {"tmdb_key": "k"}}')
+    lk.run("Tuner", 6600, "a")
+    assert ident.calls == 1 and calls == ["videoskip"]
+
+
+def test_identity_gained_reopens_miss_and_ambiguous_only():
+    ident = Identify(TimeoutError("x"), IDENTIFIED)
+    amb = lambda fetch, film, cfg: SourceResult("ambiguous")
+    lk, calls, ctx = make(sources={"a": amb, "m": miss(), "h": hit([(1, 2)])}, identify=ident,
+                          config={"sources": ["a", "m", "h"]})
+    lk.run("Tuner", 6600, "a")
+    ctx.fakes.time.now += 2 * 86400                               # miss/ambiguous TTL (14 days) not over
+    lk.run("Tuner", 6600, "a")
+    assert ident.calls == 2 and calls == ["a", "m", "h", "a", "m"]
+
+
+def test_tmdb_row_does_not_count_against_the_daily_cap():
+    ident = Identify(None, IDENTIFIED)                            # A1 unknown to TMDB, B2 identified
+    lk, calls, ctx = make(sources={"videoskip": miss()}, identify=ident, config={"max_lookups_per_day": 1})
+    lk.run("A1", 6000, "a")
+    assert calls == [] and ctx.db.lookups_since(0) == 1           # only A1's tmdb row exists
+    lk.run("B2", 6000, "a")
+    assert calls == ["videoskip"]
+    assert ctx.db.lookups_since(0, exclude=("tmdb",)) == 1
+
+
+def test_tmdb_is_never_a_website_source():
+    lk, calls, ctx = make(sources={"tmdb": miss(), "nsfwhen": miss()}, config={"sources": ["tmdb", "nsfwhen"]})
+    lk.run("Tuner", 6600, "a")
+    assert calls == ["nsfwhen"] and "test: unknown source tmdb" in ctx.logs
+    assert tmdb_state(ctx)[0] == "hit"
+
+
+def test_identified_by_year_alone_is_enough_for_videoskip():
+    lk, calls, ctx = make(sources={"videoskip": miss()},
+                          identify=lambda *a: Film("Tuner", "tuner", 6600, 2026))
+    lk.run("Tuner", 6600, "a")
+    assert calls == ["videoskip"]
+
+
+def test_each_source_logs_its_own_request_count():
+    def fetching(n):
+        def source(fetch, film, cfg):
+            start = fetch.count
+            fetch.count += n
+            return SourceResult("miss", requests=fetch.count - start)
+        return source
+    lk, calls, ctx = make(sources={"videoskip": fetching(4), "nsfwhen": fetching(1)})
+    lk.run("Tuner", 6600, "a")
+    assert "test: videoskip: miss, 0 scenes, 4 requests" in ctx.logs
+    assert "test: nsfwhen: miss, 0 scenes, 1 requests" in ctx.logs
+
+
+def test_one_fetcher_per_lookup_keeps_the_site_gap_across_runs():
+    seen = []
+    lk, calls, ctx = make(sources={"nsfwhen": lambda fetch, film, cfg: seen.append(fetch) or SourceResult("miss")})
+    lk.run("A1", 6600, "a"); lk.run("B2", 6600, "a")
+    assert len(seen) == 2 and seen[0] is seen[1]
+
+
+def test_cast_from_meta_is_stored_as_a_tuple_of_str():
+    lk, calls, ctx = make(sources={"nsfwhen": hit([(1, 2)], {"cast": ["A", "B"]})})
+    lk.run("Tuner", 6600, "a")
+    film = lk._fold(Film("X", "x"), {"cast": ["A", "B"]})
+    assert film.cast == ("A", "B") and isinstance(film.cast, tuple)
+    hash(film)
+
+
+def test_default_sources_leave_out_nudidex():
+    lk, calls, ctx = make(sources={"videoskip": miss(), "nsfwhen": miss(), "nudidex": blocked()})
+    lk.run("Tuner", 6600, "a")
+    assert calls == ["videoskip", "nsfwhen"]

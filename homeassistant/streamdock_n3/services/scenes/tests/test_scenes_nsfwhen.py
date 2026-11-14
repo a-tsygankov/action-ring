@@ -87,3 +87,22 @@ def test_nudidex():
                        DRACULA, {"probe": True})
     assert (r.status, r.requests) == ("miss", 1)
     assert set(SOURCES) == {"videoskip", "nsfwhen", "nudidex"}
+
+
+def test_requests_are_this_lookups_own_and_nudidex_too():
+    ctx = fake_context("scenes", {}, http={"/browse": SEARCH_ONE_HIT_103, "/film/103": FILM_SCENES,
+                                            "nudidex.com": "<html>ok</html>"})
+    fetch = Fetcher(ctx, gap_s=0)
+    fetch.count = 5                                # requests made earlier by other sources
+    assert lookup(fetch, DRACULA, {}).requests == 2
+    assert nudidex.lookup(fetch, DRACULA, {"probe": True}).requests == 1
+
+
+def test_non_finite_scene_times_are_skipped():
+    for bad in ("NaN", "Infinity", "-Infinity"):
+        page = FILM_SCENES.replace('"start_time_seconds":1800', f'"start_time_seconds":{bad}', 1)
+        assert page != FILM_SCENES
+        cand, scenes = parse_film(page)
+        assert [s.start_s for s in scenes] == [3240, 4560]
+    cand, _ = parse_film(FILM_SCENES.replace('"runtime_minutes":130', '"runtime_minutes":Infinity', 1))
+    assert cand.runtime_s is None

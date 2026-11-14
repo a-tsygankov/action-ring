@@ -15,7 +15,7 @@ def lookup(fetch: Fetcher, film: Film, cfg: dict) -> SourceResult:
     try:
         fetch.get(SITE, HOME, op="nudidex_probe")
     except Blocked:
-        return SourceResult("blocked", requests=fetch.count)
+        return SourceResult("blocked", requests=1)
     except Exception:
-        return SourceResult("error", requests=fetch.count)
-    return SourceResult("miss", requests=fetch.count)
+        return SourceResult("error", requests=1)
+    return SourceResult("miss", requests=1)

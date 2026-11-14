@@ -13,3 +13,7 @@ SOURCES: dict[str, Callable[[Fetcher, Film, dict], SourceResult]] = {
     "nsfwhen": nsfwhen.lookup,
     "nudidex": nudidex.lookup,
 }
+
+# Sources that cannot accept any match without a year or an id (VideoSkip gives no runtime):
+# not asked for a film TMDB has not identified.
+NEEDS_IDENTITY = {"videoskip"}
