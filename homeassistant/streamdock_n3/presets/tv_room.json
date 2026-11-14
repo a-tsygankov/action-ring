@@ -58,7 +58,11 @@
       "cache_s": 60,
       "poll_s": 180,
       "idle_poll_s": 1800,
-      "select_after_s": 8
+      "select_after_s": 8,
+      "lg_channels": ["109", "807"],
+      "lg_country": "US",
+      "lg_cache_s": 600,
+      "lg_open_s": 12
     },
     "scenes": {
       "atv": "media_player.vugitv_4k_vugitv_4k",

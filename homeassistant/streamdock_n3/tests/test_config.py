@@ -263,6 +263,10 @@ def test_soccer_config_complete():
         "poll_s": 180,
         "select_after_s": 8,
         "idle_poll_s": 1800,
+        "lg_channels": ["109", "807"],  # German Soccer Network, ITV Deportes
+        "lg_country": "US",
+        "lg_cache_s": 600,
+        "lg_open_s": 12,
     }
 
 

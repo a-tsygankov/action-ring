@@ -1,7 +1,8 @@
 """The live soccer service: LiveSoccer (live.py) on the services contract.
 
 Config (services.soccer): atv, atv_remote, lg, atv_source, power_on_wait,
-token_page, cache_s, poll_s, idle_poll_s, select_after_s.
+token_page, cache_s, poll_s, idle_poll_s, select_after_s; LG Channels
+(live.py): lg_channels, lg_country, lg_cache_s, lg_open_s.
 
 - job "refresh": polls the listing; the wait it returns is poll_interval /
   retry_interval (listing.py).
@@ -21,6 +22,7 @@ from typing import Any
 
 from services import Service, action, condition, job
 
+from . import atv_quit, lgchannels
 from .listing import CYCLE_S
 from .live import LiveSoccer
 
@@ -41,11 +43,24 @@ class SoccerService(Service):
             on_change=ctx.changed, monotonic=ctx.monotonic, notify=ctx.toast,
             # The pick's CYCLE_S window ends without an event: redraw just after it.
             on_pick=lambda: ctx.redraw_in(CYCLE_S + 0.1),
+            quit_app=self._quit_app, shared=ctx.shared,
         )
 
-    def _fetch(self, url: str) -> str:
-        op = "token_page" if url == self.ctx.config["token_page"] else "shelf"
-        return self.ctx.http.get(url, op=op)
+    def _quit_app(self) -> None:
+        """Quit the Apple TV's front app (atv_quit.py) over the app's own pyatv connection."""
+        touch = self.ctx.shared("atv_touch")
+        if touch is None or not touch.available():
+            raise RuntimeError("no Apple TV touch connection")
+        touch.run(atv_quit.quit_front_app, 15)
+
+    def _fetch(self, url: str, headers: dict | None = None) -> str:
+        if url == self.ctx.config["token_page"]:
+            op = "token_page"
+        elif url == lgchannels.GUIDE:
+            op = "lg_guide"
+        else:
+            op = "shelf"
+        return self.ctx.http.get(url, op=op, headers=headers)
 
     def entities(self) -> set[str]:
         cfg = self.ctx.config
@@ -93,6 +108,7 @@ class SoccerService(Service):
 
     def context(self, layout: str) -> str | None:
         # watching() runs on every context update, as before the move: it is
-        # what forgets a game once another app takes over.
+        # what forgets a game once another app takes over. An LG Channels
+        # game keeps the LG app page (its keys drive the LG, not the Apple TV).
         watching = self.live.watching(self.ctx.state)
         return "live_game" if layout == "streaming" and watching else None

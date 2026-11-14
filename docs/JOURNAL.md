@@ -233,7 +233,8 @@ exists, and the app keeps connecting to the address stored in it.
 - [ ] Ad muting on a Pluto TV channel and a Peacock episode (pre-roll and
       mid-roll). `mrp_raw_log` is on, so `mrp_raw.log` shows what the new box
       sends if a rule misses.
-- [ ] Next chapter in YouTube; the soccer key; the tabs following the app.
+- [ ] Next chapter in YouTube; the tabs following the app. (Soccer key:
+      Paramount+ checked 11-14 on 0.6.3-1.)
 - [ ] If pairing fails outright, check pyatv's releases for the new box /
       tvOS before anything else: the app pins `pyatv==0.18.0` and
       `srptools==1.0.1`.
@@ -1390,6 +1391,92 @@ PC only (fixtures, no live requests in tests).
   (0:54:46), After the Hunt on Prime (1:25:58), Tuner on Paramount+
   (0:49:03). Nothing found on Tubi yet.
 
+### 2026-11-14 — LG Channels live soccer on the LIVE key (0.6.2-1)
+
+- The LG has no antenna channels (`tv/getChannelList`: count 0, "tuner
+  channel map does not exist"). Its live channels are **LG Channels**
+  (`com.webos.app.lgchannels`, HA source `LG Channels`).
+- Guide: `GET https://api.lgchannels.com/api/v1.0/schedulelist` with
+  headers `x-device-country: US`, `x-device-language: en`; no key. The body
+  is base64 of zlib JSON: `categories[].channels[]` (`channelId`,
+  `channelNumber`, `channelName`) with `programs[]` (`programTitle`,
+  `description`, `startDateTime`/`endDateTime` UTC), about 6 h ahead.
+  Soccer channels: 109 German Soccer Network (live games titled
+  "... Live: A - B"; otherwise "Full Match" replays) and 807 ITV Deportes
+  (Liga Expansión MX; titles don't say live vs. replay). 447 SportsGrid
+  only has talk shows.
+- Tuning (probes `lg_channels_*`, `lg_tune*`, all accepted by the TV):
+  - Deep link `system.launcher/launch` with `params.contentTarget`: the app
+    loads `/homeapp/v2/?channelId=<contentTarget>`. The guide's `channelId`
+    opened the home page on some other channel; JSON in it gives Tomcat
+    "HTTP 400 Invalid character". The ID the app wants is unknown.
+  - `tv/getCurrentChannel` / `tv/getChannelProgramInfo` fail (500) even in
+    LG Channels: no read-back of the channel.
+  - **Number keys work, from a fresh launch**: `system.launcher/close`
+    LG Channels, 3 s, `launch`, 12 s (the app's home page), then the
+    digits and `ENTER` (`webostv.button`). Over full-screen playback the
+    first digit only wakes the player (109 -> "09", 807 -> "07"), and on
+    the home page a doubled first digit counts (-> "1109"), so the app is
+    always closed first. Closing matters with another input in front too:
+    the app keeps running behind HDMI and a launch resumes its playback.
+    Without `ENTER` the number shows but nothing tunes.
+  - **Screen capture checks it**: `tv/executeOneShot` returns an
+    `imageUri` (`https://<tv>:3001/resources/.../capture.jpg`, 960x540,
+    self-signed TLS) of what is on screen, video and overlays included
+    (the number box shows "807 · IP-807 ITV Deportes"). It also worked on
+    the Apple TV's HDMI input (the Apple TV screensaver came through);
+    DRM/HDCP video there is untested. The code's exact `_tune` calls,
+    replayed as probes, tuned 807 -> 109 with LG Channels in front and
+    Apple OTT -> 807, both confirmed by captures.
+- qoool.xyz (asked first) was dropped: its stream links are unlicensed
+  restreams.
+
+### 2026-11-14 — Paramount+ live games: links only work from a cold start (0.6.2-2)
+
+- The LIVE key's Paramount+ path (never checked end to end before) failed:
+  Exeter v Cheltenham (live, 90+3) -> Paramount+ "fatal error", black.
+  Opened by hand inside Paramount+ it played (after a "watch live / catch up
+  with highlights" choice).
+- Tests with Chelsea v Man City (live, Paramount+), `media_player.play_media`
+  url on the Apple TV, the user watching (the Apple TV's now-playing reports
+  were frozen at "idle, no app" from the end of the Exeter stream until a
+  game played again, so HA state could not be used; LG captures of the
+  Apple OTT input are black while protected video is up):
+  - `punchoutUrls.play` with Paramount+ running: fatal error / black.
+  - The TV app page (`item.url?playableId=tvs.sbd.10120:...`) + `select`:
+    the TV app hands off to Paramount+, then black.
+  - `punchoutUrls.open` (`#open`) + `select`: black.
+  - **After a force-quit of Paramount+**: `play` link -> profile picker ->
+    `select` -> "Live / Start from beginning" -> `select` -> plays live
+    (now-playing `playing`, `Chelsea vs. Man. City`).
+- Quitting works from the app's own pyatv connection: Companion HID Home
+  twice (app switcher, front app centred), touch swipe 500,700 -> 500,50 in
+  250 ms, Home. Paramount+ went from playing to "idle, no app", and the
+  link then showed the profile picker (user watched).
+- 0.6.2-2: for Paramount+ games the key brings Paramount+ to the front
+  (`play_media` app), quits it (`services/soccer/atv_quit.py`), opens the
+  link and presses `select` up to twice, 5 s apart, until Paramount+
+  reports playing.
+- The MRP client messages (PR #40's `atv_clients`) for Paramount+:
+  pid 8423 alive at the key press (removed 09:23:14), 8458 added 09:24:58
+  (Exeter by hand) and alive through every failed link test, removed
+  09:40:58 (the user's force-quit); the cold link + picker + "Live" (09:41
+  to 09:43) sent nothing until playback (8473 added 09:43:08); the swipe
+  quit logged its removal (09:44:43). So Paramount+ registers at playback:
+  "gone" can't be trusted, but a quit of a running Paramount+ is confirmed.
+- 0.6.3-1: PR #40 merged into this branch (both had used 0.6.2-1; this
+  branch's 0.6.2-1 / 0.6.2-2 deploys had replaced #40's dry-run build on
+  arpi). Soccer's cold start now reads `atv_clients` (confirms the quit)
+  and stops its presses on `dock_input` like `services/profiles`, without
+  its `picker` / `dry_run` switches or its "already playing" guard
+  (Paramount+ reports "paused" with a title on the screens that need the
+  press).
+- **Checked with the real key on 0.6.3-1** (15:02 UTC, 4 live men's EFL
+  games): `picked 1/4: Stockport County vs. Reading FC`, `quit
+  com.cbsvideo.app for a cold start (was gone)`, two `sending select`,
+  then `atv-clients: com.cbsvideo.app alive pid 8489` and now-playing
+  `playing` "Stockport County vs. Reading" (about 20 s from the press).
+
 ### 2026-11-14 — Profile picker: OK after a cold launch (0.6.2-1)
 
 Status: **deployed 11-14 04:00 in dry run; not checked on the TV.** It only
@@ -1523,6 +1610,13 @@ com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
       chapter there (Apple TV done).
 - [ ] Decide whether to track the HA-created script `netflix_on_apple_tv`
       in the repo.
+- [ ] Live soccer from LG Channels (11-14 entry): implemented
+      (`services/soccer/lgchannels.py`, `lg_channels` 109/807, men's only),
+      tuning checked on the TV by screen captures; left: power-on from off
+      (does the Apple TV's CEC wake pull the input back to Apple OTT?) and
+      a press of the real key during a live game. First live
+      game: 11-14 17:00-19:30 UTC on 109. 807's titles carry no live marker,
+      so it may never list a game.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.
 - [ ] Profile picker, left from the branch review (not fixed): if the

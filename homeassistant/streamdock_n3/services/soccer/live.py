@@ -1,7 +1,8 @@
 """Live soccer key: the live game list, a cursor through it, and switching to a pick.
 
-Polls the Apple TV app listing (listing.py) for live Paramount+ / MLS games;
-a press picks a game at once (the key shows it) and, once presses settle,
+Polls the Apple TV app listing (listing.py) for live Paramount+ / MLS games
+and, when "lg_channels" lists channel numbers, LG's own guide (lgchannels.py)
+for live games on those LG Channels; a press picks a game at once (the key shows it) and, once presses settle,
 powers on and plays the last pick. LiveSoccer takes an injected service
 `call`, state lookup, `fetch`, `clock` and `sleep`, so it is testable without
 the network, Home Assistant or the device. Research: docs/superpowers/specs/
@@ -15,12 +16,16 @@ import threading
 import time
 import urllib.error
 import urllib.parse
-from typing import Callable
+from typing import Any, Callable
 
 from keyspec import StateLookup
 from media_actions import Call, ensure_on, select_atv_input
 
+from . import lgchannels
+
 from .listing import (
+    COLD_SELECTS,
+    COLD_START,
     CYCLE_S,
     OPEN_TIMEOUT,
     QUERIES,
@@ -47,7 +52,9 @@ class LiveSoccer:
     """The live game list, a cursor through it, and whether a started game is on screen.
 
     cfg ("soccer" section): atv, atv_remote, lg, atv_source, power_on_wait,
-    token_page, cache_s, poll_s, idle_poll_s, select_after_s. `clock` is wall
+    token_page, cache_s, poll_s, idle_poll_s, select_after_s; LG Channels:
+    lg_channels (numbers, e.g. ["109"]; empty = off), lg_country, lg_cache_s,
+    lg_open_s. `fetch(url, headers=None)` returns the body. `clock` is wall
     time (Apple's listing is in epoch ms); `monotonic` times waits.
     """
 
@@ -56,16 +63,24 @@ class LiveSoccer:
         call: Call,
         state_of: StateLookup,
         cfg: dict,
-        fetch: Callable[[str], str],
+        fetch: Callable[..., str],
         clock: Callable[[], float] = time.time,
         sleep: Callable[[float], None] = time.sleep,
         on_change: Callable[[], None] | None = None,
         monotonic: Callable[[], float] = time.monotonic,
         notify: Callable[..., None] | None = None,
         on_pick: Callable[[], None] | None = None,
+        quit_app: Callable[[], None] | None = None,
+        shared: Callable[[str], Any] | None = None,
     ):
         """`notify(message, channel=...)` shows a short message to the viewer (a TV toast);
-        `on_pick()` runs after each pick (its CYCLE_S window ends unannounced)."""
+        `on_pick()` runs after each pick (its CYCLE_S window ends unannounced);
+        `quit_app()` quits the Apple TV's front app (atv_quit.py), raising
+        when it can't (no Companion connection); `shared(name)` gives the
+        daemon's "atv_clients" (which Apple TV apps run) and "dock_input"
+        (last dock event) handles, or None (services/README.md)."""
+        self._quit_app = quit_app
+        self._shared = shared or (lambda name: None)
         self._toast = notify or (lambda message, channel=None: None)
         self._on_pick = on_pick or (lambda: None)
         self._call = call
@@ -81,6 +96,12 @@ class LiveSoccer:
         self._fetched_at: float | None = None  # last successful fetch (wall clock)
         self._errors = 0  # consecutive failed fetches
         self._next_start: float | None = None  # next listed game's live window opens (epoch s)
+        # Each source's last good result: one failing keeps the other's games.
+        self._uts_games: list[Game] = []
+        self._uts_at: float | None = None
+        self._uts_start: float | None = None
+        self._lg_payload: dict | None = None  # the LG guide; live games are worked out from it each poll
+        self._lg_at: float | None = None
         self._tokens: tuple[str, str] | None = None
         self._tokens_at = 0.0
         self._cursor = 0
@@ -115,24 +136,74 @@ class LiveSoccer:
             now = self._clock()
             if self._fetched_at is not None and now - self._fetched_at < max_age:
                 return
+            ok = False
             try:
                 payloads = self._shelves()
-                games = order([g for p in payloads for g in parse_games(p, now)])
+                self._uts_games = [g for p in payloads for g in parse_games(p, now)]
                 starts = [t for t in (next_start(p, now) for p in payloads) if t is not None]
+                self._uts_start = min(starts, default=None)
+                self._uts_at = ok = now
             except Exception as err:  # never let a key press or the poller die on this
                 self._errors += 1
                 log(f"refresh failed: {type(err).__name__}: {err}")
+            if self._lg_refresh(now):
+                ok = True
+            if not ok:
                 if not (self._games and self._stale(now)):
                     return
                 self._games = []  # games() already hides it; this signals the change once
                 log("live list expired")
             else:
-                self._errors = 0
+                if self._uts_at == now:
+                    self._errors = 0
+                games, start = self._merged(now)
                 if [g.id for g in games] != [g.id for g in self._games]:
                     log(f"{len(games)} live: " + "; ".join(f"{g.title} ({g.provider})" for g in games))
                 self._games, self._fetched_at = games, now
-                self._next_start = min(starts, default=None)
+                self._next_start = start
         self._on_change()
+
+    def _merged(self, now: float) -> tuple[list[Game], float | None]:
+        """Both sources' live games (each while fresh) and the next listed start."""
+        games: list[Game] = []
+        starts: list[float] = []
+        if self._uts_at is not None and not self._source_stale(now, self._uts_at):
+            games += self._uts_games
+            if self._uts_start is not None:
+                starts.append(self._uts_start)
+        numbers = self._lg_numbers()
+        if self._lg_payload is not None and self._lg_at is not None and not self._source_stale(now, self._lg_at):
+            games += lgchannels.parse_games(self._lg_payload, now, numbers)
+            lg_start = lgchannels.next_start(self._lg_payload, now, numbers)
+            if lg_start is not None:
+                starts.append(lg_start)
+        return order(games), min(starts, default=None)
+
+    def _source_stale(self, now: float, at: float) -> bool:
+        max_age = max(2 * float(self._cfg.get("poll_s", 180)), STALE_MIN, 2 * self._lg_cache_s())
+        return now - at > max_age
+
+    def _lg_numbers(self) -> list[str]:
+        return [str(n) for n in self._cfg.get("lg_channels") or []]
+
+    def _lg_cache_s(self) -> float:
+        return float(self._cfg.get("lg_cache_s", 600))
+
+    def _lg_refresh(self, now: float) -> bool:
+        """Refetch the LG guide when older than lg_cache_s; True if a usable guide is held.
+
+        The guide covers hours ahead, so it is fetched rarely and the live
+        games are worked out from it on every poll.
+        """
+        if not self._lg_numbers():
+            return False
+        if self._lg_at is None or now - self._lg_at >= self._lg_cache_s():
+            try:
+                body = self._fetch(lgchannels.GUIDE, headers=lgchannels.headers(self._cfg.get("lg_country", "US")))
+                self._lg_payload, self._lg_at = lgchannels.decode(body), now
+            except Exception as err:
+                log(f"LG guide failed: {type(err).__name__}: {err}")
+        return self._lg_at is not None and not self._source_stale(now, self._lg_at)
 
     def poll_once(self) -> float:
         """One background refresh for the key's live look; never raises.
@@ -247,7 +318,8 @@ class LiveSoccer:
                 return
             if gen != self._gen:
                 return  # picked again while the TV came on
-            select_atv_input(self._call, self._state_of, self._cfg)
+            if games[i].provider != lgchannels.PROVIDER:
+                select_atv_input(self._call, self._state_of, self._cfg)
             self._play(games, i, gen)
 
     def play(self, i: int) -> None:
@@ -273,11 +345,27 @@ class LiveSoccer:
         return min(self._cursor, len(games) - 1)
 
     def _play(self, games: list[Game], i: int, gen: int) -> None:
-        """Open game i; one `select` if its app is up but not playing (profile picker, modal)."""
+        """Open game i, then `select` while it is not playing.
+
+        Apple TV games: one `select` if the app is up but not playing (a
+        modal). Cold-start providers (Paramount+): the app is brought to the
+        front and quit first, and up to COLD_SELECTS presses follow (the
+        profile picker, then "Live"); the Apple TV's now-playing can stay
+        stale here, so only "this app is playing" stops the presses.
+        """
         game = games[i]
+        t0 = self._monotonic()
         with self._play_lock:
-            self._started, self._started_at, self._seen = game, self._monotonic(), False
+            self._started, self._started_at, self._seen = game, t0, False
         log(f"playing {i + 1}/{len(games)}: {game.title} ({game.provider})")
+        if game.provider == lgchannels.PROVIDER:
+            self._tune(game, gen)
+            return
+        cold = game.provider in COLD_START
+        if cold:
+            self._cold_start(game)
+            if gen != self._gen:
+                return
         atv = self._cfg["atv"]
         self._call(
             "media_player",
@@ -285,12 +373,100 @@ class LiveSoccer:
             {"entity_id": atv, "media_content_type": "url", "media_content_id": game.url},
         )
         self._sleep(float(self._cfg.get("select_after_s", 8)))
-        if gen != self._gen:
-            return  # picked again: that game's switch takes over
-        st = self._state_of(atv) or {}
-        if (st.get("a") or {}).get("app_id") == game.app and st.get("s") != "playing":
-            log(f"{game.app} is {st.get('s')}; sending select")
+        for n in range(COLD_SELECTS if cold else 1):
+            if gen != self._gen:
+                return  # picked again: that game's switch takes over
+            why = self._stand_down(t0)
+            if why:
+                log(f"{game.app}: no select ({why})")
+                return
+            st = self._state_of(atv) or {}
+            app, state = (st.get("a") or {}).get("app_id"), st.get("s")
+            if app == game.app and state == "playing":
+                return
+            if not cold and app != game.app:
+                return  # the app never came up: a select would land elsewhere
+            log(f"{game.app}: {app or 'no app'} {state}; sending select")
             self._call("remote", "send_command", {"entity_id": self._cfg["atv_remote"], "command": "select"})
+            if cold and n + 1 < COLD_SELECTS:
+                self._sleep(float(self._cfg.get("cold_select_gap_s", 5)))
+
+    def _stand_down(self, t0: float) -> str | None:
+        """Why the presses after a link must stop: the viewer moved on (as services/profiles)."""
+        dock = self._shared("dock_input")
+        if dock is not None and dock.last() > t0 + float(self._cfg.get("input_grace_s", 1.0)):
+            return "dock input"
+        lg = (self._state_of(self._cfg["lg"]) or {}).get("a") or {}
+        if lg.get("source") is not None and lg.get("source") != self._cfg.get("atv_source"):
+            return "input changed"
+        return None
+
+    def _cold_start(self, game: Game) -> None:
+        """Bring the game's app to the front and quit it, so the link starts it cold.
+
+        Always: Paramount+ registers with the Apple TV only once it plays, so
+        "not running" (atv_clients "gone") can't be trusted; it may sit on a
+        menu unseen. When it was seen running, its removal confirms the quit
+        hit Paramount+ and not another app (logged either way).
+        """
+        if self._quit_app is None:
+            log("no Apple TV touch connection; opening without a cold start")
+            return
+        clients = self._shared("atv_clients")
+        status = clients.status(game.app) if clients is not None else "unknown"
+        atv = self._cfg["atv"]
+        self._call("media_player", "play_media",
+                   {"entity_id": atv, "media_content_type": "app", "media_content_id": game.app})
+        self._sleep(float(self._cfg.get("cold_open_s", 4)))
+        quit_at = self._monotonic()
+        try:
+            self._quit_app()
+        except Exception as err:
+            log(f"quit {game.app} failed: {type(err).__name__}: {err}")
+            self._sleep(float(self._cfg.get("cold_quit_s", 2)))
+            return
+        if status != "alive":
+            log(f"quit {game.app} for a cold start (was {status})")
+            self._sleep(float(self._cfg.get("cold_quit_s", 2)))
+            return
+        deadline = self._monotonic() + float(self._cfg.get("cold_confirm_s", 5))
+        while True:
+            removed = clients.removed_at(game.app)
+            if removed is not None and removed >= quit_at:
+                log(f"quit {game.app} for a cold start (confirmed)")
+                return
+            if self._monotonic() >= deadline:
+                log(f"quit {game.app}: not confirmed ({clients.status(game.app)}); opening anyway")
+                return
+            self._sleep(0.25)
+
+    def _tune(self, game: Game, gen: int) -> None:
+        """(Re)open LG Channels on the LG and type the game's channel number.
+
+        Always from a fresh launch: on the app's home page every digit
+        counts, while over full-screen playback the first one only wakes the
+        player (109 became "09"). The app is closed first even when another
+        input is in front: it keeps running in the background, and a launch
+        resumes its playback.
+        """
+        lg = self._cfg["lg"]
+        try:
+            self._call("webostv", "command",
+                       {"entity_id": lg, "command": "system.launcher/close", "payload": {"id": lgchannels.APP}})
+        except Exception as err:  # not running: nothing to close
+            log(f"close LG Channels: {type(err).__name__}: {err}")
+        self._sleep(lgchannels.CLOSE_S)
+        if gen != self._gen:
+            return
+        self._call("webostv", "command",
+                   {"entity_id": lg, "command": "system.launcher/launch", "payload": {"id": lgchannels.APP}})
+        self._sleep(float(self._cfg.get("lg_open_s", 12)))
+        for key, wait in lgchannels.tune_keys(game.channel):
+            if gen != self._gen:
+                return  # picked again: that game's switch takes over
+            self._call("webostv", "button", {"entity_id": lg, "button": key})
+            if wait:
+                self._sleep(wait)
 
     # -- state -----------------------------------------------------------------
 
@@ -302,10 +478,12 @@ class LiveSoccer:
         the app changes). A game whose app never came up within OPEN_TIMEOUT
         is forgotten.
         """
-        app = ((state_of(self._cfg["atv"]) or {}).get("a") or {}).get("app_id")
         with self._play_lock:
             if self._started is None:
                 return False
+            # An LG Channels game plays on the LG itself, the others on the Apple TV.
+            device = "lg" if self._started.provider == lgchannels.PROVIDER else "atv"
+            app = ((state_of(self._cfg[device]) or {}).get("a") or {}).get("app_id")
             if app == self._started.app:
                 self._seen = True
                 return True
