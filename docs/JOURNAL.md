@@ -1600,23 +1600,60 @@ com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
 - Open: whether the Lounge connects while YouTube shows its picker. If it
   does, the 6 s select never fires and the picker may swallow the video.
 
+### 2026-11-14 — Profile picker on for six apps (0.6.5-1)
+
+- Survey on the TV in two sittings (the user pressed the dock keys and
+  force-quit apps; the dock app ran 0.6.4-4 in dry run; LG screen captures
+  every ~2 s through `tv/executeOneShot`, matched to the log by time). Apple
+  TV menus capture fine; only protected video is black.
+- Cold launches: Prime showed its picker by 3 s; Max, Hulu, Paramount+ by
+  6 s; Netflix ran its intro to 5 s, picker by 7 s; Disney+ showed "Who's
+  watching?" at 9 s and its profiles at 11 s. Every picker waited (until the
+  user pressed Home). Select takes the highlighted profile (the user agreed).
+- Warm launches: Disney+ went to its home screen, Paramount+ back to the
+  paused game. YouTube showed its account picker on a warm launch (running
+  since 10:45) and none on a cold one after a force-quit; the cats combo with
+  YouTube warm connected the Lounge in 3 s and played, no picker seen.
+- No picker: Tubi, the Apple TV app. Pluto opens on a sign-up promo
+  ("Watch Anywhere Free" highlighted).
+- Registration (`mrp_raw.log` and `atv-clients:` lines): Prime, the TV app
+  and YouTube register at launch; Netflix, Max, Disney+, Hulu, Paramount+
+  only at playback.
+- Found: Hulu and Disney+ were cold but logged `gone -> maybe alive`. They
+  had not played since the dock app started, so no process end was ever
+  seen. Separately, `atv_clients` dropped its list on every reconnect, so an
+  app that ended while the Apple TV slept never got a removal time, and the
+  first open of the evening came out "maybe alive".
+- Fix: `atv_clients` keeps the apps that were alive before a gap; once the
+  new session's list is complete, those not listed again (or listed with a
+  new process id) count as removed at the new session's start (logged
+  `atv-clients: <app> gone (not listed after reconnect)`).
+  Checked against the 22 reconnects in `mrp_raw.log` (11-13 20:49 to 11-14
+  10:48): every new session listed all its apps within 1 s of its first
+  message, inside the 3 s settle time.
+- Preset: `dry_run: false`; `picker: true` for Netflix (`delay_s` 9, undo
+  off), Prime (6, registers at launch), Max, Hulu, Paramount+ (8, the new
+  default), Disney+ (13). YouTube, Pluto, Tubi, the TV app left out.
+- Tests: 691 passing.
+
 ## Open items
 
-- [ ] Profile picker: survey on the TV (0.6.2-1 runs in dry run), one
-      step at a time: per app (Netflix, Prime, Max, Disney+, Paramount+,
-      Hulu) a cold and a warm launch from the dock: is there a picker, how
-      many seconds until it accepts OK, does the log say `cold` / `warm`,
-      does the app register at launch or at playback; what Menu does in each
-      app's player (only in a film started for the check). Then per app
-      `picker: true` and `dry_run: false`, and a cold and a warm launch each.
+- [ ] Profile picker, 0.6.5-1: a real cold launch clicked on the TV per app;
+      a warm launch of each sends nothing; whether Menu undoes a film
+      started by a stray click (Max, Hulu, Disney+, Paramount+).
 - [ ] Profile picker: the first launch after a night off: does a fresh
       connection come up within `sync_wait_s` (5 s), and was the app still
       running? This decides how often the feature acts in the evening.
 - [ ] Profile picker, from normal use: an app left for hours and opened
       again (does it ask for the profile although it was running?); an app
       opened with the Siri Remote first.
-- [ ] Profile picker: YouTube's account picker is not covered (its key goes
-      through the service but it is not in `apps`); Peacock has no app key.
+- [ ] Profile picker: YouTube's account picker is not covered (left out of
+      `apps`: picker seen warm, not cold). Open: does the Lounge connect while
+      the picker is up? If not, "no Lounge session" could gate one select.
+      Peacock has no app key.
+- [ ] Profile picker: apps quit before they ever played, or before the dock
+      app started, stay "maybe alive" (no click). Persisting the tracker's
+      times across restarts would cover the second.
 - [ ] Scenes, left from the final review (small, not fixed): a film that an
       app reports as content type `movie` and whose duration drops out for a
       tick is treated as another film (key gray ~15 s, served from cache

@@ -178,3 +178,62 @@ def test_a_message_without_a_pid_keeps_the_known_pid():
     assert t.pid(PRIME) == 8061
     t.on_remove(PRIME, 8061)
     assert t.status(PRIME) != "alive" and t.removed_at(PRIME) == 100.0
+
+
+def test_an_app_not_listed_again_after_a_reconnect_ended_meanwhile():
+    """Its remove_client fell in the gap: the new session's list tells."""
+    t, clock, lines = make(watch=[HULU])
+    t.on_session()
+    t.on_update(PRIME, 8061)
+    t.on_update(HULU, 8155)
+    clock.now = 150.0
+    t.on_lost()                          # the Apple TV sleeps
+    clock.now = 500.0
+    t.on_session()
+    assert t.removed_at(HULU) is None    # the list is not complete yet
+    t.on_update(PRIME, 8061)             # Prime listed again, same process
+    clock.now = 503.0
+    assert t.status(HULU) == "gone" and t.removed_at(HULU) == 500.0
+    assert t.status(PRIME) == "alive" and t.removed_at(PRIME) is None
+    assert lines[-1] == f"atv-clients: {HULU} gone (not listed after reconnect)"
+
+
+def test_a_new_pid_after_a_reconnect_means_the_old_process_ended():
+    t, clock, _ = make()
+    t.on_session()
+    t.on_update(HULU, 8155)
+    clock.now = 500.0
+    t.on_session()                       # a new session without a lost connection
+    t.on_update(HULU, 8300)
+    assert t.status(HULU) == "alive" and t.removed_at(HULU) == 500.0
+
+
+def test_reconnects_before_the_list_settles_keep_the_apps_to_check():
+    t, clock, _ = make()
+    t.on_session()
+    t.on_update(HULU, 8155)
+    clock.now = 200.0
+    t.on_lost()
+    t.on_session()                       # dropped again before any message
+    t.on_lost()
+    clock.now = 300.0
+    t.on_session()
+    t.on_message()
+    clock.now = 303.0
+    assert t.status(HULU) == "gone" and t.removed_at(HULU) == 300.0
+
+
+def test_a_settled_list_is_confirmed_before_the_next_gap():
+    """Nobody asked during the session: its removal time is its own start."""
+    t, clock, _ = make()
+    t.on_session()
+    t.on_update(HULU, 8155)
+    clock.now = 200.0
+    t.on_lost()
+    t.on_session()
+    t.on_message()
+    clock.now = 300.0                    # settled, never queried
+    t.on_lost()
+    clock.now = 900.0
+    t.on_session()
+    assert t.removed_at(HULU) == 200.0

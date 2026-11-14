@@ -83,15 +83,15 @@
       "lg": "media_player.lg_tv_2",
       "atv_source": "Apple OTT",
       "power_on_wait": 25,
-      "dry_run": true,
-      "delay_s": 6, "watch_s": 5, "film_s": 300, "sync_wait_s": 5,
+      "dry_run": false,
+      "delay_s": 8, "watch_s": 5, "film_s": 300, "sync_wait_s": 5,
       "apps": {
-        "com.netflix.Netflix":   { "picker": false, "undo": false },
-        "com.amazon.aiv.AIVApp": { "picker": false, "registers": "launch" },
-        "com.wbd.stream":        { "picker": false },
-        "com.disney.disneyplus": { "picker": false },
-        "com.hulu.plus":         { "picker": false },
-        "com.cbsvideo.app":      { "picker": false }
+        "com.netflix.Netflix":   { "picker": true, "delay_s": 9, "undo": false },
+        "com.amazon.aiv.AIVApp": { "picker": true, "delay_s": 6, "registers": "launch" },
+        "com.wbd.stream":        { "picker": true },
+        "com.disney.disneyplus": { "picker": true, "delay_s": 13 },
+        "com.hulu.plus":         { "picker": true },
+        "com.cbsvideo.app":      { "picker": true }
       }
     },
     "cats": {

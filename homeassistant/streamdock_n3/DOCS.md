@@ -766,7 +766,13 @@ presses select once, `delay_s` after the launch, only when all of this holds:
 - the app was **not running** before the launch (a cold start). The app
   learns this from the Apple TV's own media-remote session, which reports
   when an app's process starts and ends (`atv_clients.py`; needs the AirPlay
-  pairing, `pair.sh atv airplay`). An app that was running gets no click;
+  pairing, `pair.sh atv airplay`). An app that was running gets no click.
+  Most apps report themselves only once they play (see `registers`), so for
+  them the dock clicks only after it saw the app's process end since it last
+  opened the app. That includes an end missed while the connection was down
+  (the Apple TV asleep): an app alive before and not listed again by the new
+  connection ended in between. An app quit before it ever played, or before
+  the dock app started, looks "maybe alive" and gets no click;
 - the dock was not used since the key press, no newer app key was pressed,
   the LG is still on the Apple TV input, and the app is not playing or paused.
 
@@ -783,29 +789,49 @@ went back`. Menu is never sent in any other case.
 "services": { "profiles": {
   "atv": "media_player.vugitv_4k_vugitv_4k", "atv_remote": "remote.vugitv_4k_vugitv_4k",
   "lg": "media_player.lg_tv_2", "atv_source": "Apple OTT", "power_on_wait": 25,
-  "dry_run": true,
-  "delay_s": 6, "watch_s": 5, "film_s": 300, "sync_wait_s": 5,
+  "dry_run": false,
+  "delay_s": 8, "watch_s": 5, "film_s": 300, "sync_wait_s": 5,
   "apps": {
-    "com.netflix.Netflix":   { "picker": false, "undo": false },
-    "com.amazon.aiv.AIVApp": { "picker": false, "registers": "launch" },
-    "com.hulu.plus":         { "picker": false }
+    "com.netflix.Netflix":   { "picker": true, "delay_s": 9, "undo": false },
+    "com.amazon.aiv.AIVApp": { "picker": true, "delay_s": 6, "registers": "launch" },
+    "com.wbd.stream":        { "picker": true },
+    "com.disney.disneyplus": { "picker": true, "delay_s": 13 },
+    "com.hulu.plus":         { "picker": true },
+    "com.cbsvideo.app":      { "picker": true }
   }
 } }
 ```
 
 | Setting | Meaning |
 |---|---|
-| `dry_run` | `true`: decide and log for every app in `apps`, send nothing. Ships `true` |
-| `delay_s` | Seconds from the launch to the click (also per app). Too short and the click is lost in the app's splash screen |
+| `dry_run` | `true`: decide and log for every app in `apps`, send nothing. Ships `false` |
+| `delay_s` | Seconds from the launch to the click (also per app). Too short and the click is lost in the app's splash screen. The preset's values are the picker's time on the TV plus 2 s (below) |
 | `watch_s` | Seconds after the click in which a starting film is undone |
 | `film_s` | Shortest duration that counts as a film (previews are shorter) |
 | `sync_wait_s` | After waking the TV: how long to wait for a fresh Apple TV connection |
-| `apps.<id>.picker` | `true` turns the click on for this app. Ships `false` everywhere |
+| `apps.<id>.picker` | `true` turns the click on for this app |
 | `apps.<id>.registers` | `"launch"`: the app reports itself as soon as it starts (Prime, the Apple TV app), so "not reported" means "not running". `"playback"` (default): it reports only when it plays (Hulu); the dock then clicks only if it saw the app's process end after it last opened it |
 | `apps.<id>.undo` | `false`: never send Menu for this app. Netflix reports no duration, so its undo could never work |
 
-Apps without profiles (Pluto, Tubi, the Apple TV app) are left out of `apps`
-and are only launched. The `atv`, `atv_remote`, `lg`, `atv_source` and
+What each app showed on the TV (LG screen captures, 2026-11-14; select takes
+the highlighted profile, usually the last one used):
+
+| App | Cold launch | Warm launch | Registers | `delay_s` |
+|---|---|---|---|---|
+| Prime Video | picker by 3 s | — | at launch | 6 |
+| Max | picker by 6 s | — | at playback | 8 |
+| Hulu | picker by 6 s | — | at playback | 8 |
+| Paramount+ | picker by 6 s | back in the paused game | at playback | 8 |
+| Netflix | intro to 5 s, picker by 7 s | — | at playback | 9 |
+| Disney+ | picker by 9 s, its profiles by 11 s | its home screen | at playback | 13 |
+| YouTube | no picker (once) | picker (once) | at launch | left out |
+| Pluto | sign-up promo | — | — | left out |
+| Tubi, the Apple TV app | no picker | — | — | left out |
+
+YouTube is left out: its picker came on a warm launch and not on a cold
+one, so cold/warm does not tell, and select on its home feed plays the
+highlighted video. Pluto opens on a sign-up promo where select signs up.
+Apps left out of `apps` are only launched. The `atv`, `atv_remote`, `lg`, `atv_source` and
 `power_on_wait` values are the same as in `tabs.launch`.
 
 Limits: the dock does not see the Siri Remote. An app opened with it and left
