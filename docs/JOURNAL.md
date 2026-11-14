@@ -1671,9 +1671,15 @@ com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
   _companion-link._tcp` lists the box and its address.
 - HA keeps offering the old box under Discovered ("vugiTV 4K (Apple TV
   4K)"); do not add it.
-- Not done: YouTube link for screen `atv` (`yt_lounge.json` still holds the
-  old box's link, so `pair.sh status` says "linked"); the whole "Retest on
-  the TV" list in [Replacing the Apple TV](#replacing-the-apple-tv).
+- YouTube, screen `atv`: re-linked with a TV code from the new box
+  (`linked to 'YouTube on TV'`, then `connected`); the old link is kept as
+  `yt_lounge.json.oldbox-20261114`. `pair.sh youtube atv <code>` failed
+  with "the app did not pick the code up": `_run_screen` reads
+  `yt_pair_<screen>` only between sessions, and a session was open (YouTube
+  in the foreground, old link still in `yt_lounge.json`). Restarting the app
+  with the code file in place linked it. Not fixed in `pair.sh` / the app.
+- Not done: the whole "Retest on the TV" list in
+  [Replacing the Apple TV](#replacing-the-apple-tv).
 
 ## Open items
 
