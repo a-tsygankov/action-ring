@@ -126,6 +126,8 @@ step "Staging app"
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT
 cp -r "$HERE/$APP" "$stage/"
+# Local secret files (*.local.json, git-ignored) stay on this PC.
+find "$stage" -name '*.local.json' -delete
 # The input by-id link embeds the dock's serial; use the one on the target.
 link=$(ssh_ha 'ls /dev/input/by-id/ 2>/dev/null | grep -m1 "HOTSPOTEKUSB.*event-kbd"' || true)
 if [ -n "$link" ]; then

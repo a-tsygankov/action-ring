@@ -671,7 +671,11 @@ once, second-press memory included; after longer it is noticed anew.
   `metrics: SLOW scenes job:watch` line per new film is expected.
 
 The TMDB key (to identify the film) goes in `/config/secrets.json` on the
-device: `{"scenes": {"tmdb_key": "..."}}`. Without it VideoSkip is not asked
+device: `{"scenes": {"tmdb_key": "..."}}`. The PC's own copy of the key is
+`services/scenes/sources/action-ring-tmdb.local.json`
+(`{"tmdb_key": "..."}`): `*.local.json` is git-ignored, left out of the
+image (`.dockerignore`) and not uploaded by `restore.sh`, so it never leaves
+the PC; putting the key on a new device is a manual step. Without it VideoSkip is not asked
 (a title alone is not enough to trust a skip file; the log says
 `videoskip: skipped (film not identified)`), but NSFWhen can still match by
 title and runtime and light the key. The log says
