@@ -1,0 +1,23 @@
+{
+  "id": 1246049,
+  "title": "Dracula",
+  "original_title": "Dracula",
+  "release_date": "2025-07-31",
+  "runtime": 130,
+  "imdb_id": "tt0000001",
+  "credits": {
+    "cast": [
+      {"name": "Actor One", "order": 0},
+      {"name": "Actor Two", "order": 1},
+      {"name": "Actor Three", "order": 2},
+      {"name": "Actor Four", "order": 3},
+      {"name": "Actor Five", "order": 4},
+      {"name": "Actor Six", "order": 5}
+    ],
+    "crew": [
+      {"name": "Some Producer", "job": "Producer"},
+      {"name": "Director One", "job": "Director"},
+      {"name": "Director Two", "job": "Director"}
+    ]
+  }
+}
