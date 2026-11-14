@@ -331,8 +331,12 @@ class YouTubeScreens:
         except Exception as err:
             log(f"{screen.name}: linking failed: {type(err).__name__}: {err}")
 
+    @staticmethod
+    def _code_file(screen: Screen) -> Path:
+        return CONFIG_DIR / f"yt_pair_{screen.name}"
+
     async def _run_screen(self, screen: Screen) -> None:
-        code_file = CONFIG_DIR / f"yt_pair_{screen.name}"
+        code_file = self._code_file(screen)
         while True:
             try:
                 if code_file.exists():
@@ -358,8 +362,12 @@ class YouTubeScreens:
             log(f"{screen.name}: connected")
             self._notify()
             sub = asyncio.create_task(api.subscribe())
+            code_file = self._code_file(screen)
             try:
-                while not sub.done() and self.active(screen):
+                # A TV code ends the session: the user links from YouTube's
+                # settings, with YouTube in front, so the session would
+                # otherwise outlive the code.
+                while not sub.done() and self.active(screen) and not code_file.exists():
                     await asyncio.sleep(1)
                 if sub.done():
                     sub.result()  # surface errors

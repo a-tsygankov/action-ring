@@ -1677,7 +1677,13 @@ com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
   with "the app did not pick the code up": `_run_screen` reads
   `yt_pair_<screen>` only between sessions, and a session was open (YouTube
   in the foreground, old link still in `yt_lounge.json`). Restarting the app
-  with the code file in place linked it. Not fixed in `pair.sh` / the app.
+  with the code file in place linked it.
+- Fix (0.6.5-2, not deployed yet): `_session` also ends when
+  `yt_pair_<screen>` appears, so `_run_screen` reads the code at once.
+  Test: `test_session_ends_when_a_tv_code_arrives`. `pair.sh` unchanged.
+- On Windows two `test_combo_daemon.py` cat tests fail on icon paths
+  (`...\cat_1.png.png` instead of `cat_1.png`), in code this change
+  does not touch. Not looked into.
 - Not done: the whole "Retest on the TV" list in
   [Replacing the Apple TV](#replacing-the-apple-tv).
 
