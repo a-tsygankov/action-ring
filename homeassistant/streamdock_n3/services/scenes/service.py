@@ -5,8 +5,9 @@ lead_s, guard_s, seek_hold_s, plus the lookup settings read by lookup.py.
 
 - job "watch" (every 5 s): a film that stays on for settle_s is looked up
   (Lookup.run, no lock held) and its scenes become the snapshot.
-- condition "ready": a scene starts after the position + guard_s and the app
-  can seek.
+- condition "ready": a scene starts more than max(guard_s, lead_s) after the
+  position (so a press moves the picture) and the app can seek. Each watch
+  tick signals when that flips and keeps a redraw armed for the last scene.
 - key "next": gray icon, colour while ready; action "next" seeks to
   lead_s before the next scene.
 
@@ -55,6 +56,8 @@ class ScenesService(Service):
         self._jump: tuple | None = None  # (scene_start, at_monotonic): never mutated
         self._seen: tuple | None = None  # (film_key, first_seen_monotonic): watch only
         self._no_seek_logged: tuple | None = None   # film key already logged as unseekable
+        self._last_ready = False         # what the job last saw: watch only
+        self._armed: float | None = None # monotonic deadline of the last gray-out redraw (under _lock)
         self._icons: dict[str, str] = {}
 
     def start(self, ctx: Any) -> None:
@@ -137,7 +140,7 @@ class ScenesService(Service):
         pos = self._position(real)
         if pos is None:
             return None
-        limit = pos + self._cfg("guard_s")
+        limit = pos + self._ahead_s()
         start = next((s for s, _ in snap[2] if s > limit), None)
         return None if start is None else (real, start, snap)
 
@@ -145,21 +148,47 @@ class ScenesService(Service):
         plan = self._plan()
         return None if plan is None else plan[1]
 
+    def _ahead_s(self) -> float:
+        """A scene is ahead only if its lead-in point is too: a press must move the picture."""
+        return max(self._cfg("guard_s"), self._cfg("lead_s"))
+
     def _redraw_for(self, scenes: tuple, position: float | None) -> None:
-        """Redraw when the last scene can no longer be jumped to (it gets no event)."""
+        """Arm a redraw for when the last scene stops being ahead (that moment has no event).
+
+        Re-armed only when the deadline moves (pause/resume, seeks), so the host's
+        list of deadlines does not grow on every tick.
+        """
         st = self.ctx.state(self.ctx.config["atv"]) or {}
         if not scenes or position is None or st.get("s") != "playing":
             return
-        until = max(s for s, _ in scenes) - self._cfg("guard_s") - position
-        if until > 0:
-            self.ctx.redraw_in(until + 0.5)
+        until = max(s for s, _ in scenes) - self._ahead_s() - position
+        if until <= 0:
+            return
+        now = self.ctx.monotonic()
+        deadline = now + until + 0.5
+        with self._lock:
+            armed = self._armed
+            if armed is not None and armed > now and abs(deadline - armed) <= 1.0:
+                return
+            self._armed = deadline
+        self.ctx.redraw_in(until + 0.5)
 
     # --- job ---------------------------------------------------------------
 
     def _set_snap(self, snap: tuple | None) -> tuple | None:
         with self._lock:
-            old, self._snap, self._jump = self._snap, snap, None
+            old, self._snap, self._jump, self._armed = self._snap, snap, None, None
         return old
+
+    def _tick(self, force_signal: bool = False) -> None:
+        """Job only: redraw the key when "a jump is possible" flips, and keep the gray-out redraw armed."""
+        plan = self._plan()
+        ready = plan is not None
+        if force_signal or ready != self._last_ready:
+            self._last_ready = ready
+            self.ctx.changed()
+        if plan is not None:
+            self._redraw_for(plan[2][2], plan[0])
 
     @job("watch", first_in=0)
     def watch(self) -> float:
@@ -168,6 +197,7 @@ class ScenesService(Service):
         with self._lock:
             snap = self._snap
         if film is None or (snap is not None and snap[0] != film[0]):
+            self._last_ready = False
             if self._set_snap(None) is not None:
                 ctx.changed()
         if film is None:
@@ -175,7 +205,8 @@ class ScenesService(Service):
             return WATCH_S
         key, title, runtime_s, app = film
         if snap is not None and snap[0] == key:
-            return WATCH_S                                   # looked up already
+            self._tick()                                     # looked up already
+            return WATCH_S
         now = ctx.monotonic()
         if self._seen is None or self._seen[0] != key:
             self._seen = (key, now)                          # settle clock starts
@@ -195,8 +226,7 @@ class ScenesService(Service):
         if scenes and app not in self._cfg("seek_apps") and self._no_seek_logged != key:
             self._no_seek_logged = key
             ctx.log("app cannot seek: key stays gray")
-        ctx.changed()
-        self._redraw_for(scenes, self._real_position(ctx.state(ctx.config["atv"])))
+        self._tick(force_signal=True)
         return WATCH_S
 
     # --- render path ---------------------------------------------------------

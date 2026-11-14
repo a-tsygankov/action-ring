@@ -129,23 +129,61 @@ def test_key_spec_and_redraw_scheduled():
     assert k["action"] == {"service": "scenes", "do": "next"} and k["modes"][0]["when"] == "scenes.ready"
     assert k["icon"] == ctx.icon("scene_off") and k["modes"][0]["icon"] == ctx.icon("scene") and k["label"] == ""
     assert svc.key("nope", {}) is None
-    assert ctx.fakes.redraws and 2880 < ctx.fakes.redraws[-1] < 2885
+    assert ctx.fakes.redraws and 2876 < ctx.fakes.redraws[-1] < 2881
 
 
 # --- the controller's additional cases ------------------------------------
 
 def test_paused_film_is_ready_and_press_uses_paused_position():
-    svc, ctx, lk = ready(scenes=((2943, 2946),), pos=2000, state="paused")
-    ctx.fakes.time.now += 300                                  # paused: the position does not move
+    logs = []
+    svc, ctx, lk = ready(scenes=((2943, 2946),), pos=2900, state="paused", logs=logs)
+    ctx.fakes.time.now += 300                                  # with age added it would be past the scene
     assert svc.conditions()["ready"]() is True
     svc.actions()["next"]({})
     assert ctx.fakes.calls == [("media_player", "media_seek", {"entity_id": ATV, "seek_position": 2938})]
+    assert "scenes: jump 2900s -> 2938s (scene at 2943s)" in logs
 
 
-def test_press_never_seeks_backwards():
-    svc, ctx, lk = ready(scenes=((2943, 2946),), pos=2940)
+def test_scene_whose_lead_in_is_behind_is_not_ahead():
+    svc, ctx, lk = ready(scenes=((100, 110),), pos=97)
+    assert svc.conditions()["ready"]() is False
+    svc.actions()["next"]({}); assert ctx.fakes.calls == []
+    svc, ctx, lk = ready(scenes=((100, 110),), pos=94)
+    assert svc.conditions()["ready"]() is True
     svc.actions()["next"]({})
-    assert ctx.fakes.calls[-1][2]["seek_position"] == 2940
+    assert ctx.fakes.calls == [("media_player", "media_seek", {"entity_id": ATV, "seek_position": 95})]
+
+
+def test_noticed_while_paused_then_played_past_last_scene_signals():
+    svc, ctx, lk = ready(scenes=((2943, 2946),), pos=60, state="paused")
+    assert svc.conditions()["ready"]() is True and ctx.fakes.signals == 1 and ctx.fakes.redraws == []
+    set_state(ctx, "playing"); set_pos(ctx, 60)
+    ctx.fakes.time.now += 2900                                 # playback at 2960, nothing redrew
+    svc.watch()
+    assert ctx.fakes.signals == 2 and svc.conditions()["ready"]() is False
+
+
+def test_pause_resume_then_passing_last_scene_signals():
+    svc, ctx, lk = ready(scenes=((2943, 2946),), pos=60)
+    set_state(ctx, "paused"); set_pos(ctx, 1000)
+    svc.watch()
+    ctx.fakes.time.now += 5000                                 # the first redraw fired long ago
+    set_state(ctx, "playing"); set_pos(ctx, 1000)
+    svc.watch()
+    assert svc.conditions()["ready"]() is True and ctx.fakes.signals == 1
+    assert 1937 < ctx.fakes.redraws[-1] < 1939                 # re-armed for the new moment
+    ctx.fakes.time.now += 2000
+    svc.watch()
+    assert ctx.fakes.signals == 2 and svc.conditions()["ready"]() is False
+
+
+def test_quiet_ticks_send_no_signal_and_no_new_redraws():
+    svc, ctx, lk = ready(scenes=((2943, 2946), (4000, 4010)), pos=60)
+    signals, redraws = ctx.fakes.signals, len(ctx.fakes.redraws)
+    for _ in range(5):
+        ctx.fakes.time.now += 5
+        assert svc.watch() == 5
+    assert ctx.fakes.signals == signals and len(ctx.fakes.redraws) == redraws
 
 
 def test_title_with_empty_normalised_form_is_not_looked_up():
