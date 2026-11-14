@@ -1430,6 +1430,33 @@ PC only (fixtures, no live requests in tests).
 - qoool.xyz (asked first) was dropped: its stream links are unlicensed
   restreams.
 
+### 2026-11-14 — Paramount+ live games: links only work from a cold start (0.6.2-2)
+
+- The LIVE key's Paramount+ path (never checked end to end before) failed:
+  Exeter v Cheltenham (live, 90+3) -> Paramount+ "fatal error", black.
+  Opened by hand inside Paramount+ it played (after a "watch live / catch up
+  with highlights" choice).
+- Tests with Chelsea v Man City (live, Paramount+), `media_player.play_media`
+  url on the Apple TV, the user watching (the Apple TV's now-playing reports
+  were frozen at "idle, no app" from the end of the Exeter stream until a
+  game played again, so HA state could not be used; LG captures of the
+  Apple OTT input are black while protected video is up):
+  - `punchoutUrls.play` with Paramount+ running: fatal error / black.
+  - The TV app page (`item.url?playableId=tvs.sbd.10120:...`) + `select`:
+    the TV app hands off to Paramount+, then black.
+  - `punchoutUrls.open` (`#open`) + `select`: black.
+  - **After a force-quit of Paramount+**: `play` link -> profile picker ->
+    `select` -> "Live / Start from beginning" -> `select` -> plays live
+    (now-playing `playing`, `Chelsea vs. Man. City`).
+- Quitting works from the app's own pyatv connection: Companion HID Home
+  twice (app switcher, front app centred), touch swipe 500,700 -> 500,50 in
+  250 ms, Home. Paramount+ went from playing to "idle, no app", and the
+  link then showed the profile picker (user watched).
+- 0.6.2-2: for Paramount+ games the key brings Paramount+ to the front
+  (`play_media` app), quits it (`services/soccer/atv_quit.py`), opens the
+  link and presses `select` up to twice, 5 s apart, until Paramount+
+  reports playing.
+
 ## Open items
 
 - [ ] Scenes, left from the final review (small, not fixed): a film that an

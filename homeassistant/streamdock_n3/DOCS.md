@@ -605,8 +605,17 @@ saved.
   a press fetches first. The game opens from the same link
   the Apple TV app uses (`pplus://…` for Paramount+, a
   `tv.apple.com/…/sporting-event/…` link for MLS). If that app is in front
-  but not playing after `select_after_s` seconds (a profile picker or a
-  "watch live" prompt), one `select` is sent.
+  but not playing after `select_after_s` seconds (a "watch live" prompt),
+  one `select` is sent. Paramount+ only opens a live game from its link when
+  it starts cold (while it runs, even in the background, the link ends in
+  "fatal error" or a black screen), so for a Paramount+ game the key first
+  brings Paramount+ to the front and quits it through the app switcher
+  (Home twice, a swipe up, Home; over the app's own Apple TV connection,
+  `services/soccer/atv_quit.py`), then opens the link and presses `select`
+  up to twice, 5 s apart (the profile picker, then "Live"), stopping once
+  Paramount+ reports playing. The Apple TV's now-playing can stay stale
+  ("idle, no app") on these screens, so a stale report doesn't stop the
+  presses.
 - LG Channels (`lg_channels`: channel numbers; empty or missing turns it
   off). The list also takes LG's public guide
   (`api.lgchannels.com/api/v1.0/schedulelist`, country `lg_country`),

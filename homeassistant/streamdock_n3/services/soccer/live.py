@@ -24,6 +24,8 @@ from media_actions import Call, ensure_on, select_atv_input
 from . import lgchannels
 
 from .listing import (
+    COLD_SELECTS,
+    COLD_START,
     CYCLE_S,
     OPEN_TIMEOUT,
     QUERIES,
@@ -68,9 +70,13 @@ class LiveSoccer:
         monotonic: Callable[[], float] = time.monotonic,
         notify: Callable[..., None] | None = None,
         on_pick: Callable[[], None] | None = None,
+        quit_app: Callable[[], None] | None = None,
     ):
         """`notify(message, channel=...)` shows a short message to the viewer (a TV toast);
-        `on_pick()` runs after each pick (its CYCLE_S window ends unannounced)."""
+        `on_pick()` runs after each pick (its CYCLE_S window ends unannounced);
+        `quit_app()` quits the Apple TV's front app (atv_quit.py), raising
+        when it can't (no Companion connection)."""
+        self._quit_app = quit_app
         self._toast = notify or (lambda message, channel=None: None)
         self._on_pick = on_pick or (lambda: None)
         self._call = call
@@ -335,7 +341,14 @@ class LiveSoccer:
         return min(self._cursor, len(games) - 1)
 
     def _play(self, games: list[Game], i: int, gen: int) -> None:
-        """Open game i; one `select` if its app is up but not playing (profile picker, modal)."""
+        """Open game i, then `select` while it is not playing.
+
+        Apple TV games: one `select` if the app is up but not playing (a
+        modal). Cold-start providers (Paramount+): the app is brought to the
+        front and quit first, and up to COLD_SELECTS presses follow (the
+        profile picker, then "Live"); the Apple TV's now-playing can stay
+        stale here, so only "this app is playing" stops the presses.
+        """
         game = games[i]
         with self._play_lock:
             self._started, self._started_at, self._seen = game, self._monotonic(), False
@@ -343,6 +356,11 @@ class LiveSoccer:
         if game.provider == lgchannels.PROVIDER:
             self._tune(game, gen)
             return
+        cold = game.provider in COLD_START
+        if cold:
+            self._cold_start(game)
+            if gen != self._gen:
+                return
         atv = self._cfg["atv"]
         self._call(
             "media_player",
@@ -350,12 +368,35 @@ class LiveSoccer:
             {"entity_id": atv, "media_content_type": "url", "media_content_id": game.url},
         )
         self._sleep(float(self._cfg.get("select_after_s", 8)))
-        if gen != self._gen:
-            return  # picked again: that game's switch takes over
-        st = self._state_of(atv) or {}
-        if (st.get("a") or {}).get("app_id") == game.app and st.get("s") != "playing":
-            log(f"{game.app} is {st.get('s')}; sending select")
+        for n in range(COLD_SELECTS if cold else 1):
+            if gen != self._gen:
+                return  # picked again: that game's switch takes over
+            st = self._state_of(atv) or {}
+            app, state = (st.get("a") or {}).get("app_id"), st.get("s")
+            if app == game.app and state == "playing":
+                return
+            if not cold and app != game.app:
+                return  # the app never came up: a select would land elsewhere
+            log(f"{game.app}: {app or 'no app'} {state}; sending select")
             self._call("remote", "send_command", {"entity_id": self._cfg["atv_remote"], "command": "select"})
+            if cold and n + 1 < COLD_SELECTS:
+                self._sleep(float(self._cfg.get("cold_select_gap_s", 5)))
+
+    def _cold_start(self, game: Game) -> None:
+        """Bring the game's app to the front and quit it, so the link starts it cold."""
+        if self._quit_app is None:
+            log("no Apple TV touch connection; opening without a cold start")
+            return
+        atv = self._cfg["atv"]
+        self._call("media_player", "play_media",
+                   {"entity_id": atv, "media_content_type": "app", "media_content_id": game.app})
+        self._sleep(float(self._cfg.get("cold_open_s", 4)))
+        try:
+            self._quit_app()
+            log(f"quit {game.app} for a cold start")
+        except Exception as err:
+            log(f"quit {game.app} failed: {type(err).__name__}: {err}")
+        self._sleep(float(self._cfg.get("cold_quit_s", 2)))
 
     def _tune(self, game: Game, gen: int) -> None:
         """(Re)open LG Channels on the LG and type the game's channel number.

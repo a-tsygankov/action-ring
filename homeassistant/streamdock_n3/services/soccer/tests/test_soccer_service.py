@@ -81,10 +81,10 @@ def test_start_action_picks_toasts_and_plays():
     svc.actions()["start"]({})
     game = svc.live.games()[0]
     assert ctx.fakes.toasts[0] == (f"1/2 {game.title}", "soccer")
-    assert ctx.fakes.calls[-1] == (
+    assert (
         "media_player", "play_media",
         {"entity_id": ATV, "media_content_type": "url", "media_content_id": game.url},
-    )
+    ) in ctx.fakes.calls
 
 
 def test_next_action_moves_on():

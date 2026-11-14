@@ -220,14 +220,51 @@ def test_next_wraps():
     assert played == [urls[0], urls[1], urls[0]]
 
 
-def test_play_sends_select_when_not_playing():
+SELECT = ("remote", "send_command", {"entity_id": "remote.atv", "command": "select"})
+
+
+def test_paramount_presses_select_twice_while_not_playing():
+    # The profile picker, then "Live / Start from beginning".
     live, rec, st, t = _live()
     live.refresh()
-    st[ATV] = {"s": "idle", "a": {"app_id": P_PLUS}}  # e.g. a profile picker
+    st[ATV] = {"s": "idle", "a": {"app_id": P_PLUS}}
     live.play(0)
-    assert t.sleeps == [8]
-    assert rec.calls[-1] == ("remote", "send_command", {"entity_id": "remote.atv", "command": "select"})
+    assert t.sleeps == [8, 5]
+    assert rec.calls[-2:] == [SELECT, SELECT]
+
+
+def test_paramount_stops_pressing_once_it_plays():
+    live, rec, st, t = _live()
+    live.refresh()
+    st[ATV] = {"s": "idle", "a": {"app_id": P_PLUS}}
+
+    def call(domain, service, data):
+        rec(domain, service, data)
+        if data.get("command") == "select":
+            st[ATV] = {"s": "playing", "a": {"app_id": P_PLUS}}  # no profile picker: straight to Live
+
+    live._call = call
+    live.play(0)
     assert rec.names().count(("remote", "send_command")) == 1
+
+
+def test_paramount_presses_even_when_now_playing_is_stale():
+    # The Apple TV's now-playing stayed "idle, no app" while Paramount+ showed its picker.
+    live, rec, st, t = _live()
+    live.refresh()
+    st[ATV] = {"s": "idle", "a": {"app_id": ""}}
+    live.play(0)
+    assert rec.names().count(("remote", "send_command")) == 2
+
+
+def test_apple_tv_game_one_select_when_not_playing():
+    live, rec, st, t = _live()
+    live.refresh()
+    mls = next(i for i, g in enumerate(live.games()) if g.provider == "apple")
+    st[ATV] = {"s": "idle", "a": {"app_id": TV_APP}}  # a modal
+    live.play(mls)
+    assert t.sleeps == [8]
+    assert rec.calls[-1] == SELECT and rec.names().count(("remote", "send_command")) == 1
 
 
 def test_play_no_select_when_playing():
@@ -238,12 +275,50 @@ def test_play_no_select_when_playing():
     assert ("remote", "send_command") not in rec.names()
 
 
-def test_play_no_select_when_other_app():
+def test_apple_tv_game_no_select_when_other_app():
     live, rec, st, t = _live()
     live.refresh()
+    mls = next(i for i, g in enumerate(live.games()) if g.provider == "apple")
     st[ATV] = {"s": "idle", "a": {"app_id": "com.netflix.Netflix"}}
-    live.play(0)
+    live.play(mls)
     assert ("remote", "send_command") not in rec.names()
+
+
+def test_paramount_cold_start_quits_the_app_before_the_link():
+    quits = []
+    live, rec, st, t = _live()
+    live._quit_app = lambda: quits.append(len(rec.calls))
+    live.refresh()
+    st[ATV] = {"s": "idle", "a": {"app_id": P_PLUS}}
+    live.play(0)
+    game = live.games()[0]
+    assert rec.calls[0] == ("media_player", "play_media",
+                            {"entity_id": ATV, "media_content_type": "app", "media_content_id": P_PLUS})
+    assert quits == [1]  # after bringing Paramount+ to the front, before the link
+    assert rec.calls[1] == ("media_player", "play_media",
+                            {"entity_id": ATV, "media_content_type": "url", "media_content_id": game.url})
+    assert t.sleeps[:2] == [4, 2]
+
+
+def test_a_failed_quit_still_opens_the_game(capsys):
+    live, rec, st, t = _live()
+
+    def fail():
+        raise RuntimeError("no Companion session")
+
+    live._quit_app = fail
+    live.refresh()
+    live.play(0)
+    assert [d["media_content_type"] for _, s, d in rec.calls if s == "play_media"] == ["app", "url"]
+    assert "quit com.cbsvideo.app failed: RuntimeError: no Companion session" in capsys.readouterr().out
+
+
+def test_a_newer_pick_during_the_cold_start_stops_it():
+    live, rec, st, t = _live()
+    live.refresh()
+    live._quit_app = lambda: live.select()  # pressed again while Paramount+ restarts
+    live.switch(live.select())
+    assert [d["media_content_type"] for _, s, d in rec.calls if s == "play_media"] == ["app"]
 
 
 def test_watching_clears_on_app_change():
@@ -571,7 +646,7 @@ def test_press_waits_for_the_presses_to_settle():
     live, rec, st, t = _live()
     live.press()
     assert t.sleeps[0] == soccer.SWITCH_AFTER_S
-    assert [s for _, s, _ in rec.calls] == ["play_media"]
+    assert [s for _, s, _ in rec.calls][0] == "play_media"
 
 
 def test_a_newer_pick_cancels_the_select_check():
@@ -605,7 +680,7 @@ def test_a_press_with_nothing_cached_fetches_first():
     live, rec, st, t = _live()
     live.press()
     assert live.vars()["soccer_pos"] == "1/2"
-    assert [s for _, s, _ in rec.calls] == ["play_media"]
+    assert [s for _, s, _ in rec.calls][0] == "play_media"
 
 
 def test_each_pick_is_toasted_on_the_soccer_channel():

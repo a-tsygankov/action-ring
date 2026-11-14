@@ -22,7 +22,7 @@ from typing import Any
 
 from services import Service, action, condition, job
 
-from . import lgchannels
+from . import atv_quit, lgchannels
 from .listing import CYCLE_S
 from .live import LiveSoccer
 
@@ -43,7 +43,15 @@ class SoccerService(Service):
             on_change=ctx.changed, monotonic=ctx.monotonic, notify=ctx.toast,
             # The pick's CYCLE_S window ends without an event: redraw just after it.
             on_pick=lambda: ctx.redraw_in(CYCLE_S + 0.1),
+            quit_app=self._quit_app,
         )
+
+    def _quit_app(self) -> None:
+        """Quit the Apple TV's front app (atv_quit.py) over the app's own pyatv connection."""
+        touch = self.ctx.shared("atv_touch")
+        if touch is None or not touch.available():
+            raise RuntimeError("no Apple TV touch connection")
+        touch.run(atv_quit.quit_front_app, 15)
 
     def _fetch(self, url: str, headers: dict | None = None) -> str:
         if url == self.ctx.config["token_page"]:

@@ -27,6 +27,12 @@ PROVIDERS = {
     "tvs.sbd.10120": ("paramount", "com.cbsvideo.app"),
     "tvs.sbd.4000": ("apple", "com.apple.TVWatchList"),
 }
+# Providers whose app only opens a live game from a link when it starts cold
+# (Paramount+: "fatal error" / black otherwise); the app is quit first, then
+# `select` is pressed until it plays (profile picker, "Live / Start from
+# beginning").
+COLD_START = {"paramount"}
+COLD_SELECTS = 2  # presses at most: the profile, then "Live"
 TOKEN_MAX_AGE = 86400  # seconds
 CLOCK_GRACE = 30 * 60  # seconds a running clock still counts after the live window ends
 SOON = 15 * 60  # seconds before a listed start when polling speeds up to poll_s
