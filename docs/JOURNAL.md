@@ -233,7 +233,8 @@ exists, and the app keeps connecting to the address stored in it.
 - [ ] Ad muting on a Pluto TV channel and a Peacock episode (pre-roll and
       mid-roll). `mrp_raw_log` is on, so `mrp_raw.log` shows what the new box
       sends if a rule misses.
-- [ ] Next chapter in YouTube; the soccer key; the tabs following the app.
+- [ ] Next chapter in YouTube; the tabs following the app. (Soccer key:
+      Paramount+ checked 11-14 on 0.6.3-1.)
 - [ ] If pairing fails outright, check pyatv's releases for the new box /
       tvOS before anything else: the app pins `pyatv==0.18.0` and
       `srptools==1.0.1`.
@@ -1470,6 +1471,11 @@ PC only (fixtures, no live requests in tests).
   its `picker` / `dry_run` switches or its "already playing" guard
   (Paramount+ reports "paused" with a title on the screens that need the
   press).
+- **Checked with the real key on 0.6.3-1** (15:02 UTC, 4 live men's EFL
+  games): `picked 1/4: Stockport County vs. Reading FC`, `quit
+  com.cbsvideo.app for a cold start (was gone)`, two `sending select`,
+  then `atv-clients: com.cbsvideo.app alive pid 8489` and now-playing
+  `playing` "Stockport County vs. Reading" (about 20 s from the press).
 
 ### 2026-11-14 — Profile picker: OK after a cold launch (0.6.2-1)
 
