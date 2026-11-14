@@ -1695,6 +1695,19 @@ com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
 
 ## Open items
 
+- [ ] New Apple TV (11-14 entry), still to retest on the TV:
+  - Key 3 both ways (LG off + box asleep; the box wakes the LG over
+    CEC), Round 1-3, keys 5 and 6, both knobs in menus.
+  - Knob scrubbing with previews in the Apple TV app, Max, Netflix;
+    YouTube (scrubs without pausing) and Disney+ (`seek`). The touch
+    window (`touch_min_x` 300 / `touch_max_x` 800) and steps were
+    measured on the old box.
+  - Ad muting on a Pluto TV channel and a Peacock episode (pre-roll and
+    mid-roll); `mrp_raw.log` shows what the new box sends if a rule
+    misses.
+  - The soccer key; the tabs following the app; the profile picker
+    clicks (timings were surveyed on the old box).
+  - Done: YouTube next chapter and next video.
 - [ ] Profile picker, 0.6.5-1 (Prime checked): a real cold launch clicked per app;
       a warm launch of each sends nothing; whether Menu undoes a film
       started by a stray click (Max, Hulu, Disney+, Paramount+).
