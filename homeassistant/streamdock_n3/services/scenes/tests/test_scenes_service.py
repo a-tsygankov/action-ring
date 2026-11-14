@@ -287,3 +287,66 @@ def test_start_builds_the_real_lookup():
     svc = SERVICE()
     svc.start(ctx)
     assert isinstance(svc._lookup, Lookup)
+
+
+# --- a film that blinks out keeps its snapshot for settle_s (I2) -----------
+
+def test_brief_gap_keeps_snapshot_and_jump_memory():
+    svc, ctx, lk = ready(scenes=((2943, 2946), (4000, 4010), (5000, 5010)), pos=60)
+    svc.actions()["next"]({})
+    assert ctx.fakes.calls[-1][2]["seek_position"] == 2938
+    signals = ctx.fakes.signals
+    set_state(ctx, "idle")                                     # loading right after the seek
+    ctx.fakes.time.now += 5; svc.watch()
+    assert svc.conditions()["ready"]() is False and ctx.fakes.signals == signals + 1   # gray meanwhile
+    set_state(ctx, "playing"); set_pos(ctx, 2930)              # back, a little before the scene
+    ctx.fakes.time.now += 5; svc.watch()
+    assert svc.conditions()["ready"]() is True and ctx.fakes.signals == signals + 2
+    assert len(lk.calls) == 1                                  # no second lookup, no settle wait
+    assert svc._jump is not None
+    svc.actions()["next"]({})
+    assert ctx.fakes.calls[-1][2]["seek_position"] == 3995     # jump memory kept: on to the next scene
+
+
+def test_title_briefly_missing_keeps_snapshot():
+    svc, ctx, lk = ready(scenes=((2943, 2946),), pos=60)
+    a = ctx.state(ATV)["a"]
+    a["media_title"] = ""; ctx.fakes.time.now += 5; svc.watch()
+    a["media_title"] = "Tuner"; ctx.fakes.time.now += 5; svc.watch()
+    assert svc.conditions()["ready"]() is True and len(lk.calls) == 1
+
+
+def test_gap_longer_than_settle_drops_snapshot_and_looks_up_again():
+    svc, ctx, lk = ready(scenes=((2943, 2946), (4000, 4010)), pos=60)
+    svc.actions()["next"]({})
+    set_state(ctx, "idle")
+    for _ in range(3):                                         # gone at +5, +10, +15: past settle_s
+        ctx.fakes.time.now += 5; svc.watch()
+    assert svc._snap is None and svc._jump is None
+    set_state(ctx, "playing"); set_pos(ctx, 60)
+    ctx.fakes.time.now += 5; svc.watch()
+    assert svc.conditions()["ready"]() is False and len(lk.calls) == 1   # settling again
+    ctx.fakes.time.now += 10; set_pos(ctx, 60); svc.watch()
+    assert len(lk.calls) == 2 and svc.conditions()["ready"]() is True
+    svc.actions()["next"]({})
+    assert ctx.fakes.calls[-1][2]["seek_position"] == 2938     # jump memory went with the snapshot
+
+
+def test_other_film_during_gap_drops_snapshot_at_once():
+    svc, ctx, lk = ready(scenes=((2943, 2946),), pos=60)
+    set_state(ctx, "idle"); ctx.fakes.time.now += 5; svc.watch()
+    ctx.state(ATV).update(atv(title="Other Film", dur=7000, pos=0, at=ctx.fakes.time.now)[ATV])
+    ctx.fakes.time.now += 5; svc.watch()
+    assert svc._snap is None
+
+
+def test_non_finite_numbers_are_not_a_film_and_nothing_raises():
+    for bad in ("nan", "inf", "-inf", float("nan"), float("inf")):
+        svc, ctx, lk = make(scenes=((100, 110),), states=atv(dur=bad, pos=0))
+        svc.watch(); ctx.fakes.time.now += 10; svc.watch()
+        assert lk.calls == [] and svc.conditions()["ready"]() is False
+    for bad in ("nan", float("inf")):
+        svc, ctx, lk = ready(scenes=((2943, 2946),), pos=60)
+        ctx.state(ATV)["a"]["media_position"] = bad
+        assert svc.conditions()["ready"]() is False
+        svc.actions()["next"]({}); assert ctx.fakes.calls == []

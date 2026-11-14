@@ -4,7 +4,10 @@ Config (services.scenes): atv, exclude_apps, min_film_s, settle_s, seek_apps,
 lead_s, guard_s, seek_hold_s, plus the lookup settings read by lookup.py.
 
 - job "watch" (every 5 s): a film that stays on for settle_s is looked up
-  (Lookup.run, no lock held) and its scenes become the snapshot.
+  (Lookup.run, no lock held) and its scenes become the snapshot. When the
+  film goes away (stopped, or loading after a seek) the key is gray, but the
+  snapshot and jump memory are kept for settle_s: the same film coming back
+  in time carries on at once, with no new settle wait or lookup.
 - condition "ready": a scene starts more than max(guard_s, lead_s) after the
   position (so a press moves the picture) and the app can seek. Each watch
   tick signals when that flips and keeps a redraw armed for the last scene.
@@ -20,6 +23,7 @@ the action only.
 
 from __future__ import annotations
 
+import math
 import threading
 from datetime import datetime
 from typing import Any
@@ -39,10 +43,12 @@ _DEFAULTS = {
 
 
 def _num(value: Any) -> float | None:
+    """A finite number from an HA attribute, else None ("nan"/"inf" would break int(round(...)))."""
     try:
-        return None if value is None else float(value)
+        num = None if value is None else float(value)
     except (TypeError, ValueError):
         return None
+    return num if num is not None and math.isfinite(num) else None
 
 
 class ScenesService(Service):
@@ -55,6 +61,7 @@ class ScenesService(Service):
         self._snap: tuple | None = None  # (film_key, app_id, scenes): never mutated
         self._jump: tuple | None = None  # (scene_start, at_monotonic): never mutated
         self._seen: tuple | None = None  # (film_key, first_seen_monotonic): watch only
+        self._gone_at: float | None = None  # monotonic time the film went away: watch only
         self._no_seek_logged: tuple | None = None   # film key already logged as unseekable
         self._last_ready = False         # what the job last saw: watch only
         self._armed: float | None = None # monotonic deadline of the last gray-out redraw (under _lock)
@@ -190,19 +197,36 @@ class ScenesService(Service):
         if plan is not None:
             self._redraw_for(plan[2][2], plan[0])
 
+    def _drop_snap(self) -> None:
+        self._last_ready = False
+        if self._set_snap(None) is not None:
+            self.ctx.changed()
+
+    def _film_gone(self, snap: tuple | None) -> float:
+        """Gray at once, but forget the film only after settle_s without it."""
+        now = self.ctx.monotonic()
+        if self._gone_at is None:
+            self._gone_at = now
+        if now - self._gone_at < self._cfg("settle_s"):
+            if snap is not None:
+                self._tick()                                 # no film: not ready, signal the flip
+            return WATCH_S
+        self._seen = None
+        self._drop_snap()
+        return WATCH_S
+
     @job("watch", first_in=0)
     def watch(self) -> float:
         ctx = self.ctx
         film = self._film(ctx.state(ctx.config["atv"]))
         with self._lock:
             snap = self._snap
-        if film is None or (snap is not None and snap[0] != film[0]):
-            self._last_ready = False
-            if self._set_snap(None) is not None:
-                ctx.changed()
         if film is None:
-            self._seen = None
-            return WATCH_S
+            return self._film_gone(snap)
+        self._gone_at = None
+        if snap is not None and snap[0] != film[0]:
+            self._drop_snap()                                # another film: forget the old one now
+            snap = None
         key, title, runtime_s, app = film
         if snap is not None and snap[0] == key:
             self._tick()                                     # looked up already
