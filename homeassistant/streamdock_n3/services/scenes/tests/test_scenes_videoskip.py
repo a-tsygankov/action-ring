@@ -124,3 +124,12 @@ def test_category_word_forms_seen_in_real_files():
     scenes, offsets = parse_skip_file(text)
     assert [(s.start_s, s.category) for s in scenes] == [(5158, "nudity"), (600, "sex"), (1200, "nudity")]
     assert offsets == {"amazon": 0}
+
+
+def test_block_level_is_kept():
+    # Real Titanic file (2026-11-13): the car scene is "sex 2 (non-explicit)".
+    text = ("0:00:10.35\nfile\n\n1:22:03.74 --> 1:24:08.64\nnudity 2 (topless female)\n\n"
+            "1:30:33.77 --> 1:30:42.53\nsex 2 (non-explicit)\n\n0:10:00 --> 0:10:05\nSex 3\n\n"
+            "0:20:00 --> 0:20:05\nNudity\n\n{\"local\":0}\n")
+    scenes, _ = parse_skip_file(text)
+    assert [(s.category, s.severity) for s in scenes] == [("nudity", 2), ("sex", 2), ("sex", 3), ("nudity", None)]

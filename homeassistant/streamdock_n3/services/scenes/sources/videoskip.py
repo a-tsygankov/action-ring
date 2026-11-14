@@ -24,6 +24,7 @@ _TAGS = re.compile(r"<[^>]+>")
 # The first word of a block's text names its category; users write it freely
 # ("Nudity 3 video", "Nude ...", "Sex 2", "Sexual content"). "Sexist ..." is not one.
 _BLOCK_CAT = re.compile(r"^(nud(?:e|ity)|sex(?:ual)?)\b", re.I)
+_LEVEL = re.compile(r"\b([1-3])\b")   # "Sex 3", "nudity 2 (topless female)"
 _IMG = "data:image/jpeg;base64,"
 
 
@@ -116,7 +117,9 @@ def parse_skip_file(text: str) -> tuple[list[Scene], dict]:
             continue
         if end <= start:
             continue
-        scenes.append(Scene(start, end, "nudity" if cat.group(1).lower().startswith("nud") else "sex"))
+        level = _LEVEL.search(lines[1][cat.end():])
+        scenes.append(Scene(start, end, "nudity" if cat.group(1).lower().startswith("nud") else "sex",
+                            severity=int(level.group(1)) if level else None))
     return scenes, offsets
 
 
@@ -170,5 +173,5 @@ def _lookup(fetch: Fetcher, film: Film, service: str | None, first: int) -> Sour
         return done("miss", meta=meta)
     shift = offsets[service] if service and service in offsets else 0
     scenes = [Scene(s.start_s + shift, s.end_s + shift, s.category, source=SITE,
-                    synced_with=info["synced_with"]) for s in found]
+                    synced_with=info["synced_with"], severity=s.severity) for s in found]
     return done("hit", scenes, meta)

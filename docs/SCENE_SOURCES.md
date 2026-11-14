@@ -95,6 +95,17 @@ natural keys for the local database.
   files). The download name's `[a-b]` tag in older files lists the service keys.
   Not established: values for Max / Disney+ in real files (no such skip file
   was found in the 6 requests made).
+- **Levels** (seen 2026-11-13 on the TV with Titanic): the number after the
+  category is a level 1-3, and a note may follow: `nudity 2 (topless
+  female)`, `sex 2 (non-explicit)`, `Sex 3`. The files are written for
+  hiding content from children (1), teens (2) and adults (3), so a "sex 2"
+  block can be a scene where nothing is shown. The service keeps the level
+  and by default uses every nudity block plus sex at level 3 (`min_level`).
+- **Files for one film can disagree by minutes**: Titanic's file timed on a
+  local copy has the drawing scene at 1:22:03 (correct on Paramount+); the
+  one timed on Netflix has it at 1:25:33. A file timed on another service
+  may be a different cut, not just a few seconds off; its `{"service": 0}`
+  line says nothing about other services.
 - **Quality**: user-made; download counts are a rough trust signal. Skips are
   often short (a few seconds). Aimed at hiding content, so coverage leans to
   family-audience titles.

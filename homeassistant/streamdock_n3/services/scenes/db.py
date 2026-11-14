@@ -9,7 +9,7 @@ import threading
 
 from .model import Film, Scene, SourceResult
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2   # 2: scenes.severity (VideoSkip level)
 RUNTIME_TOLERANCE_S = 180
 _KEEP_SCENES = ("blocked", "error")  # temporary failures must not wipe good data
 
@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS scenes (
     end_s REAL NOT NULL,
     category TEXT NOT NULL,
     synced_with TEXT NOT NULL DEFAULT '',
-    note TEXT NOT NULL DEFAULT ''
+    note TEXT NOT NULL DEFAULT '',
+    severity INTEGER
 );
 CREATE INDEX IF NOT EXISTS scenes_film ON scenes (film_id);
 """
@@ -60,8 +61,19 @@ class Db:
         self._lock = threading.Lock()
         with self._lock:
             self._conn.executescript(_SCHEMA)
+            self._upgrade()
             self._conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             self._conn.commit()
+
+    def _upgrade(self) -> None:
+        """Bring an older database up to SCHEMA_VERSION (called under the lock)."""
+        cols = {row[1] for row in self._conn.execute("PRAGMA table_info(scenes)")}
+        if "severity" not in cols:
+            # Version 1 stored VideoSkip scenes without their level: drop them and
+            # their lookup rows so each film is fetched once more, with levels.
+            self._conn.execute("ALTER TABLE scenes ADD COLUMN severity INTEGER")
+            self._conn.execute("DELETE FROM scenes WHERE source = 'videoskip'")
+            self._conn.execute("DELETE FROM lookups WHERE source = 'videoskip'")
 
     def find_film(self, norm: str, runtime_s: int | None) -> tuple[int, Film] | None:
         with self._lock:
@@ -129,9 +141,9 @@ class Db:
                     self._conn.execute("DELETE FROM scenes WHERE film_id = ? AND source = ?", (film_id, source))
                 if result.status == "hit":
                     self._conn.executemany(
-                        "INSERT INTO scenes (film_id, source, start_s, end_s, category, synced_with, note)"
-                        " VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        [(film_id, source, s.start_s, s.end_s, s.category, s.synced_with, s.note)
+                        "INSERT INTO scenes (film_id, source, start_s, end_s, category, synced_with, note, severity)"
+                        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        [(film_id, source, s.start_s, s.end_s, s.category, s.synced_with, s.note, s.severity)
                          for s in result.scenes],
                     )
                 self._conn.commit()
@@ -142,7 +154,7 @@ class Db:
     def scenes(self, film_id: int) -> list[Scene]:
         with self._lock:
             rows = self._conn.execute(
-                "SELECT start_s, end_s, category, source, synced_with, note FROM scenes WHERE film_id = ?"
+                "SELECT start_s, end_s, category, source, synced_with, note, severity FROM scenes WHERE film_id = ?"
                 " ORDER BY start_s, end_s, source",
                 (film_id,),
             ).fetchall()

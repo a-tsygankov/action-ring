@@ -29,3 +29,14 @@ def test_join_gap_boundary_and_touching_not_overlapping():
     assert merge([S(0, 10), S(31, 40)], ["sex"], join_gap_s=20) == ((0, 10), (31, 40))
     # a non-primary scene merely touching a primary one does not overlap, so it is kept
     assert merge([S(100, 110), S(110, 115, src="nsfwhen")], ["sex"], join_gap_s=0) == ((100, 115),)
+
+
+def test_min_level_drops_mild_sex_but_keeps_nudity_and_unrated():
+    V = lambda a, b, cat, lvl: Scene(a, b, cat, "videoskip", severity=lvl)
+    scenes = [V(4923, 5048, "nudity", 2), V(5433, 5442, "sex", 2), V(5471, 5527, "sex", 2),
+              V(6000, 6010, "sex", 3), V(7000, 7010, "sex", None),
+              Scene(5400, 5600, "sex", "nsfwhen"),          # overlaps the mild scenes VideoSkip rated: dropped with them
+              Scene(8000, 8100, "sex", "nsfwhen")]          # no level known and no overlap: kept
+    out = merge(scenes, ["nudity", "sex"], min_level={"sex": 3})
+    assert out == ((4923, 5048), (6000, 6010), (7000, 7010), (8000, 8100))
+    assert merge(scenes[:3], ["nudity", "sex"]) == ((4923, 5048), (5433, 5442), (5471, 5527))   # no rule: as before

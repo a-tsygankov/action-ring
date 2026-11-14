@@ -660,6 +660,12 @@ once, second-press memory included; after longer it is noticed anew.
   `guard_s` (2) and `join_gap_s` (20, nearby scenes merged into one) tune
   the same thing.
 - **`categories`** (`["nudity", "sex"]`): which kinds of scene count.
+- **`min_level`** (`{"sex": 3}`): VideoSkip gives each block a level from 1
+  to 3 (written for hiding content from children and teens; 3 is explicit).
+  A category named here counts only from that level up, so the default is
+  every nudity block plus explicit sex; "sex 2 (non-explicit)" is left out.
+  Scenes from a source without levels (NSFWhen) always count, unless
+  VideoSkip rated the same moment lower.
 - **`sources`** (`["videoskip", "nsfwhen"]`): where the lists
   come from, in this order. `app_services` names the VideoSkip streaming
   service per app, so the file's time offset for that service is applied.

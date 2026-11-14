@@ -102,3 +102,33 @@ def test_lookups_since_can_leave_out_a_source():
     db.save_result(b, "videoskip", SourceResult("miss"), 10.0)
     assert db.lookups_since(0.0) == 2
     assert db.lookups_since(0.0, exclude=("tmdb",)) == 1
+
+
+def test_level_roundtrip_and_upgrade_from_v1_refetches_videoskip():
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    db = Db(conn)
+    fid = db.save_film(Film("T", "t", 11700), 0.0)
+    db.save_result(fid, "videoskip", SourceResult("hit", (Scene(10, 20, "sex", "videoskip", severity=2),)), 1.0)
+    assert db.scenes(fid)[0].severity == 2
+
+    old = sqlite3.connect(":memory:", check_same_thread=False)      # a version-1 database, as on the device
+    old.executescript("""
+        CREATE TABLE films (id INTEGER PRIMARY KEY AUTOINCREMENT, norm_title TEXT NOT NULL, title TEXT NOT NULL,
+            year INTEGER, runtime_s INTEGER, director TEXT, cast_json TEXT NOT NULL DEFAULT '[]', tmdb_id INTEGER,
+            imdb_id TEXT, updated_at REAL NOT NULL);
+        CREATE TABLE lookups (film_id INTEGER NOT NULL, source TEXT NOT NULL, status TEXT NOT NULL,
+            fetched_at REAL NOT NULL, PRIMARY KEY (film_id, source));
+        CREATE TABLE scenes (film_id INTEGER NOT NULL, source TEXT NOT NULL, start_s REAL NOT NULL, end_s REAL NOT NULL,
+            category TEXT NOT NULL, synced_with TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '');
+        INSERT INTO films (norm_title, title, runtime_s, updated_at) VALUES ('t', 'T', 11700, 0);
+        INSERT INTO lookups VALUES (1, 'videoskip', 'hit', 5), (1, 'nsfwhen', 'miss', 5), (1, 'tmdb', 'hit', 5);
+        INSERT INTO scenes (film_id, source, start_s, end_s, category) VALUES (1, 'videoskip', 10, 20, 'sex'),
+            (1, 'nsfwhen', 30, 40, 'nudity');
+        PRAGMA user_version = 1;
+    """)
+    up = Db(old)
+    assert [s.source for s in up.scenes(1)] == ["nsfwhen"]           # level-less VideoSkip scenes are dropped
+    assert set(up.lookup_state(1)) == {"nsfwhen", "tmdb"}            # ...and VideoSkip is due again
+    assert old.execute("PRAGMA user_version").fetchone()[0] == 2
+    Db(old)                                                          # opening again changes nothing
+    assert set(up.lookup_state(1)) == {"nsfwhen", "tmdb"}

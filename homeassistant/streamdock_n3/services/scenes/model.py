@@ -27,6 +27,7 @@ class Scene:
     source: str = ""
     synced_with: str = ""
     note: str = ""
+    severity: int | None = None  # VideoSkip's level 1-3 (3 = explicit); None when the source has none
 
 
 @dataclass(frozen=True)

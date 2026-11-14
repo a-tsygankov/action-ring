@@ -70,7 +70,7 @@ class Lookup:
             else:
                 self._query(film_id, film, due, app_id)
         result = merge(self._db.scenes(film_id), self._cfg("categories", ["nudity", "sex"]),
-                       self._cfg("join_gap_s", 20))
+                       self._cfg("join_gap_s", 20), min_level=self._cfg("min_level", {"sex": 3}))
         ctx.log(f'"{title}": {len(result)} scenes')
         return result
 

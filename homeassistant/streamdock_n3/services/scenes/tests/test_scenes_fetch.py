@@ -53,7 +53,7 @@ def test_server_error_propagates_and_browser_headers_are_sent(monkeypatch):
 
 
 def test_fixtures_hold_no_email_and_no_embedded_image():
-    email = re.compile(r"[\w.+-]+@[\w-]+\.(?:com|net|org|io|app|me)")   # not CDN "pkg@1.2.3" or @media
+    email = re.compile(r"[\w.+-]+@[\w-]+\.(?:com|net|org|io|app|me)\b")   # not CDN "pkg@1.2.3" or @media
     for p in FIX.iterdir():
         text = p.read_text(encoding="utf-8", errors="replace")
         assert not email.search(text), p.name
