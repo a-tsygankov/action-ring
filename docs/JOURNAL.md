@@ -1643,6 +1643,38 @@ com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
   logs `metrics: SLOW profiles action:open` (it waits `delay_s` on its own
   thread on purpose; actions only log, they never trip the breaker).
 
+### 2026-11-14 — Apple TV replaced (AppleTV18,1, tvOS 27.2.1)
+
+- New box: "TV Room", AppleTV18,1, tvOS 27.2.1, 192.168.1.91 (old: Apple TV
+  4K, 192.168.1.159, off the network). Same LG input; the LG still names it
+  `Apple OTT`, so no mapping changed.
+- HA: old `vugiTV 4K` entry deleted, the discovered "TV Room (2)" added
+  (three PINs). The box was not renamed first, so the entities came out as
+  `media_player.tv_room_2_tv_room_2`, `remote.tv_room_2_tv_room_2` and
+  `binary_sensor.tv_room_2_tv_room_2_keyboard_focus`; renamed to the
+  `vugitv_4k_vugitv_4k` IDs (entity registry). The HA device is renamed
+  to "vugiTV 4K" (user name only; the integration entry and the box itself
+  are still "TV Room (2)" / "TV Room").
+- `restore.sh` alone does nothing for a new box while the old HA entry and
+  `atv_companion.json` are there (address from the old entry, "already
+  paired"). Order that worked: HA entry, entity IDs, move
+  `atv_companion.json` aside, `restore.sh`, then the pairings.
+- `restore.sh homeassistant` from the 0.6.5-1 checkout: live config already
+  equal to the preset, scripts and automations present, app rebuilt and
+  running. Run it from the branch that holds the live version: the main
+  checkout was on 0.6.2-1 and would have rolled the app back.
+- App pairings with pyatv 0.18.0 against tvOS 27: Companion and AirPlay both
+  paired first try; `connected to TV Room (companion, airplay)`. Old
+  credentials kept on the Pi as `atv_companion.json.oldbox-20261114`.
+- pyatv's broadcast scan from the app container finds no Apple TV;
+  `atvremote --scan-hosts <ip> scan` does. The host's `avahi-browse -rtp
+  _companion-link._tcp` lists the box and its address.
+- HA keeps offering the old box under Discovered ("vugiTV 4K (Apple TV
+  4K)"); do not add it.
+- Not done: YouTube link for screen `atv` (`yt_lounge.json` still holds the
+  old box's link, so `pair.sh status` says "linked"); the whole "Retest on
+  the TV" list in [Replacing the Apple TV](#replacing-the-apple-tv).
+
 ## Open items
 
 - [ ] Profile picker, 0.6.5-1 (Prime checked): a real cold launch clicked per app;
