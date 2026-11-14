@@ -1373,6 +1373,10 @@ PC only (fixtures, no live requests in tests).
   name as `media_artist`, so no film was noticed; the service now falls back
   to the artist when the title is empty. Weapons: 1 scene (`Sex 3`,
   0:54:46, file timed on Prime), one press landed near 0:54:41, key gray.
+- Tubi works (0.6.1-6): Fargo, 2 scenes (both `sex 3`); presses landed at
+  0:11:18 and 1:05:20, confirmed by the reported position, and no ad break
+  played on either jump. A jump that does trigger a Tubi break has not been
+  seen yet.
 - Films with known times for further checks (VideoSkip; service per TMDB's
   US listings on 11-13): Fight Club on Pluto (0:48:38, 0:55:42, 0:58:43),
   Titanic on Paramount+ (1:22:04, 1:30:34, 1:31:12), Weapons on Max
@@ -1392,9 +1396,11 @@ PC only (fixtures, no live requests in tests).
       `secrets.json`); Gemini Pro with search as a low-confidence last
       resort. Trial results and analysis: `docs/SCENE_SOURCES.md`.
 
-- [ ] Scene jump, TV checks left: Disney+ (a film known to VideoSkip); Tubi (no film with known times found yet); Pluto outside
-      an ad break; whether the position reported after a seek ever lags more than
-      `seek_hold_s` (5 s) (in Prime it arrived within 1-3 s).
+- [ ] Scene jump, TV checks left: Disney+ (no film with known nudity times
+      found on it yet); Pluto outside an ad break; a Tubi jump that
+      triggers an ad break; whether the position reported after a seek ever
+      lags more than `seek_hold_s` (5 s) (it arrived within 1-3 s in Prime,
+      Paramount+, Max and Tubi).
 - [ ] Scene jump: keep the key gray while an ad break runs (Pluto, Tubi):
       give services the ad detector's state, or take Pluto out of
       `seek_apps`. Remove the temporary `toast_lookup` toast when done.
