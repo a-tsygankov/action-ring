@@ -1366,7 +1366,7 @@ PC only (fixtures, no live requests in tests).
   (level-less VideoSkip rows dropped and fetched again). After the
   redeploy: `videoskip: hit, 3 scenes` -> `"Titanic": 1 scenes`, toast
   `Scenes: 1 found for Titanic`.
-- A mangled `` (a backspace character) in the fixture privacy test made
+- A mangled `\b` (a backspace character) in the fixture privacy test made
   its e-mail check match nothing since Task 2; repaired, and the check
   passes for real.
 - Films with known times for further checks (VideoSkip; service per TMDB's
