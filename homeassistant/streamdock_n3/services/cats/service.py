@@ -4,17 +4,18 @@ turns into a cat's face for 10 s, the cats blink and stick their tongues out,
 then the page that was there comes back. Pressing a cat plays a cat video in
 YouTube on the Apple TV and ends it.
 
-The video goes through the YouTube Lounge (ctx.shared("youtube")), which is
-up only while YouTube is open on the screen and past its "Who's watching"
-picker. When it is not up, YouTube is started on the Apple TV; if the session
-is still not up `picker_after_s` later, the app is taken to be on its picker
-and select is pressed once (the first profile has the focus), as the profiles
-service does after a cold launch. The select is sent only while YouTube is
-the Apple TV's app and nothing plays, the LG is on the Apple TV input and the
-dock was not used since the cat press. The video is sent once the session
-connects (`connect_wait_s`). A youtube.com URL handed to the Apple TV
-(play_media "url") is refused (HTTP 500 from pyatv launch_app), so there is
-no fallback.
+The video goes through the YouTube Lounge (ctx.shared("youtube")). The
+daemon opens a Lounge session only while HA reports YouTube as the Apple TV's
+app, and HA reports the now-playing app: YouTube open with nothing playing
+never shows. So the service asks for the session itself (`want`) before it
+starts YouTube on the Apple TV. If the session is still not up
+`picker_after_s` after the launch, YouTube is taken to be on its "Who's
+watching" picker and select is pressed once (the first profile has the
+focus), as the profiles service does after a cold launch: only while the LG
+is on the Apple TV input, no other app is playing and the dock was not used
+since the cat press. The video is sent once the session connects
+(`connect_wait_s`). A youtube.com URL handed to the Apple TV (play_media
+"url") is refused (HTTP 500 from pyatv launch_app), so there is no fallback.
 """
 
 from __future__ import annotations
@@ -124,6 +125,7 @@ class CatsService(Service):
         if yt is None:
             ctx.log("YouTube started; no YouTube link (youtube.screens), video not sent")
             return
+        yt.want(screen, self._num("picker_after_s", PICKER_AFTER_S) + self._num("connect_wait_s", CONNECT_WAIT_S) + 5)
         if self._wait(yt, screen, self._num("picker_after_s", PICKER_AFTER_S)):
             self._send(yt, video, screen, "after starting YouTube")
             return
@@ -156,7 +158,7 @@ class CatsService(Service):
         self.ctx.log(f"{video} {how}")
 
     def _no_click(self, t0: float) -> "str | None":
-        """Why select must not be pressed now, or None (the profiles service's guards)."""
+        """Why select must not be pressed now, or None (after the profiles service's guards)."""
         ctx = self.ctx
         dock = ctx.shared("dock_input")
         if dock is not None and dock.last() > t0 + INPUT_GRACE_S:
@@ -164,9 +166,10 @@ class CatsService(Service):
         lg = ctx.state(ctx.config.get("lg") or "") or {}
         if variant(lg.get("s")) != "on" or (lg.get("a") or {}).get("source") != ctx.config.get("atv_source"):
             return "input changed"
+        # HA shows the now-playing app, not the one on screen: YouTube with
+        # nothing playing is invisible, so "YouTube in front" cannot be
+        # checked. Another app playing means the launch did not take.
         atv = ctx.state(ctx.config.get("atv") or "") or {}
-        if (atv.get("a") or {}).get("app_id") != YOUTUBE_APP:
-            return "YouTube not in front"
-        if atv.get("s") in ("playing", "paused"):
-            return "already playing"
+        if atv.get("s") == "playing":
+            return f"{(atv.get('a') or {}).get('app_id') or 'something'} playing"
         return None

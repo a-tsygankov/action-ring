@@ -861,18 +861,19 @@ Two parts: a key combo in the core (`combo.py`) and the `cats` service
   waits only right after Round 1; Round 3 never waits. Remove the section
   (or `"enabled": false`) to get Round 1 back at once. The action is any key
   action.
-- **Playing the video.** With the YouTube app open and linked on `screen`
-  (`pair.sh`, the Lounge session that next chapter uses), the video is sent
-  over that session. Otherwise the TV is turned on if needed and YouTube is
-  started on the Apple TV.
-- **Profile picker.** YouTube opens on "Who's watching", and the Lounge
-  session comes up only once a profile is chosen. So if there is still no
-  session `picker_after_s` (6) after the launch, the dock presses **select
+- **Playing the video.** Over the YouTube Lounge session to `screen` (the
+  link `pair.sh` sets up, which next chapter uses). The daemon opens that
+  session only while HA reports YouTube as the Apple TV's app, and HA reports
+  the *now-playing* app: YouTube open with nothing playing never shows. So
+  the cats service asks for the session itself (`want`: try to connect for
+  the next ~30 s, every 2 s), and starts YouTube on the Apple TV (turning the
+  TV on if needed).
+- **Profile picker.** YouTube may open on "Who's watching". If there is still
+  no session `picker_after_s` (6) after the launch, the dock presses **select
   once**, which picks the first profile (it has the focus), the same press the
-  profiles service sends after a cold launch. The guards are the profiles
-  service's too: YouTube is the Apple TV's app and nothing is playing, the LG
-  is on the Apple TV input, and the dock was not used since the cat press.
-  The video is sent once the session connects (`connect_wait_s`, 20).
+  profiles service sends after a cold launch. Not when the LG is off the Apple
+  TV input, another app is playing, or the dock was used since the cat
+  press. The video is sent once the session connects (`connect_wait_s`, 20).
   A `youtube.com/watch` URL handed to the Apple TV (`play_media`, type `url`)
   fails in HA (HTTP 500 from pyatv `launch_app`), so there is no fallback
   without the session.

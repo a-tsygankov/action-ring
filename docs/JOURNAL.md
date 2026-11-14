@@ -1576,6 +1576,25 @@ com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
   then the video goes over the session once it connects. The URL fallback
   is gone.
 
+### 2026-11-14 — Cats: the Lounge never tried to connect (0.6.4-4)
+
+- 0.6.4-3 on arpi: YouTube cold-started without a profile picker this time,
+  and still no video: `cats: no profile click (YouTube not in front)`, then
+  `no YouTube link session, not sent`.
+- Cause: HA's `media_player.vugitv_4k_vugitv_4k` reports the Apple TV's
+  **now-playing** app (`np:` lines showed Paramount+ paused while YouTube
+  was on screen). `yt_lounge.py` opens a session only while that matches
+  YouTube, so it never tried. The guard in 0.6.4-3 read the same field. The
+  0.6.4-3 entry's reading ("the session connects only past the picker") was
+  not shown: the session never attempted at all.
+- Fix: `YouTubeScreens.want(screen, seconds)` makes a screen count as active
+  for a while (retry every 2 s instead of 10). The cats service calls it
+  before launching YouTube. The select guard drops "YouTube in front" (not
+  knowable from HA) and keeps: LG on the Apple TV input, no app playing, no
+  dock input since the press.
+- Open: whether the Lounge connects while YouTube shows its picker. If it
+  does, the 6 s select never fires and the picker may swallow the video.
+
 ## Open items
 
 - [ ] Profile picker: survey on the TV (0.6.2-1 runs in dry run), one

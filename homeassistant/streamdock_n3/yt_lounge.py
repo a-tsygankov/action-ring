@@ -65,6 +65,7 @@ class Screen(EventListener):
         self.position_at = 0.0
         self.in_ad = False
         self.subtitles: str | None = None  # current caption language; None = off
+        self.wanted_until = 0.0  # monotonic; want(): connect even though HA does not show the app
 
     def position_now(self) -> float:
         elapsed = time.monotonic() - self.position_at if self.state == State.Playing else 0
@@ -150,7 +151,18 @@ class YouTubeScreens:
         return {c["entity"] for s in self.screens.values() for c in s.match}
 
     def active(self, screen: Screen) -> bool:
+        if time.monotonic() < screen.wanted_until:
+            return True
         return any(matches(self._state_of, c) for c in screen.match)
+
+    def want(self, screen: str, seconds: float) -> None:
+        """Try to connect to `screen` for the next `seconds`, retrying every
+        2 s, even though HA does not report its YouTube app. HA shows the
+        Apple TV's now-playing app, so YouTube open with nothing playing is
+        never "active"; a caller about to send a video asks here."""
+        s = self.screens.get(screen)
+        if s is not None:
+            s.wanted_until = max(s.wanted_until, time.monotonic() + seconds)
 
     def any_active(self) -> bool:
         return any(self.active(s) for s in self.screens.values())
@@ -331,7 +343,7 @@ class YouTubeScreens:
                 await self._session(screen)
             except Exception as err:
                 log(f"{screen.name}: {type(err).__name__}: {err}")
-                await asyncio.sleep(10)
+                await asyncio.sleep(2 if time.monotonic() < screen.wanted_until else 10)
 
     async def _session(self, screen: Screen) -> None:
         async with YtLoungeApi(DEVICE_NAME, screen) as api:

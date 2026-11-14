@@ -18,6 +18,10 @@ class FakeYouTube:
         self.connect_after = connect_after  # polls until the session is up; None: never
         self.up = up  # or: a callable saying whether it is up
         self.played = []
+        self.wanted = []
+
+    def want(self, screen, seconds):
+        self.wanted.append((screen, seconds))
 
     def connected(self, screen):
         self.polls += 1
@@ -105,11 +109,27 @@ def test_profile_picker_gets_one_select_then_the_video():
     assert ctx.monotonic() - t0 >= 6.0  # waited picker_after_s before clicking
 
 
-def test_no_select_while_another_app_is_in_front():
+def test_select_although_ha_shows_another_app_paused():
+    # HA reports the now-playing app: YouTube with nothing playing never shows.
+    yt = FakeYouTube()
+    svc, ctx = make(yt, atv={"s": "paused", "a": {"app_id": "com.cbsvideo.app"}})
+    yt.up = lambda: SELECT in ctx.fakes.calls
+    svc.actions()["play"]({})
+    assert ctx.fakes.calls.count(SELECT) == 1 and len(yt.played) == 1
+
+
+def test_no_select_while_another_app_plays():
     yt = FakeYouTube(connect_after=None)
-    svc, ctx = make(yt, atv={"s": "idle", "a": {"app_id": "com.netflix.Netflix"}})
+    svc, ctx = make(yt, atv={"s": "playing", "a": {"app_id": "com.netflix.Netflix"}})
     svc.actions()["play"]({})
     assert SELECT not in ctx.fakes.calls and yt.played == []
+
+
+def test_asks_the_lounge_to_connect_before_waiting():
+    yt = FakeYouTube(connect_after=2)
+    svc, _ = make(yt)
+    svc.actions()["play"]({})
+    assert yt.wanted == [("atv", 31.0)]  # picker_after_s + connect_wait_s + 5
 
 
 def test_no_select_after_dock_input():
