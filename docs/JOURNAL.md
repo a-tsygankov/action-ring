@@ -1635,10 +1635,17 @@ com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
   off), Prime (6, registers at launch), Max, Hulu, Paramount+ (8, the new
   default), Disney+ (13). YouTube, Pluto, Tubi, the TV app left out.
 - Tests: 691 passing.
+- **Checked on arpi (0.6.5-1, 16:19 UTC):** Prime force-quit, then its key:
+  `gone -> cold, click in 6.0s`, `atv-clients: ... alive` 2 s after the
+  press, `click sent` at +6 s. Captures: the picker was up at +3 and +5 s;
+  at +7 s it was loading, and Prime's home screen came at +12 s. Then warm presses of
+  Netflix and Prime: `alive (pid ...) -> warm, no click`. Each clicking open
+  logs `metrics: SLOW profiles action:open` (it waits `delay_s` on its own
+  thread on purpose; actions only log, they never trip the breaker).
 
 ## Open items
 
-- [ ] Profile picker, 0.6.5-1: a real cold launch clicked on the TV per app;
+- [ ] Profile picker, 0.6.5-1 (Prime checked): a real cold launch clicked per app;
       a warm launch of each sends nothing; whether Menu undoes a film
       started by a stray click (Max, Hulu, Disney+, Paramount+).
 - [ ] Profile picker: the first launch after a night off: does a fresh
