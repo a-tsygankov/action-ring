@@ -61,7 +61,7 @@ def test_lookup_hit_miss_blocked_error():
     r = _run({"/search/": fx("challenge.html")})
     assert r.status == "blocked"
     r = _run({"/search/": "<html><body>"})
-    assert r.status in ("miss", "error")
+    assert r.status == "error"
     r = _run({"/search/": TimeoutError()})
     assert r.status == "error"
 
@@ -93,3 +93,11 @@ def test_synced_with_loose_match():
     assert synced_with_service("HBO Max", "max")
     assert not synced_with_service("Netflix", "amazon")
     assert not synced_with_service("Netflix", None)
+
+
+def test_garbage_film_or_skip_page_is_error_not_miss():
+    http = {"/search/": fx("videoskip_search_hits.html"), "/exchange/videos/": "<html><body>x</body></html>"}
+    assert _run(http).status == "error"
+    http = {"/search/": fx("videoskip_search_hits.html"), "/exchange/videos/": fx("videoskip_film_skips.html"),
+            "/exchange/skip/": "<html><body>x</body></html>"}
+    assert _run(http).status == "error"

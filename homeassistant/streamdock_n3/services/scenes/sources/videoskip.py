@@ -41,7 +41,7 @@ def parse_search(html: str) -> list[Candidate]:
             end = m.start()
             break
     if start is None:
-        return []
+        raise ValueError("videoskip search page has no skip-files section")
     out = []
     for m in _ROW_LINK.finditer(html, start, end):
         label = _text(m.group(2))
@@ -64,10 +64,11 @@ def parse_film(html: str) -> tuple[dict, list[str]]:
         meta["imdb_id"] = m.group(1)
     refs: list[str] = []
     start = html.find("Skip Files:")
-    if start >= 0:
-        for m in _SKIP_REF.finditer(html, start):
-            if m.group(1) not in refs:
-                refs.append(m.group(1))
+    if start < 0:
+        raise ValueError("videoskip film page has no skip-files section")
+    for m in _SKIP_REF.finditer(html, start):
+        if m.group(1) not in refs:
+            refs.append(m.group(1))
     return meta, refs
 
 
@@ -76,6 +77,8 @@ def parse_skip_page(html: str) -> dict:
         m = re.search(r"<li>\s*" + label + r":(.*?)</li>", html, re.S | re.I)
         return _text(m.group(1)) if m else ""
 
+    if not field("Downloaded") or not field("Filters"):
+        raise ValueError("videoskip skip page has no details list")
     dm = re.search(r"\d+", field("Downloaded"))
     return {"synced_with": field("Synced with"), "filters": field("Filters"),
             "downloads": int(dm.group()) if dm else 0}

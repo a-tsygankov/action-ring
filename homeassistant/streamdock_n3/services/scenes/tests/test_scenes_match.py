@@ -25,3 +25,9 @@ def test_pick_ids_and_tiebreaks():
     assert pick(f, [c(year=2026, director="a  b"), c(year=2026, director="C")])[0].director == "a  b"
     assert pick(f, [c(year=2026, cast=("x", "y")), c(year=2026, cast=("x",))])[0].cast == ("x", "y")
     assert pick(f, [c(year=2026), c(year=2026)])[1] == "ambiguous"
+
+
+def test_pick_runtime_breaks_year_tie():
+    c = lambda **k: Candidate(ref="r", title="Tuner", **k)
+    got = pick(FILM, [c(year=2026, runtime_s=6500), c(year=2026)])
+    assert (got[0].runtime_s, got[1]) == (6500, "hit")
