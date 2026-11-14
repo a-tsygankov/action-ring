@@ -1423,7 +1423,8 @@ Ships switched off (`dry_run: true`, every app `picker: false`).
   - Netflix reports no duration, so the undo cannot work there
     (`"undo": false`).
 - Safety rules built in: no click when the state is unknown (no AirPlay
-  pairing, connection down, or the key also woke the TV and no fresh
+  pairing, connection down, or the key also woke the TV or the Apple TV was
+  asleep and no fresh
   connection came within 5 s), when the app is playing or paused, or after
   any dock key or knob was used (new `ctx.shared("dock_input")`). Menu is
   sent at most once, only after the dock's own click, only for playback of
@@ -1432,7 +1433,7 @@ Ships switched off (`dry_run: true`, every app `picker: false`).
 - `restore.sh` needs no change: it uploads the preset whole and the image
   copies the `services/` tree; the `Dockerfile` lists the two new core
   modules (`atv_clients.py`, `dock_input.py`).
-- Tests: 610 passing.
+- Tests: 619 passing.
 
 ## Open items
 
@@ -1522,3 +1523,8 @@ Ships switched off (`dry_run: true`, every app `picker: false`).
       in the repo.
 - [ ] Govee not integrated in HA; lighting controls pending.
 - [ ] Only one Apple TV in HA; the handoff mentions two generations.
+- [ ] Profile picker, left from the branch review (not fixed): if the
+      service fails to load, the Apple TV app keys do nothing (no fall-back
+      to plain `launch`); the logo's icon lookup accepts any service action
+      named `open`; the undo window (`watch_s`, 5 s) may be shortened once
+      the survey shows how fast each app reports a film's duration.

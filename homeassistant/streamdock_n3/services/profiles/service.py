@@ -41,6 +41,7 @@ class ProfilesService(Service):
     def __init__(self) -> None:
         self.ctx: Any = None
         self._lock = threading.Lock()
+        self._launch_lock = threading.Lock()    # newest-open check and launch, as one step
         self._gen = 0                           # the newest open(); older ones stand down
         self._opened: dict[str, float] = {}     # app -> monotonic time of our last open
         self._history: list[dict] | None = None
@@ -100,13 +101,23 @@ class ProfilesService(Service):
             self._gen += 1
             gen = self._gen
         t0 = ctx.monotonic()
-        was_off = not self._lg_on()
+        # Asleep: the LG off, or the Apple TV itself (the LG may be on another input).
+        was_off = not self._lg_on() or self._atv()[0] not in ("idle", "playing", "paused")
         if not ctx.media.ensure_on():
             ctx.log(f"open {app}: TV did not turn on")
             return
-        status, removed_at, pid = self._status(app, t0, was_off)  # before the launch: apps register fast
-        if not ctx.media.launch("atv", app):
-            return
+        # Before the launch: apps register fast. An app that gets no click
+        # anyway is not kept waiting for a fresh session.
+        status, removed_at, pid = self._status(app, t0, was_off and self._listed(app))
+        with self._launch_lock:
+            # Two keys pressed while the TV woke: only the newest app is
+            # launched, so a click can never land in the other one.
+            with self._lock:
+                if self._gen != gen:
+                    ctx.log(f"open {app}: not launched (newer open)")
+                    return
+            if not ctx.media.launch("atv", app):
+                return
         with self._lock:
             opened_before = self._opened.get(app)
             self._opened[app] = ctx.monotonic()
@@ -118,6 +129,16 @@ class ProfilesService(Service):
             ctx.log(f"{app}: {type(err).__name__}: {err}")
             outcome = "error"
         self._record(app, status, reason, outcome)
+
+    def _entry(self, app: str) -> dict | None:
+        apps = self.ctx.config.get("apps")
+        entry = apps.get(app) if isinstance(apps, dict) else None
+        return entry if isinstance(entry, dict) else None
+
+    def _listed(self, app: str) -> bool:
+        """The decision can come out as a click (or a dry-run "would click")."""
+        entry = self._entry(app)
+        return entry is not None and bool(entry.get("picker") or self.ctx.config.get("dry_run"))
 
     def _status(self, app: str, t0: float, was_off: bool) -> tuple[str, float | None, int | None]:
         """(status, removed_at, pid) from the tracker; "unknown" on any doubt."""
@@ -146,12 +167,11 @@ class ProfilesService(Service):
                       pid: int | None, opened_before: float | None) -> tuple[str, str]:
         """(reason, outcome). Decides, waits, clicks, watches."""
         ctx = self.ctx
-        apps = ctx.config.get("apps")
-        entry = apps.get(app) if isinstance(apps, dict) else None
+        entry = self._entry(app)
         dry_run = bool(ctx.config.get("dry_run"))
         reason, click = decide(entry, status, opened_at=opened_before, removed_at=removed_at, dry_run=dry_run)
         shown = f"alive (pid {pid})" if status == "alive" and pid is not None else status
-        delay = self._num("delay_s", 6.0, entry if isinstance(entry, dict) else None)
+        delay = self._num("delay_s", 6.0, entry)
         if not click:
             ctx.log(f"open {app}: {'(dry run) ' if dry_run else ''}{shown} -> {reason}, no click")
             return reason, "no click"
@@ -171,10 +191,9 @@ class ProfilesService(Service):
         if why:
             ctx.log(f"{app}: no click ({why})")
             return reason, f"cancelled: {why}"
-        was_film = self._film(app) is not None
         self._send("select")
         ctx.log(f"{app}: click sent")
-        if was_film or not entry.get("undo", True):
+        if not entry.get("undo", True):
             return reason, "clicked"
         return reason, "clicked, undone" if self._watch(app, gen, t0) else "clicked"
 
@@ -198,8 +217,9 @@ class ProfilesService(Service):
         if not self._on_atv_input():
             return "input changed"
         state, attrs = self._atv()
-        if attrs.get("app_id") == app and state in ("playing", "paused"):
-            return "already playing"
+        if attrs.get("app_id") == app and (
+                state in ("playing", "paused") or attrs.get("media_duration") or attrs.get("media_title")):
+            return "already playing"  # also a film still loading (reported idle, with its data)
         return None
 
     def _watch(self, app: str, gen: int, t0: float) -> bool:

@@ -168,3 +168,13 @@ def test_install_survives_a_handler_error():
     protobuf.extract_inner(msg).client.bundleIdentifier = PRIME
     asyncio.run(handlers[protobuf.UPDATE_CLIENT_MESSAGE](msg))   # must not raise into pyatv
     assert lines and "RuntimeError" in lines[0]
+
+
+def test_a_message_without_a_pid_keeps_the_known_pid():
+    t, clock, _ = make()
+    t.on_session()
+    t.on_update(PRIME, 8061)
+    t.on_update(PRIME, 0)                # now_playing_client may carry no process id
+    assert t.pid(PRIME) == 8061
+    t.on_remove(PRIME, 8061)
+    assert t.status(PRIME) != "alive" and t.removed_at(PRIME) == 100.0

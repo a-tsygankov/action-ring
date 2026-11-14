@@ -58,6 +58,8 @@ class AtvClients:
             if self._session_at is None:
                 return
             now = self._touch()
+            if not pid and bundle in self._alive:
+                pid = self._alive[bundle]  # a message without a process id: keep the known one
             changed = self._alive.get(bundle) != pid
             self._alive[bundle] = pid
             self._seen[bundle] = now

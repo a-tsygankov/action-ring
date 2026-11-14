@@ -735,7 +735,7 @@ presses select once, `delay_s` after the launch, only when all of this holds:
   the LG is still on the Apple TV input, and the app is not playing or paused.
 
 When the state is not known (no AirPlay pairing, the connection is down, the
-key also had to wake the TV and no new connection came up within
+key also had to wake the TV, or the Apple TV was asleep, and no new connection came up within
 `sync_wait_s`), the app is only launched.
 
 If the click starts a film (the app was on its home screen after all), the

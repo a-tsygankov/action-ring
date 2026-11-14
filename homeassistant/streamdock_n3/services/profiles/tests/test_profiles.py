@@ -419,3 +419,41 @@ def test_entities_and_no_render_surface():
     svc, ctx, _, _, _ = make()
     assert svc.entities() == {ATV, LG}
     assert svc.key("x", {}) is None
+
+
+# -- from the branch review ---------------------------------------------------
+
+def test_superseded_open_does_not_launch_after_a_newer_one():
+    """Two keys pressed while the TV wakes: only the newest app is launched,
+    so a click can never land in the other one."""
+    svc, ctx, states, tracker, _ = make(lg="off")
+    _wake(states)
+    tracker.statuses[HULU] = "alive"
+    states.at(1, lambda: svc.open({"app": HULU}))    # pressed while PRIME's open still waits for the TV
+    svc.open({"app": PRIME})
+    assert launched(ctx, HULU) and not launched(ctx, PRIME)
+    assert remote_calls(ctx) == []
+
+
+@pytest.mark.parametrize("atv_state", ["off", "standby", "unavailable", "unknown", None])
+def test_sleeping_apple_tv_counts_as_a_wake(atv_state):
+    """LG on, Apple TV asleep: the old session may be dead, so it is not trusted."""
+    svc, ctx, states, tracker, _ = make()
+    states[ATV] = None if atv_state is None else {"s": atv_state, "a": {}}
+    svc.open({"app": PRIME})                         # the session predates the press
+    assert launched(ctx, PRIME) and remote_calls(ctx) == []
+
+
+def test_loading_film_counts_as_already_playing():
+    svc, ctx, states, _, _ = make()
+    states.at(3, lambda: states.update({ATV: {"s": "idle", "a": {"app_id": PRIME, "media_duration": 7140}}}))
+    svc.open({"app": PRIME})
+    assert remote_calls(ctx) == []
+
+
+def test_unlisted_app_does_not_wait_for_a_session_after_a_wake():
+    svc, ctx, states, _, _ = make(lg="off")
+    _wake(states)
+    svc.open({"app": PLUTO})
+    assert launched(ctx, PLUTO)
+    assert ctx.fakes.time.now < T0 + 5               # the wake itself (4 s), no sync wait on top
