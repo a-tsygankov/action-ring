@@ -641,9 +641,18 @@ once, second-press memory included; after longer it is noticed anew.
   "app_services": { "com.wbd.stream": "max", "com.disney.disneyplus": "disneyplus" } } }
 ```
 
-- **`seek_apps`**: the apps where the jump is allowed (Max and Disney+ to
-  start with). Other apps still get their film looked up, but the key stays
-  gray; add an app only after a seek has been checked on the TV in it.
+- **`seek_apps`**: the apps where the jump is allowed. Other apps still get
+  their film looked up, but the key stays gray. The TV Room preset lists
+  Max and Disney+ (exact seek checked on the TV on 10-25) and, added on
+  11-13 at the owner's request before any check, Prime Video, Paramount+,
+  Tubi, Pluto and Netflix: see the journal's open items for what the TV
+  showed. Two limits known from the now-playing log:
+  - **Netflix** reports no title, duration or position to the Apple TV, so
+    the service cannot tell which film is on or where it is: the key stays
+    gray there whatever this list says.
+  - **Tubi and Pluto** stitch ads into the stream. A jump across an ad
+    marker plays the ad break first (Tubi locks playback for it), and the
+    reported position jumps around a break.
 - **`lead_s`** (5): how many seconds before the scene the jump lands.
   `guard_s` (2) and `join_gap_s` (20, nearby scenes merged into one) tune
   the same thing.

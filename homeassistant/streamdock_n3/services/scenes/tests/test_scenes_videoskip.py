@@ -114,3 +114,13 @@ def test_requests_are_this_lookups_own():
 def test_non_finite_offset_is_ignored():
     skp = '0:00:01\n\n0:10:00 --> 0:10:05\nSex 3\n\n{"amazon":NaN,"max":Infinity,"disneyplus":7}\n'
     assert parse_skip_file(skp)[1] == {"disneyplus": 7}
+
+
+def test_category_word_forms_seen_in_real_files():
+    # "Nude ... 3 (...)" came from a real file (After the Hunt, 2025); users write the word freely.
+    text = ("-1:59:59.95\n\n1:25:58 --> 1:26:16\nNude scene 3 (video)\n\n"
+            "0:10:00 --> 0:10:05\nsexual content 2\n\n0:20:00 --> 0:20:05\nNUDITY 1\n\n"
+            "0:30:00 --> 0:30:05\nSexist joke 1 audio\n\n0:40:00 --> 0:40:05\nViolence 2\n\n{\"amazon\":0}\n")
+    scenes, offsets = parse_skip_file(text)
+    assert [(s.start_s, s.category) for s in scenes] == [(5158, "nudity"), (600, "sex"), (1200, "nudity")]
+    assert offsets == {"amazon": 0}

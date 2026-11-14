@@ -21,7 +21,9 @@ _ROW_LINK = re.compile(r'<a\s+href="(/exchange/videos/\d+/)"[^>]*>(.*?)</a>', re
 _TITLE_YEAR = re.compile(r"^(.*?)\s*\((\d{4})\)\s*$", re.S)
 _SKIP_REF = re.compile(r'href="(/exchange/skip/\d+/)"')
 _TAGS = re.compile(r"<[^>]+>")
-_BLOCK_CAT = re.compile(r"^(nudity|sex)\b", re.I)
+# The first word of a block's text names its category; users write it freely
+# ("Nudity 3 video", "Nude ...", "Sex 2", "Sexual content"). "Sexist ..." is not one.
+_BLOCK_CAT = re.compile(r"^(nud(?:e|ity)|sex(?:ual)?)\b", re.I)
 _IMG = "data:image/jpeg;base64,"
 
 
@@ -114,7 +116,7 @@ def parse_skip_file(text: str) -> tuple[list[Scene], dict]:
             continue
         if end <= start:
             continue
-        scenes.append(Scene(start, end, cat.group(1).lower()))
+        scenes.append(Scene(start, end, "nudity" if cat.group(1).lower().startswith("nud") else "sex"))
     return scenes, offsets
 
 

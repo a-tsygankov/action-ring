@@ -62,10 +62,13 @@
     },
     "scenes": {
       "atv": "media_player.vugitv_4k_vugitv_4k",
-      "seek_apps": ["com.wbd.stream", "com.disney.disneyplus"],
+      "seek_apps": ["com.wbd.stream", "com.disney.disneyplus", "com.amazon.aiv.AIVApp", "com.cbsvideo.app",
+                    "com.adrise.tubitv", "tv.pluto.ios", "com.netflix.Netflix"],
       "exclude_apps": ["com.google.ios.youtube"],
       "sources": ["videoskip", "nsfwhen"],
-      "app_services": { "com.wbd.stream": "max", "com.disney.disneyplus": "disneyplus" }
+      "app_services": { "com.wbd.stream": "max", "com.disney.disneyplus": "disneyplus",
+                        "com.amazon.aiv.AIVApp": "amazon", "com.cbsvideo.app": "paramountplus",
+                        "com.adrise.tubitv": "tubitv", "tv.pluto.ios": "pluto", "com.netflix.Netflix": "netflix" }
     }
   },
   "metrics": { "log_every_s": 600 },
