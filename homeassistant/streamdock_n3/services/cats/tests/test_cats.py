@@ -13,22 +13,30 @@ CFG = {"atv": ATV, "atv_remote": "remote.atv", "lg": LG, "atv_source": "Apple TV
 
 
 class FakeYouTube:
-    def __init__(self, connect_after=None):
+    def __init__(self, connect_after=None, up=None):
         self.polls = 0
         self.connect_after = connect_after  # polls until the session is up; None: never
+        self.up = up  # or: a callable saying whether it is up
         self.played = []
 
     def connected(self, screen):
         self.polls += 1
+        if self.up is not None:
+            return self.up()
         return self.connect_after is not None and self.polls > self.connect_after
 
     def play_video(self, video, screen):
         self.played.append((video, screen))
 
 
-def make(youtube=None, config=CFG, lg_on=True):
-    states = {LG: {"s": "on" if lg_on else "off", "a": {"source": "Apple TV"}}}
-    ctx = fake_context("cats", config, states=states, shared={"youtube": youtube} if youtube else None)
+SELECT = ("remote", "send_command", {"entity_id": "remote.atv", "command": "select"})
+
+
+def make(youtube=None, config=CFG, lg_on=True, atv=None, shared=None):
+    states = {LG: {"s": "on" if lg_on else "off", "a": {"source": "Apple TV"}},
+              ATV: atv or {"s": "idle", "a": {"app_id": YOUTUBE_APP}}}
+    ctx = fake_context("cats", config, states=states,
+                       shared={**({"youtube": youtube} if youtube else {}), **(shared or {})} or None)
     svc = SERVICE(rng=random.Random(1))
     svc.start(ctx)
     return svc, ctx
@@ -82,16 +90,70 @@ def test_play_starts_youtube_then_sends_the_video_once_connected():
     assert ("media_player", "play_media",
             {"entity_id": ATV, "media_content_type": "app", "media_content_id": YOUTUBE_APP}) in ctx.fakes.calls
     assert len(yt.played) == 1
+    assert SELECT not in ctx.fakes.calls  # up within picker_after_s: no click
 
 
-def test_play_falls_back_to_the_url_when_the_session_never_comes():
+def test_profile_picker_gets_one_select_then_the_video():
+    yt = FakeYouTube()
+    svc, ctx = make(yt)
+    yt.up = lambda: SELECT in ctx.fakes.calls  # the session comes only past the picker
+    t0 = ctx.monotonic()
+    svc.actions()["play"]({})
+    assert ctx.fakes.calls.count(SELECT) == 1
+    assert ctx.fakes.calls[-1] == SELECT  # launch (play_media app), then select
+    assert len(yt.played) == 1
+    assert ctx.monotonic() - t0 >= 6.0  # waited picker_after_s before clicking
+
+
+def test_no_select_while_another_app_is_in_front():
+    yt = FakeYouTube(connect_after=None)
+    svc, ctx = make(yt, atv={"s": "idle", "a": {"app_id": "com.netflix.Netflix"}})
+    svc.actions()["play"]({})
+    assert SELECT not in ctx.fakes.calls and yt.played == []
+
+
+def test_no_select_after_dock_input():
+    class Dock:
+        def __init__(self, ctx):
+            self.ctx = ctx
+
+        def last(self):
+            return self.ctx.monotonic()  # used just now, all the time
+
+    yt = FakeYouTube(connect_after=None)
+    svc, ctx = make(yt)
+    ctx._shared["dock_input"] = Dock(ctx)
+    svc.actions()["play"]({})
+    assert SELECT not in ctx.fakes.calls
+
+
+def test_no_select_off_the_apple_tv_input():
+    yt = FakeYouTube(connect_after=None)
+    svc, ctx = make(yt)
+    ctx._state_of = {LG: {"s": "on", "a": {"source": "HDMI 2"}}, ATV: {"s": "idle", "a": {"app_id": YOUTUBE_APP}}}.get
+    svc.actions()["play"]({})
+    assert SELECT not in ctx.fakes.calls
+
+
+def test_session_never_comes_sends_nothing_else():
     yt = FakeYouTube(connect_after=None)
     svc, ctx = make(yt)
     svc.actions()["play"]({})
     assert yt.played == []
-    domain, service, data = ctx.fakes.calls[-1]
-    assert (domain, service, data["media_content_type"]) == ("media_player", "play_media", "url")
-    assert data["media_content_id"].startswith("https://www.youtube.com/watch?v=vid")
+    assert [c for c in ctx.fakes.calls if c[1] == "play_media"] == [
+        ("media_player", "play_media", {"entity_id": ATV, "media_content_type": "app", "media_content_id": YOUTUBE_APP})]
+
+
+def test_without_a_youtube_link_only_starts_youtube():
+    svc, ctx = make()
+    svc.actions()["play"]({})
+    assert ctx.fakes.calls[-1][2]["media_content_id"] == YOUTUBE_APP
+    assert SELECT not in ctx.fakes.calls
+
+
+def test_entities_are_the_tv_and_the_apple_tv():
+    svc, _ = make()
+    assert svc.entities() == {ATV, LG}
 
 
 def test_videos_rotate_without_repeating_back_to_back():

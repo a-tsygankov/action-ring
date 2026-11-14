@@ -1559,6 +1559,23 @@ com.amazon.aiv.AIVApp alive pid 8286`, `com.hulu.plus alive pid 8155`).
   (`tools/icons/build_cat_icons.py`), 112×112, three frames each, CC0.
 - Stacked on PR #41 (0.6.3-1).
 
+### 2026-11-14 — Cats on the dock: the combo works; YouTube's profile picker (0.6.4-3)
+
+- 0.6.4-2 on arpi: Round 1 → 2 → 3 shows the cats (`combo: 7-8-9`, the
+  three presses 0.39 s and 0.38 s apart). Pressing a cat started YouTube on
+  the Apple TV, which stopped on "Who's watching". The Lounge session never
+  connected (20 s), and the URL fallback failed: `play_media` with
+  `media_content_type: url` and a `youtube.com/watch` URL answered HTTP 500
+  (HA traceback: pyatv companion `launch_app` → `exchange_opack`).
+- Fix (0.6.4-3): the profiles service's technique, one select on the
+  picker. YouTube is not in `profiles.apps`, so `atv_clients` does not track
+  it; the cats service uses its own signal instead: no Lounge session
+  `picker_after_s` (6 s) after the launch means the picker. Select is sent
+  once under the profiles service's guards (YouTube in front and not
+  playing, LG on the Apple TV input, no dock input since the cat press),
+  then the video goes over the session once it connects. The URL fallback
+  is gone.
+
 ## Open items
 
 - [ ] Profile picker: survey on the TV (0.6.2-1 runs in dry run), one

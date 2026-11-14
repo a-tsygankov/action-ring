@@ -863,11 +863,19 @@ Two parts: a key combo in the core (`combo.py`) and the `cats` service
   action.
 - **Playing the video.** With the YouTube app open and linked on `screen`
   (`pair.sh`, the Lounge session that next chapter uses), the video is sent
-  over that session. Otherwise the TV is turned on if needed, YouTube is
-  started on the Apple TV and the video is sent once its session connects
-  (`connect_wait_s`, default 20). If it never connects, the URL
-  `https://www.youtube.com/watch?v=<id>` goes to the Apple TV
-  (`media_player.play_media`, type `url`).
+  over that session. Otherwise the TV is turned on if needed and YouTube is
+  started on the Apple TV.
+- **Profile picker.** YouTube opens on "Who's watching", and the Lounge
+  session comes up only once a profile is chosen. So if there is still no
+  session `picker_after_s` (6) after the launch, the dock presses **select
+  once**, which picks the first profile (it has the focus), the same press the
+  profiles service sends after a cold launch. The guards are the profiles
+  service's too: YouTube is the Apple TV's app and nothing is playing, the LG
+  is on the Apple TV input, and the dock was not used since the cat press.
+  The video is sent once the session connects (`connect_wait_s`, 20).
+  A `youtube.com/watch` URL handed to the Apple TV (`play_media`, type `url`)
+  fails in HA (HTTP 500 from pyatv `launch_app`), so there is no fallback
+  without the session.
 - **Restore.** The cat page is a temporary page: it closes after 10 s, on a
   cat press, or when the TV changes what is in the foreground, and the keys
   go back to the context page as it was.
@@ -875,8 +883,10 @@ Two parts: a key combo in the core (`combo.py`) and the `cats` service
   CC0), three frames per cat (`cat_<n>`, `_blink`, `_tongue`).
 
 Log lines: `combo: buttons [7, 8, 9], 600 ms apart` at start, `combo: 7-8-9`
-on each combo, `cats: meow`, `cats: <id> via the YouTube link` (or `…, after
-starting YouTube`, or `… as a URL (no YouTube link session)`).
+on each combo, `cats: meow`, `cats: <id> via the YouTube link` (or `… after
+starting YouTube`, `… after the profile picker`), `cats: no YouTube link
+yet: profile picker, select sent`, `cats: no profile click (<why>)`,
+`cats: <id>: no YouTube link session, not sent`.
 
 ### Now-playing log (ad research)
 
