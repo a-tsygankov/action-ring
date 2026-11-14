@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="jZRzTsdrkxH9b2HfGnmzuIKGzADAmcUUQtVHy7yC">
+
+    <title>NSFWhen — Film Content Advisory &amp; Scene Timestamps</title>
+
+    <meta name="description" content="A minute-by-minute index of sexual content and nudity in mainstream films. Community-marked, editor-verified timestamps.">
+    <link rel="canonical" href="https://nsfwhen.com/browse">
+
+    <!-- Open Graph / Social Sharing -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://nsfwhen.com/browse">
+    <meta property="og:title" content="NSFWhen — Film Content Advisory &amp; Scene Timestamps">
+    <meta property="og:description" content="A minute-by-minute index of sexual content and nudity in mainstream films.">
+    <meta property="og:image" content="https://nsfwhen.com/favicon.svg">
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="NSFWhen">
+    <meta name="twitter:description" content="A minute-by-minute index of sexual content and nudity in mainstream films.">
+    <meta name="twitter:image" content="https://nsfwhen.com/favicon.svg">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="https://nsfwhen.com/favicon.svg">
+
+    <!-- Custom CSS -->
+    <!-- Assets are versioned by file mtime so browsers never keep a stale copy after deploy -->
+    <link rel="stylesheet" href="https://nsfwhen.com/css/nsfwhen.css?v=1789328985">
+
+    <!-- Standalone Vue 3 Global Prod -->
+    <script src="https://nsfwhen.com/vue.global.prod.js?v=1789328985"></script>
+    <script src="https://nsfwhen.com/js/components/age-gate.js?v=1789328985"></script>
+    </head>
+<body>
+
+    <!-- Header -->
+    <header class="site-header">
+        <!-- NSFWhen Brand Logo with Timeline Scrubber Motif -->
+        <a href="https://nsfwhen.com" class="brand-logo" title="NSFWhen — Film Content Advisory">
+            <div class="brand-wordmark">NSFW<span class="accent">hen</span></div>
+            <div class="brand-scrubber">
+                <span class="brand-scrubber-line"></span>
+                <span class="brand-scrubber-dot"></span>
+            </div>
+        </a>
+
+        <!-- Top Nav (Browse, Guidelines, How it works) -->
+        <nav class="site-nav" style="display: flex; gap: 18px; font-size: 13.5px; font-weight: 500; color: #98a0a8; margin-left: 8px; flex: none;">
+            <a href="https://nsfwhen.com/browse" style="color: #e6e8eb;">Browse</a>
+            <a href="https://nsfwhen.com/guidelines" style="color: #98a0a8;">Guidelines</a>
+            <a href="https://nsfwhen.com" style="color: #98a0a8;">How verification works</a>
+        </nav>
+
+        <!-- Search Bar -->
+        <form action="https://nsfwhen.com/browse" method="GET" class="header-search">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#828a93" stroke-width="1.5">
+                <circle cx="7" cy="7" r="4.5"></circle>
+                <path d="M10.5 10.5L14 14"></path>
+            </svg>
+            <input type="text" name="q" value="babylon" placeholder="Search title, cast or director…">
+        </form>
+
+        <!-- Actions & User Bar -->
+        <div class="header-actions">
+            <!-- TR / EN Toggle -->
+            <div class="lang-toggle">
+                <a href="https://nsfwhen.com/locale/tr" class="">TR</a>
+                <a href="https://nsfwhen.com/locale/en" class="active">EN</a>
+            </div>
+
+                            <a href="https://nsfwhen.com/login" style="font-size: 13.5px; color: #98a0a8; font-weight: 500;">
+                    Log In
+                </a>
+                <a href="https://nsfwhen.com/register" class="btn btn-primary" style="padding: 7px 14px; font-size: 12.5px;">
+                    Sign Up
+                </a>
+                    </div>
+    </header>
+
+    <!-- Flash Messages -->
+        
+    <!-- Main Content -->
+    <main>
+        <div class="app-container">
+
+    <!-- Global Stats / Banner -->
+    <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 14px; padding: 12px 16px; border: 1px solid var(--border-subtle); border-radius: 3px; background: var(--bg-card); margin-bottom: 20px; font-family: var(--font-mono); font-size: 12.5px; color: var(--text-secondary);">
+        <span><b style="color: #e6e8eb;">707</b> films</span>
+        <span style="color: var(--text-dim);">·</span>
+        <span><b style="color: #e6e8eb;">75</b> scene marks</span>
+        <span style="color: var(--text-dim);">·</span>
+        <span><b style="color: #7cc08a;">75</b> verified</span>
+        <span style="color: var(--text-dim);">·</span>
+        <span><b style="color: #7cc08a;">0</b> clean-verified</span>
+        <span style="margin-left: auto; color: var(--text-muted);">Text & timestamps only · No explicit imagery</span>
+    </div>
+
+    <div class="catalog-layout">
+        <!-- Left Filter Rail -->
+        <aside class="catalog-sidebar">
+            <details class="mobile-filter-drawer" id="catalogFilterDrawer" open>
+                <summary class="mobile-filter-summary">
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                            <path d="M2 3h12M4 8h8M6 13h4"></path>
+                        </svg>
+                        <span>Filters &amp; Search</span>
+                                                    <span style="font-family: var(--font-mono); font-size: 11px; padding: 2px 6px; border-radius: 2px; background: var(--color-blue-bg); border: 1px solid var(--color-blue); color: var(--color-blue-fg);">
+                                Active
+                            </span>
+                                            </span>
+                    <span style="font-size: 12px; color: var(--text-muted);">▾</span>
+                </summary>
+
+                <div class="mobile-filter-content" style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- In-page Search Box -->
+                    <div>
+                        <div class="filter-section-title">SEARCH FILMS</div>
+                        <form action="https://nsfwhen.com/browse" method="GET" style="display: flex; gap: 6px;">
+                                                                                                                                            <div style="position: relative; flex: 1; display: flex; align-items: center;">
+                                <input type="text" name="q" value="babylon" 
+                                       placeholder="Film title, actor or director..."
+                                       style="width: 100%; background: var(--bg-input); border: 1px solid var(--border-medium); border-radius: 3px; padding: 7px 28px 7px 10px; font-size: 13px; color: var(--text-primary); outline: none;">
+                                                                    <a href="https://nsfwhen.com/browse" 
+                                       style="position: absolute; right: 8px; color: var(--text-muted); font-size: 13px; text-decoration: none;" 
+                                       title="Clear search">✕</a>
+                                                            </div>
+                            <button type="submit" class="btn btn-secondary" style="padding: 7px 12px; font-size: 12.5px; font-weight: 500;">
+                                Search
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Category Filters -->
+                    <div>
+                        <div class="filter-section-title">CONTENT FILTER</div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <a href="https://nsfwhen.com/browse?q=babylon"
+                               class="filter-chip active"
+                               style="justify-content: space-between;">
+                                <span>All</span>
+                            </a>
+                            <a href="https://nsfwhen.com/browse?q=babylon&amp;category=sex_scene"
+                               class="filter-chip "
+                               style="justify-content: space-between;">
+                                <span style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="width: 8px; height: 8px; border-radius: 1px; background: var(--color-sex);"></span>
+                                    Sex scene
+                                </span>
+                                <span style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted);">34</span>
+                            </a>
+                            <a href="https://nsfwhen.com/browse?q=babylon&amp;category=nudity"
+                               class="filter-chip "
+                               style="justify-content: space-between;">
+                                <span style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="width: 8px; height: 8px; border-radius: 1px; background: var(--color-nudity);"></span>
+                                    Nudity
+                                </span>
+                                <span style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted);">12</span>
+                            </a>
+                            <a href="https://nsfwhen.com/browse?q=babylon&amp;category=suggestive"
+                               class="filter-chip "
+                               style="justify-content: space-between;">
+                                <span style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="width: 8px; height: 8px; border-radius: 1px; background: var(--color-suggestive);"></span>
+                                    Suggestive
+                                </span>
+                                <span style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted);">29</span>
+                            </a>
+                            <a href="https://nsfwhen.com/browse?q=babylon&amp;category=clean&amp;quick=clean"
+                               class="filter-chip "
+                               style="justify-content: space-between;">
+                                <span style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="width: 8px; height: 8px; border-radius: 1px; background: var(--color-clean);"></span>
+                                    CLEAN - VERIFIED
+                                </span>
+                                <span style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted);">0</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Quick Preset Chips -->
+                    <div>
+                        <div class="filter-section-title">QUICK PRESETS</div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <a href="https://nsfwhen.com/browse?q=babylon&amp;quick=family&amp;category=clean"
+                               class="filter-chip ">
+                                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M2 13s1-4 6-4 6 4 6 4m-3-9a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                </svg>
+                                Watching with family
+                            </a>
+                            <a href="https://nsfwhen.com/browse?q=babylon&amp;quick=needs_verification"
+                               class="filter-chip ">
+                                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <circle cx="8" cy="8" r="6"></circle>
+                                    <path d="M8 5v3l2 2"></path>
+                                </svg>
+                                Needs verification
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Genres -->
+                    <div>
+                        <div class="filter-section-title">GENRES</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                                            <a href="https://nsfwhen.com/browse?q=babylon&amp;genre=Drama"
+                                   class="filter-chip "
+                                   style="padding: 5px 9px; font-size: 11.5px;">
+                                    Drama
+                                </a>
+                                                            <a href="https://nsfwhen.com/browse?q=babylon&amp;genre=Thriller"
+                                   class="filter-chip "
+                                   style="padding: 5px 9px; font-size: 11.5px;">
+                                    Thriller
+                                </a>
+                                                            <a href="https://nsfwhen.com/browse?q=babylon&amp;genre=Sci-Fi"
+                                   class="filter-chip "
+                                   style="padding: 5px 9px; font-size: 11.5px;">
+                                    Sci-Fi
+                                </a>
+                                                            <a href="https://nsfwhen.com/browse?q=babylon&amp;genre=Comedy"
+                                   class="filter-chip "
+                                   style="padding: 5px 9px; font-size: 11.5px;">
+                                    Comedy
+                                </a>
+                                                            <a href="https://nsfwhen.com/browse?q=babylon&amp;genre=Romance"
+                                   class="filter-chip "
+                                   style="padding: 5px 9px; font-size: 11.5px;">
+                                    Romance
+                                </a>
+                                                            <a href="https://nsfwhen.com/browse?q=babylon&amp;genre=Horror"
+                                   class="filter-chip "
+                                   style="padding: 5px 9px; font-size: 11.5px;">
+                                    Horror
+                                </a>
+                                                            <a href="https://nsfwhen.com/browse?q=babylon&amp;genre=Crime"
+                                   class="filter-chip "
+                                   style="padding: 5px 9px; font-size: 11.5px;">
+                                    Crime
+                                </a>
+                                                            <a href="https://nsfwhen.com/browse?q=babylon&amp;genre=Documentary"
+                                   class="filter-chip "
+                                   style="padding: 5px 9px; font-size: 11.5px;">
+                                    Documentary
+                                </a>
+                                                            <a href="https://nsfwhen.com/browse?q=babylon&amp;genre=Animation"
+                                   class="filter-chip "
+                                   style="padding: 5px 9px; font-size: 11.5px;">
+                                    Animation
+                                </a>
+                                                            <a href="https://nsfwhen.com/browse?q=babylon&amp;genre=History"
+                                   class="filter-chip "
+                                   style="padding: 5px 9px; font-size: 11.5px;">
+                                    History
+                                </a>
+                                                            <a href="https://nsfwhen.com/browse?q=babylon&amp;genre=Action"
+                                   class="filter-chip "
+                                   style="padding: 5px 9px; font-size: 11.5px;">
+                                    Action
+                                </a>
+                                                            <a href="https://nsfwhen.com/browse?q=babylon&amp;genre=Mystery"
+                                   class="filter-chip "
+                                   style="padding: 5px 9px; font-size: 11.5px;">
+                                    Mystery
+                                </a>
+                                                    </div>
+                    </div>
+                </div>
+            </details>
+            <script>
+                if (window.innerWidth <= 992 && !true) {
+                    document.getElementById('catalogFilterDrawer')?.removeAttribute('open');
+                }
+            </script>
+        </aside>
+
+        <!-- Main Movies Area -->
+        <main class="catalog-main">
+            <!-- Bar with search summary, active filter badges, and layout modes -->
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; color: var(--text-secondary);">
+                                            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 3px; background: var(--bg-surface); border: 1px solid var(--border-medium); font-size: 12.5px;">
+                            <span>Search: <b style="color: #e6e8eb;">"babylon"</b></span>
+                            <a href="https://nsfwhen.com/browse" 
+                               style="color: var(--text-muted); font-size: 11px; text-decoration: none; padding: 1px 3px;" 
+                               title="Clear search">✕</a>
+                        </span>
+                                                                                
+                                            <span style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
+                            (1 films)
+                        </span>
+                        <a href="https://nsfwhen.com/browse?view=grid" 
+                           style="font-family: var(--font-mono); font-size: 11.5px; color: var(--color-coral); text-decoration: none; margin-left: 4px;">
+                            Reset All
+                        </a>
+                                    </div>
+
+                <!-- View Mode Switcher -->
+                <div style="display: flex; border: 1px solid var(--border-medium); border-radius: 3px; overflow: hidden; font-size: 11.5px; font-family: var(--font-mono);">
+                    <a href="https://nsfwhen.com/browse?q=babylon&amp;view=grid"
+                       style="padding: 6px 11px; background: #2c333b; color: #fff;">
+                        GRID
+                    </a>
+                    <a href="https://nsfwhen.com/browse?q=babylon&amp;view=rows"
+                       style="padding: 6px 11px; color: #98a0a8;">
+                        INDEX ROWS
+                    </a>
+                    <a href="https://nsfwhen.com/browse?q=babylon&amp;view=cards"
+                       style="padding: 6px 11px; color: #98a0a8;">
+                        VERDICT CARDS
+                    </a>
+                </div>
+            </div>
+
+            
+                <!-- 1a: Grid View -->
+                                    <div class="films-grid">
+                                                                                <a href="https://nsfwhen.com/film/399" class="film-card">
+                                <div class="film-poster-wrap">
+                                    <span class="film-poster-bar" style="background: #6a737c;"></span>
+                                                                            <img src="https://image.tmdb.org/t/p/w500/wjOHjWCUE0YzDiEzKv8AfqHj3ir.jpg" alt="Babylon" loading="lazy">
+                                                                    </div>
+                                <div class="film-card-body">
+                                    <div class="film-card-title">Babylon</div>
+                                    <div class="film-card-meta">
+                                        <span>2022</span>
+                                        <span>3h09</span>
+                                    </div>
+                                                                            <div style="font-size: 11.5px; color: #828c96; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3;" title="Diego Calva, Margot Robbie, Brad Pitt, Jovan Adepo, Jean Smart">
+                                            Diego Calva, Margot Robbie
+                                        </div>
+                                                                        <div style="display: flex; align-items: center; gap: 4px; margin-top: 4px;">
+                                        <span style="width: 7px; height: 7px; border-radius: 1px; background: #6a737c;"></span>
+                                        <span style="font-size: 11.5px; font-weight: 500; color: #98a0a8;">
+                                            Unmarked
+                                        </span>
+                                        <span style="margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">
+                                            0m
+                                        </span>
+                                    </div>
+                                </div>
+                            </a>
+                                            </div>
+
+                <!-- 1b: Index Rows View -->
+                
+                <!-- Pagination -->
+                <div style="margin-top: 24px;">
+                    
+                </div>
+                    </main>
+    </div>
+</div>
+    </main>
+
+    <!-- Footer with TMDb attribution -->
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer" class="tmdb-badge" title="The Movie Database (TMDB)">
+                <img src="https://nsfwhen.com/tmdb_logo.png" alt="TMDB" style="height: 26px; width: auto; max-width: 60px; object-fit: contain;" loading="lazy">
+            </a>
+            <p style="max-width: 720px; line-height: 1.5; color: #767e87; font-size: 12.5px;">
+                This website uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB. Film metadata and posters via TMDB.
+            </p>
+            <div style="margin-left: auto; display: flex; gap: 16px; font-size: 12.5px; color: #767e87; flex-wrap: wrap;">
+                <a href="https://nsfwhen.com/browse">Browse</a>
+                <a href="https://nsfwhen.com">How verification works</a>
+                <a href="https://nsfwhen.com/guidelines">Guidelines</a>
+                <a href="https://nsfwhen.com/terms">Terms of Service</a>
+                <a href="https://nsfwhen.com/privacy">Privacy &amp; GDPR Policy</a>
+                            </div>
+        </div>
+    </footer>
+
+    <!-- Age Gate Modal Mount -->
+    <div id="age-gate-mount"></div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.initAgeGate) {
+                window.initAgeGate('#age-gate-mount');
+            }
+        });
+    </script>
+</body>
+</html>

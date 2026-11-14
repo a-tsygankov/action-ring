@@ -6,3 +6,5 @@ services/**/tests
 **/__pycache__
 .pytest_cache
 conftest.py
+# Local secret files never go into the image (restore.sh does not upload them either).
+**/*.local.json

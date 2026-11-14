@@ -12,13 +12,17 @@ from pathlib import Path
 
 from dynamic import phase_specs
 from keyspec import ICON_DIR, entities_of, icon_path
+from services.scenes.service import ScenesService
 from services.soccer.service import SoccerService
+from services.testing import fake_context
 
 APP_DIR = Path(__file__).resolve().parent.parent
 CONFIG = json.loads((APP_DIR / "presets" / "tv_room.json").read_text(encoding="utf-8"))
 TABS = CONFIG["tabs"]
 PAGES = TABS["pages"]
-SERVICES = {"soccer": SoccerService()}  # key() needs no start()
+SERVICES = {"soccer": SoccerService(), "scenes": ScenesService(lookup=object())}  # soccer's key() needs no start()
+# scenes resolves its icons in start() (no database: lookup injected): give it the real services/ folder, so the icon check sees real files
+SERVICES["scenes"].start(fake_context("scenes", config=CONFIG["services"]["scenes"], icons_root=APP_DIR / "services"))
 
 ATV = "media_player.vugitv_4k_vugitv_4k"
 LG = "media_player.lg_tv_2"
@@ -42,7 +46,7 @@ KNOWN_ENTITIES = {
 }
 CONTEXT_LAYOUTS = ("idle", "streaming", "youtube", "lg_media", "lg_app", "live_game")
 NAMED_CONDITIONS = {"youtube", "youtube_playing", "youtube_subtitles", "youtube_chapters", "youtube_liked",
-                    "youtube_disliked", "soccer.live", "soccer.picking"}
+                    "youtube_disliked", "soccer.live", "soccer.picking", "scenes.ready"}
 # (device, app) per launch key, from the Global Constraints bundle ids.
 LAUNCH_IDS = {
     ("apps", "1"): ("atv", "com.netflix.Netflix"),
@@ -105,7 +109,7 @@ def action_entities(action) -> set[str]:
     return out
 
 
-EMPTY_KEYS = {"context:idle": {"4"}, "context:streaming": {"4"}, "context:lg_media": {"4"},
+EMPTY_KEYS = {"context:idle": {"4"}, "context:lg_media": {"4"},
               "context:lg_app": {"4"}}  # left blank on purpose (Night moved to tab 2A)
 
 
@@ -172,7 +176,11 @@ def test_every_logo_icon_exists():
 def test_every_icon_exists():
     for page, key, spec in key_specs():
         for part in looks(spec):
-            path = icon_path(part.get("icon"))
+            ref = part.get("icon")
+            if ref and Path(ref).is_absolute():  # a service's own icon: an absolute path into services/
+                assert Path(ref).is_file(), (page, key, ref)
+                continue
+            path = icon_path(ref)
             if path is None:
                 continue
             assert path.startswith(ICON_DIR + "/"), (page, key, path)
@@ -266,7 +274,7 @@ def test_soccer_keys():
 def test_service_keys_resolve():
     slots = [(page, key, spec) for page, p in PAGES.items() for key, spec in p["keys"].items()
              if "service_key" in spec]
-    assert len(slots) == 3
+    assert len(slots) == 4
     for page, key, slot in slots:
         svc, _, name = slot["service_key"].partition(".")
         assert svc in CONFIG["services"], (page, key)
@@ -321,8 +329,9 @@ def test_toast_config():
 
     toast = CONFIG["toast"]
     assert toast["lg"] == LG
-    # every event the app sends is on, except ad mute / unmute (too noisy)
-    assert set(toast["events"]) == set(EVENTS) - {"ad"}
+    # every event the app sends is on, except ad mute / unmute (too noisy);
+    # "scenes" is the scenes service's temporary lookup toast (toast_lookup)
+    assert set(toast["events"]) == (set(EVENTS) - {"ad"}) | {"scenes"}
     for action in all_actions():
         if isinstance(action, dict) and "toast" in action:
             assert isinstance(action["toast"], str) and action["toast"].strip()

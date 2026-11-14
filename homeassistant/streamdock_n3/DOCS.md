@@ -614,6 +614,102 @@ saved.
 The log shows `soccer: 3 live: …`, `soccer: picked 2/3: …`, `soccer: playing 2/3: …` and fetch
 errors. After an error the last list is kept.
 
+### Scene jump
+
+The `services.scenes` section turns on a key that jumps to the next scene
+of a film that is marked in public scene lists (`services/scenes/`; the
+sources and their rules are in [docs/SCENE_SOURCES.md](../../docs/SCENE_SOURCES.md),
+the design in `docs/superpowers/specs/2026-11-13-scene-jump-design.md`).
+
+The key is `{"service_key": "scenes.next"}`, slot 4 of `context:streaming`.
+It is gray, and turns to colour when a film is playing in one of the
+`seek_apps`, the film is in the lists, and a scene starts more than
+max(`guard_s`, `lead_s`) seconds after the current position (so a press
+always moves the picture forward). One press seeks (`media_player.media_seek`)
+to `lead_s` seconds before that scene. A second press during the lead-in goes
+to the scene after it; with none left the key goes gray again. If the film
+drops out for a moment (loading after a seek, the title briefly missing) the
+key is gray, and the same film coming back within `settle_s` carries on at
+once, second-press memory included; after longer it is noticed anew.
+
+```json
+"services": { "scenes": {
+  "atv": "media_player.vugitv_4k_vugitv_4k",
+  "seek_apps": ["com.wbd.stream", "com.disney.disneyplus"],
+  "exclude_apps": ["com.google.ios.youtube"],
+  "sources": ["videoskip", "nsfwhen"],
+  "app_services": { "com.wbd.stream": "max", "com.disney.disneyplus": "disneyplus" } } }
+```
+
+- **`seek_apps`**: the apps where the jump is allowed. Other apps still get
+  their film looked up, but the key stays gray. The TV Room preset lists
+  Max and Disney+ (exact seek checked on the TV on 10-25) and, added on
+  11-13 at the owner's request before any check, Prime Video, Paramount+,
+  Tubi, Pluto and Netflix, then the Apple TV app (`com.apple.TVWatchList`):
+  see the journal for what the TV showed in each. Two limits known from the now-playing log:
+  - **Netflix** reports no title, duration or position to the Apple TV, so
+    the service cannot tell which film is on or where it is: the key stays
+    gray there whatever this list says.
+  - **Tubi and Pluto** stitch ads into the stream. A jump across an ad
+    marker plays the ad break first (Tubi locks playback for it), and the
+    reported position jumps around a break.
+- **`toast_lookup`** (off; on in the TV Room preset for now, as a temporary
+  aid): after each lookup a TV toast says `Scenes: 2 found for <title>` or
+  `Scenes: none found for <title>`. Needs `scenes` in `toast.events`.
+- **`lead_s`** (5): how many seconds before the scene the jump lands.
+  `guard_s` (2) and `join_gap_s` (20, nearby scenes merged into one) tune
+  the same thing.
+- **`categories`** (`["nudity", "sex"]`): which kinds of scene count.
+- **`min_level`** (`{"sex": 3}`): VideoSkip gives each block a level from 1
+  to 3 (written for hiding content from children and teens; 3 is explicit).
+  A category named here counts only from that level up, so the default is
+  every nudity block plus explicit sex; "sex 2 (non-explicit)" is left out.
+  Scenes from a source without levels (NSFWhen) always count, unless
+  VideoSkip rated the same moment lower.
+- **`sources`** (`["videoskip", "nsfwhen"]`): where the lists
+  come from, in this order. `app_services` names the VideoSkip streaming
+  service per app, so the file's time offset for that service is applied.
+  VideoSkip reads the film's 3 newest skip files and uses the best of those
+  (synced with the playing service, else the most downloaded of the three).
+  `nudidex` is known but left out: it sits behind a bot check and has no
+  parser, so asking it only stored a `blocked` row per film that counted
+  against `max_lookups_per_day`.
+- **`source_cfg`** (`{}`): per-source settings, by source name, passed to
+  that source. The only one today is `{"nudidex": {"probe": true}}`: with
+  `nudidex` in `sources`, one request to its home page per film to see
+  whether the bot check is still there (`blocked`) or gone (`miss`);
+  without `probe` nudidex makes no request.
+- **`max_lookups_per_day`** (30), `request_gap_s` (3) and the TTLs
+  `hit_ttl_days` (90), `miss_ttl_days` (14), `blocked_ttl_days` (1) keep the
+  use of the sites light. Results are cached in `scenes.sqlite`.
+- **Film filter**: only content of at least `min_film_s` (3000 s) or typed
+  as a movie; a film is looked up `settle_s` (10) seconds after it starts.
+  The first lookup of a new film runs inside the 5 s `watch` job and normally
+  takes 20-30 s (the sites are asked `request_gap_s` apart), so one
+  `metrics: SLOW scenes job:watch` line per new film is expected.
+
+The TMDB key (to identify the film) goes in `/config/secrets.json` on the
+device: `{"scenes": {"tmdb_key": "..."}}`. The PC's own copy of the key is
+`services/scenes/sources/action-ring-tmdb.local.json`
+(`{"tmdb_key": "..."}`): `*.local.json` is git-ignored, left out of the
+image (`.dockerignore`) and not uploaded by `restore.sh`, so it never leaves
+the PC; putting the key on a new device is a manual step. Without it VideoSkip is not asked
+(a title alone is not enough to trust a skip file; the log says
+`videoskip: skipped (film not identified)`), but NSFWhen can still match by
+title and runtime and light the key. The log says
+`scenes: no tmdb_key in secrets.json` once. Identification is retried: with
+no key on every lookup until one is there, after a failure after
+`blocked_ttl_days`, after "not found" after `miss_ttl_days`; once a film is
+identified, sources that missed or were ambiguous for it are asked again.
+
+Log lines (all start with `scenes:`): `film: "Title" 110 min in <app>` when a
+film is noticed; `"Title": 3 scenes` for the merged result; one line per
+source, `videoskip: hit, 2 scenes, 4 requests` (status `hit`, `miss`, `ambiguous`, `error` or
+`blocked`; no addresses are logged); `tmdb failed: <error type>`;
+`videoskip: skipped (film not identified)`; `daily lookup limit reached`;
+`app cannot seek: key stays gray`; and each press `jump 1203s -> 1388s
+(scene at 1393s)`. No toasts in this version.
+
 ### Now-playing log (ad research)
 
 `"now_playing_log": { "entities": ["media_player.…"] }` records what changes

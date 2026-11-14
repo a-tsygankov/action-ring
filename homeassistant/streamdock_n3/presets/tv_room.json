@@ -11,7 +11,7 @@
   },
   "toast": {
     "lg": "media_player.lg_tv_2",
-    "events": ["rating", "soccer", "sign_in"],
+    "events": ["rating", "soccer", "sign_in", "scenes"],
     "settle_s": 0.6
   },
   "now_playing_log": { "entities": ["media_player.vugitv_4k_vugitv_4k"] },
@@ -59,6 +59,19 @@
       "poll_s": 180,
       "idle_poll_s": 1800,
       "select_after_s": 8
+    },
+    "scenes": {
+      "atv": "media_player.vugitv_4k_vugitv_4k",
+      "seek_apps": ["com.wbd.stream", "com.disney.disneyplus", "com.amazon.aiv.AIVApp", "com.cbsvideo.app",
+                    "com.adrise.tubitv", "tv.pluto.ios", "com.netflix.Netflix", "com.apple.TVWatchList"],
+      "exclude_apps": ["com.google.ios.youtube"],
+      "toast_lookup": true,
+      "min_level": { "sex": 3 },
+      "sources": ["videoskip", "nsfwhen"],
+      "app_services": { "com.wbd.stream": "max", "com.disney.disneyplus": "disneyplus",
+                        "com.amazon.aiv.AIVApp": "amazon", "com.cbsvideo.app": "paramountplus",
+                        "com.adrise.tubitv": "tubitv", "tv.pluto.ios": "pluto", "com.netflix.Netflix": "netflix",
+                        "com.apple.TVWatchList": "apple" }
     }
   },
   "metrics": { "log_every_s": 600 },
@@ -235,6 +248,7 @@
             "icon": "skip_fwd_10",
             "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"skip_forward\"}'"
           },
+          "4": { "service_key": "scenes.next" },
           "5": {
             "icon": "home",
             "action": "ha-call remote.send_command '{\"entity_id\":\"remote.vugitv_4k_vugitv_4k\",\"command\":\"home\"}'"

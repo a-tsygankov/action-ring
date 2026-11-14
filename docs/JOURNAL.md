@@ -1275,7 +1275,151 @@ announced by a TV toast via `system.notifications/createToast`):
   token page) went over its 2 s budget. `services/**/tests` stay out of the
   image (`.dockerignore`).
 
+### 2026-11-13 — Scene jump service (0.6.1-1)
+
+Status: **not deployed yet; not checked on the TV.** Built and tested on the
+PC only (fixtures, no live requests in tests).
+
+- What it is: a `services/scenes/` service and one key (`context:streaming`
+  slot 4, `scenes.next`). In Max or Disney+ it jumps the film to a few seconds
+  before the next scene marked as nudity or sex in public lists. Gray key =
+  nothing to jump to, colour = a press moves the picture. Design:
+  `docs/superpowers/specs/2026-11-13-scene-jump-design.md`; sources:
+  `docs/SCENE_SOURCES.md`.
+- How it works: a job watches the Apple TV state; a film (>= 50 min or typed
+  movie) is noticed after 10 s; TMDB identifies it (`tmdb_key` in
+  `/config/secrets.json`; retried until it answers); VideoSkip and NSFWhen
+  are asked once per film with a 3 s gap and a daily cap of 30 films, hits
+  and misses cached in `scenes.sqlite` (nudidex is registered but off by
+  default; VideoSkip is skipped for a film TMDB has not identified); the
+  lists are merged (scenes within 20 s join); the key is lit only while a
+  scene's lead-in point is ahead of the position.
+- Press: `media_seek` to `start - lead_s` (5 s). Right after a jump the
+  position counts as the scene's start, so a second press goes to the next
+  scene instead of repeating.
+- Decisions made during the build (in the design, section 6): a scene is
+  "ahead" only if `start - max(guard_s, lead_s)` is later than the position;
+  VideoSkip offsets only when the file lists the service (no implicit
+  Disney+ +20 s).
+- Final review fixes: TMDB identification is cached as a `tmdb` lookups row
+  and retried (gaining it re-asks sources that missed); each source logs its
+  own request count; a film that drops out for a tick (loading after a seek)
+  keeps its snapshot and second-press memory for `settle_s`; "nan"/"inf"
+  numbers are ignored; nudidex left out of the default sources; a chain test
+  runs the real sources, Fetcher, Db and service on fixtures. The first
+  lookup of a new film runs inside the 5 s `watch` job (20-30 s), so one
+  `metrics: SLOW scenes job:watch` line per new film is expected.
+- Icons: the owner's silhouette (`services/scenes/icons/source.gif`) built
+  by `homeassistant/tools/icons/build_scene_icons.py` into `scene.png`
+  (white on red) and `scene_off.png` (gray). Only checked by eye as images.
+- No real offsets for Max or Disney+ yet (see open items); no toasts.
+
+### 2026-11-13 — Scene jump on the TV: works in Prime (0.6.1-3)
+
+- Deployed from `feat/scene-jump`. `tmdb_key` is in `/config/secrets.json`
+  on arpi (`{"scenes": {"tmdb_key": ...}}`, mode 600). The PC's copy is
+  `services/scenes/sources/action-ring-tmdb.local.json`: `*.local.json` is
+  git-ignored, kept out of the image and removed from `restore.sh`'s staging
+  copy, so it never leaves the PC. Putting the key on a new device stays a
+  manual step.
+- Checked with Novocaine (2025) in Prime Video (VideoSkip file timed on
+  Paramount+, scenes 0:19:06-0:23:26 and 1:18:37): lookup 4 requests, 10 s;
+  the key turned to colour; first press `jump 231s -> 1142s (scene at
+  1147s)` and the Apple TV reported 1142 a second later; second press, at
+  the end of the first scene, `jump 1407s -> 4713s`, reported 4713; the key
+  then went gray. So `media_seek` is exact in Prime and the 5 s lead is as
+  designed. No ad played on the jumps.
+- Two fixes found by the test:
+  - Prime reports titles as "Novocaine (2025)". TMDB's search returns
+    nothing for that, so the film was never identified and VideoSkip was
+    skipped. The trailing year is now split off (`model.split_title`): the
+    bare title is used for TMDB and the sources, and the year identifies the
+    film even when TMDB has no match.
+  - A VideoSkip file labelled its scene "Nude ..." and parsed to nothing
+    (After the Hunt, 2025). The category word is now matched as people write
+    it (Nude / Nudity / Sex / Sexual).
+- `seek_apps` now also lists Prime (checked above), Paramount+, Tubi, Pluto
+  and Netflix, added at the owner's request before a check. Netflix cannot
+  work: the now-playing log shows it reports no title, duration or position.
+- Paramount+ works (0.6.1-4): Titanic, 3 scenes from VideoSkip (6 requests,
+  17 s); presses landed at 1:21:59, 1:30:29 and 1:31:07, each 5 s before
+  its scene and confirmed by the reported position; the key then went gray.
+- Pluto (Fight Club) is not usable as it stands:
+  - both presses were sent while an ad break played and Pluto ignored them
+    (seeking is locked during ads, as in Tubi); a press outside a break was
+    not tried;
+  - the reported film length changes around breaks (172, 139 and 142 min
+    for the same film), so the film is identified only while the true
+    length is reported, and each change makes it "another film" (served
+    from the cache, but the jump memory is lost);
+  - during a break the reported position is the ad's own clock (the service
+    read the film as being at 0:58).
+  The app's ad detector already knows when a Pluto break runs
+  (`ad-detect: ad started / ended`); the scenes service does not see that.
+- A temporary TV toast after each lookup (`toast_lookup`, on in the preset;
+  `scenes` added to `toast.events`): `Scenes: 3 found for <title>` or
+  `Scenes: none found for <title>`. Remove when no longer needed.
+- Which scenes count (0.6.1-5): two of Titanic's three jumps were not nude
+  scenes; its file marks them `sex 2 (non-explicit)`. VideoSkip's level
+  (1-3) is now kept, and the key uses every nudity block plus sex at level
+  3 (`min_level`, default `{"sex": 3}`). The cache was upgraded in place
+  (level-less VideoSkip rows dropped and fetched again). After the
+  redeploy: `videoskip: hit, 3 scenes` -> `"Titanic": 1 scenes`, toast
+  `Scenes: 1 found for Titanic`.
+- A mangled `\b` (a backspace character) in the fixture privacy test made
+  its e-mail check match nothing since Task 2; repaired, and the check
+  passes for real.
+- Max works (0.6.1-6): HBO Max sends an empty `media_title` and the film's
+  name as `media_artist`, so no film was noticed; the service now falls back
+  to the artist when the title is empty. Weapons: 1 scene (`Sex 3`,
+  0:54:46, file timed on Prime), one press landed near 0:54:41, key gray.
+- Tubi works (0.6.1-6): Fargo, 2 scenes (both `sex 3`); presses landed at
+  0:11:18 and 1:05:20, confirmed by the reported position. The second jump
+  crossed 54 min of film: Tubi landed on the target first, played about 14 s
+  (into the scene), then started an ad break (HA `paused` at 3933 s). So on
+  Tubi a long jump can be followed by a break a few seconds after landing;
+  after the break the film resumed where it had stopped (owner watching).
+- Tuner in Paramount+: 1 scene (`Nudity 3`, 0:49:03, file timed on Prime);
+  the press went to 0:48:58 and the position was reported as 0:48:59.
+- The Apple TV app works (0.6.1-7, `com.apple.TVWatchList` added to
+  `seek_apps`): Pulp Fiction, 5 blocks in the file, 3 used (two `nudity 1`,
+  one `sex 3`); first press `jump 31s -> 4859s`, reported 4859.
+- Films with known times for further checks (VideoSkip; service per TMDB's
+  US listings on 11-13): Fight Club on Pluto (0:48:38, 0:55:42, 0:58:43),
+  Titanic on Paramount+ (1:22:04, 1:30:34, 1:31:12), Weapons on Max
+  (0:54:46), After the Hunt on Prime (1:25:58), Tuner on Paramount+
+  (0:49:03). Nothing found on Tubi yet.
+
 ## Open items
+
+- [ ] Scenes, left from the final review (small, not fixed): a film that an
+      app reports as content type `movie` and whose duration drops out for a
+      tick is treated as another film (key gray ~15 s, served from cache
+      again); identity folded into a same-title row when the stored film has
+      no runtime (fix: update by id); a film still settling that blinks out
+      can be looked up slightly early.
+- [ ] Scenes sources to add: Reddit timestamp threads through the official
+      API (needs a Reddit "script" app: client id and secret in
+      `secrets.json`); Gemini Pro with search as a low-confidence last
+      resort. Trial results and analysis: `docs/SCENE_SOURCES.md`.
+
+- [ ] Scene jump, TV checks left: Disney+ (no film with known nudity times
+      found on it yet); Pluto outside an ad break; whether a longer lead on
+      Tubi lets the ad break start before the scene does; whether the position reported after a seek ever
+      lags more than `seek_hold_s` (5 s) (it arrived within 1-3 s in Prime,
+      Paramount+, Max and Tubi).
+- [ ] Scene jump: keep the key gray while an ad break runs (Pluto, Tubi):
+      give services the ad detector's state, or take Pluto out of
+      `seek_apps`. Remove the temporary `toast_lookup` toast when done.
+- [ ] Scene jump: Netflix reports nothing to the Apple TV; it would need a
+      different design (film chosen by hand, timing from a known point).
+- [ ] Scene jump: one `SLOW scenes cond:ready 7ms` line seen (budget 5 ms);
+      three in a minute would switch the service's keys off for 5 min. Watch.
+- [ ] Scene jump: no Max or Disney+ VideoSkip file seen yet, so those
+      offsets (`app_services`) are unverified.
+- [ ] Scene jump: a Gemini-with-screenshot source needs a trial before it is
+      built.
+- [ ] Scene jump: recheck nudidex (coverage, blocking) before relying on it.
 
 - [ ] Services: watch for `render calls off` / `SLOW soccer cond:` lines
       over a few evenings (the breaker counts wall time, so lock waits
